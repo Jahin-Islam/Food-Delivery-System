@@ -1,5 +1,5 @@
 from django.db import models
-
+from cuisines.models import Cuisine
 # Create your models here.
 
 class Restaurant(models.Model):
@@ -20,8 +20,9 @@ class Restaurant(models.Model):
     )
     opening_time = models.TimeField()
     closing_time = models.TimeField()
-    phone = models.CharField(max_length=15)
+    phone = models.CharField(max_length=15, null=True)
     address = models.CharField(max_length=200)
+    image_url = models.CharField(max_length=200, null=True)
     min_order = models.DecimalField(
         max_digits = 5,
         decimal_places= 2
@@ -40,3 +41,9 @@ class Discount(models.Model):
     description = models.CharField(
         max_length = 200
     )
+
+
+class Serve(models.Model):
+    cuisine = models.ForeignKey(Cuisine, on_delete=models.SET_NULL, null=True)
+    restaurant = models.ForeignKey(Restaurant, on_delete=models.CASCADE)
+    
