@@ -2,20 +2,22 @@ from django.db import models
 
 # Create your models here.
 
-class Resturant(models.Model):
+class Restaurant(models.Model):
     res_id = models.AutoField(
         primary_key= True
     )
 
     name = models.CharField(
         max_length = 50,
-        null = False,
     )
     rating = models.DecimalField(
         max_digits = 3,
         decimal_places = 2,
+        default= 0.00,
     )
-    total_rated = models.IntegerField()
+    total_rated = models.IntegerField(
+        default = 0,
+    )
     opening_time = models.TimeField()
     closing_time = models.TimeField()
     phone = models.CharField(max_length=15)
@@ -30,7 +32,7 @@ class Resturant(models.Model):
 
 class Discount(models.Model):
     resturant = models.ForeignKey(
-        Resturant,
+        Restaurant,
         on_delete = models.CASCADE,
         related_name = "discounts"
     )

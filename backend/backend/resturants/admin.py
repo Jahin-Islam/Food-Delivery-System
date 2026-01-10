@@ -1,6 +1,6 @@
 from django.contrib import admin
-from .models import Resturant, Discount
+from .models import Restaurant, Discount
 # Register your models here.
 
-admin.site.register(Resturant)
+admin.site.register(Restaurant)
 admin.site.register(Discount)
