@@ -18,6 +18,8 @@ class Resturant(models.Model):
     total_rated = models.IntegerField()
     opening_time = models.TimeField()
     closing_time = models.TimeField()
+    phone = models.CharField(max_length=15)
+    address = models.CharField(max_length=200)
     min_order = models.DecimalField(
         max_digits = 5,
         decimal_places= 2
