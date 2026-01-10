@@ -46,6 +46,9 @@ INSTALLED_APPS = [
 
     ###### My Installed App #######
     'resturants',
+    'customers',
+    'riders',
+    
 
 
     'rest_framework',
