@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import './log_in_page.css';
 
-const SignIn = ({ onSwitchToSignUp }) => {
+const SignIn = ({ onSwitchToSignUp, onLoginSuccess }) => {
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -44,19 +44,24 @@ const SignIn = ({ onSwitchToSignUp }) => {
     setErrors(newErrors);
     
     if (isValid) {
-      alert(`Sign in successful!\nEmail/Mobile: ${formData.email}\nRemember me: ${formData.remember ? 'Yes' : 'No'}`);
-      // Here you would typically make an API call to authenticate the user
+      // Call the login success callback
+      onLoginSuccess({
+        email: formData.email,
+        remember: formData.remember
+      });
     }
   };
 
   const handleSocialSignIn = (provider) => {
-    alert(`${provider} Sign In clicked! This would integrate with ${provider} OAuth.`);
-    // Here you would integrate with OAuth providers
+    // Simulate successful social login
+    onLoginSuccess({
+      email: `user@${provider.toLowerCase()}.com`,
+      provider: provider
+    });
   };
 
   const handleForgotPassword = () => {
     alert('Forgot Password clicked! This would open a password reset flow.');
-    // Here you would implement password reset functionality
   };
 
   return (
@@ -64,12 +69,12 @@ const SignIn = ({ onSwitchToSignUp }) => {
       {/* Left Side - Logo and Content */}
       <div className="signin-left-side">
         <div className="signin-logo-section">
-          <div className="signin-logo">YourLogo</div>
+          <div className="signin-logo">foodpanda</div>
           <h2 className="signin-tagline">Welcome Back!</h2>
           <p className="signin-description">
             Continue your journey with us. Access your account to manage 
-            your projects, connect with your team, and achieve your goals 
-            with powerful tools at your fingertips.
+            your orders, save your favorite restaurants, and enjoy exclusive 
+            deals and offers.
           </p>
         </div>
       </div>

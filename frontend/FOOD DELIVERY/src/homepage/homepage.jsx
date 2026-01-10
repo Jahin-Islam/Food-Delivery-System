@@ -1,289 +1,287 @@
 import { useState } from "react";
-import "./homepage.css";
+import "./Homepage.css";
+import CuisineFilter from "./cuisineOption.jsx";
+import SortOption from "./sortbyOption.jsx";
+import OfferOption from "./offerOption.jsx";
+import PriceOption from "./priceOption.jsx";
 
-const Homepage = () => {
+const Homepage = ({ 
+  isLoggedIn, 
+  cartItems, 
+  setCartItems, 
+  onLoginClick, 
+  onSignUpClick, 
+  onLogout 
+}) => {
   const [searchQuery, setSearchQuery] = useState("");
-  const [cartItems, setCartItems] = useState([]);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [showFilters, setShowFilters] = useState(true); // State to toggle filters
 
-  const products = [
+  const cuisines = [
+    { id: 1, name: "Pizza", emoji: "🍕" },
+    { id: 2, name: "Biryani", emoji: "🍛" },
+    { id: 3, name: "Burgers", emoji: "🍔" },
+    { id: 4, name: "Cakes", emoji: "🍰" },
+    { id: 5, name: "Bangladeshi", emoji: "🍱" },
+    { id: 6, name: "Snacks", emoji: "🍟" },
+    { id: 7, name: "Cafe", emoji: "☕" },
+    { id: 8, name: "Fast Food", emoji: "🌭" },
+  ];
+
+  const deals = [
     {
       id: 1,
-      name: "Coffee",
-      type: "Hot",
-      rating: 4.9,
-      price: 20.99,
-      discount: 10,
-      image: "☕",
-    },
-    {
-      id: 2,
-      name: "Coffee",
-      type: "Cold",
-      rating: 4.9,
-      price: 20.99,
-      discount: 15,
-      image: "🥤",
-    },
-    {
-      id: 3,
-      name: "Burger",
-      type: "Deluxe",
-      rating: 4.8,
-      price: 15.99,
-      discount: 0,
+      name: "Burger King",
+      type: "Fast Food • Burgers",
+      rating: 4.5,
+      deliveryTime: "25-35 min",
+      discount: "20% OFF",
       image: "🍔",
     },
     {
-      id: 4,
-      name: "Pizza",
-      type: "Margherita",
+      id: 2,
+      name: "Pizza Hut",
+      type: "Pizza • Italian",
       rating: 4.7,
-      price: 18.99,
-      discount: 20,
+      deliveryTime: "30-40 min",
+      discount: "15% OFF",
       image: "🍕",
     },
     {
-      id: 5,
-      name: "Pasta",
-      type: "Carbonara",
-      rating: 4.6,
-      price: 14.99,
-      discount: 0,
-      image: "🍝",
+      id: 3,
+      name: "Starbucks",
+      type: "Cafe • Coffee",
+      rating: 4.8,
+      deliveryTime: "20-30 min",
+      discount: "10% OFF",
+      image: "☕",
     },
     {
-      id: 6,
-      name: "Sushi",
-      type: "Mixed",
-      rating: 4.9,
-      price: 25.99,
-      discount: 10,
-      image: "🍱",
+      id: 4,
+      name: "KFC",
+      type: "Fast Food • Chicken",
+      rating: 4.6,
+      deliveryTime: "25-35 min",
+      discount: "25% OFF",
+      image: "🍗",
     },
   ];
 
-  const addToCart = (product) => {
-    setCartItems([...cartItems, product]);
-    alert(`${product.name} added to cart!`);
-  };
-
   return (
     <div className="homepage-container">
-      {/* Top Bar */}
-      <div className="top-bar">
-        <div className="top-bar-content">
-          <div className="top-bar-left">
-            <div className="logo-box">LOGO</div>
-            <button className="address-btn">
-              <span className="icon">📍</span>
-              <span>Address</span>
+      {/* Top Pink Banner */}
+      {!isLoggedIn? <div className="top-banner">
+        <div className="banner-icon"></div>
+        <button className="banner-btn">
+          SIGN UP TO BE A RESTAURANT PARTNER
+        </button>
+        <button className="banner-btn">SIGN UP FOR A BUSINESS ACCOUNT</button>
+      </div> : null}
+     
+
+      {/* Header */}
+      <header className="header">
+        <div className="header-content">
+          <div className="header-left">
+            {/* Logo and Address */}
+            <div className="logo-section">
+              <button className="logo-icon"></button>
+              <span className="logo-text">foodpanda</span>
+            </div>
+            <button className="address-button">
+               <span className="logo-image">
+                    <img src="../../public/images/accessories/gps.png" alt="Favourites" />
+                  </span>
+              <div className="address-text">
+                <div className="address-label">New address</div>
+                <div className="address-full">Road 71, Dhaka, Bangladesh</div>
+              </div>
             </button>
           </div>
-          <div className="top-bar-right">
-            <button className="icon-btn profile-btn">
-              <img
-                className="profile-image homepage-upper-right-icon-images"
-                src={"../../public/images/accessories/avatar.png"}
-              />
-              <span>Profile</span>
-            </button>
-            <button className="icon-btn globe-btn">
-              <img
-                className="globe-image homepage-upper-right-icon-images"
-                src={"../../public/images/accessories/world.png"}
-              />
-              <span>EN</span>
-            </button>
-            <button className="icon-btn heart-btn">
-              <img
-                className="heart-image homepage-upper-right-icon-images"
-                src={"../../public/images/accessories/heart.png"}
-              />
 
-              <span>Fav</span>
+          {/* Right Side Buttons */}
+          <div className="header-right">
+            {!isLoggedIn ? (
+              <>
+                <button className="header-btn" onClick={onLoginClick}>
+                  Log in
+                </button>
+                <button className="header-btn signup-btn" onClick={onSignUpClick}>
+                  Sign up for free delivery
+                </button>
+              </>
+            ) : (
+              <>
+                <button className="header-btn language-btn">
+                  <span className="logo-image">
+                    <img src="../../public/images/accessories/world.png" alt="Language" />
+                  </span>
+                  <span>EN</span>
+                </button>
+                <button className="header-btn cart-button">
+                  <span className="logo-image">
+                    <img src="../../public/images/accessories/cart.png" alt="Cart" />
+                  </span>
+                  {cartItems && cartItems.length > 0 && (
+                    <span className="cart-badge">{cartItems.length}</span>
+                  )}
+                  <span>CART</span>
+                </button>
+                <button className="header-btn favourite-btn">
+                  <span className="logo-image">
+                    <img src="../../public/images/accessories/heart.png" alt="Favourites" />
+                  </span>
+                  <span>FAVOURITES</span>
+                </button>
+                <button className="header-btn profile-btn" onClick={onLogout}>
+                  <span className="logo-image">
+                    <img src="../../public/images/accessories/profile.png" alt="Profile" />
+                  </span>
+                  <span>PROFILE</span>
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Navigation Tabs */}
+        <div className="nav-tabs">
+          <div className="nav-tabs-content">
+            <button className="nav-tab active">
+              <span className="logo-image">
+                <img src="../../public/images/accessories/delivery.png" alt="Delivery" />
+              </span>
+              <span>Delivery</span>
             </button>
-            <button className="icon-btn cart-btn">
-               <img
-                className="cart-image homepage-upper-right-icon-images"
-                src={"../../public/images/accessories/cart.png"}
-              />
-              <span>Cart</span>
-              {cartItems.length > 0 && (
-                <span className="cart-badge">{cartItems.length}</span>
-              )}
+            <button className="nav-tab">
+              <span className="logo-image">
+                <img src="../../public/images/accessories/pick-up.png" alt="Pick-up" />
+              </span>
+              <span>Pick-up</span>
+            </button>
+            <button className="nav-tab">
+              <span className="logo-image">
+                <img src="../../public/images/accessories/restaurant.png" alt="Restaurant" />
+              </span>
+              <span>Restaurant</span>
             </button>
           </div>
         </div>
-      </div>
-
-      {/* Sign In Button Bar */}
-      <div className="signin-bar">
-        <div className="signin-bar-content">
-          <button className="signin-btn">SIGN IN / SIGNUP</button>
-        </div>
-      </div>
-
-      {/* Navigation */}
-      <nav className="main-nav">
-        <div className="nav-content">
-          <button
-            className="mobile-menu-btn"
-            onClick={() => setShowMobileMenu(!showMobileMenu)}
-          >
-            ☰
-          </button>
-          <div className={`nav-links ${showMobileMenu ? "show" : ""}`}>
-            <a href="#home">Home</a>
-            <a href="#about">About</a>
-            <a href="#restaurants">Restaurants</a>
-            <a href="#orders">Orders</a>
-            <a href="#track">Track Your Orders</a>
-          </div>
-        </div>
-      </nav>
+      </header>
 
       {/* Main Content */}
-      <div className="main-content">
+      <main className="main-content">
         <div className="content-wrapper">
-          {/* Sidebar Filters */}
-          <aside className="sidebar">
-            <h3 className="sidebar-title">Filters</h3>
-
-            <div className="filter-section">
-              <p className="filter-label">Sort by</p>
-              <label className="filter-option">
-                <input type="radio" name="sort" />
-                <span>New</span>
-              </label>
-              <label className="filter-option">
-                <input type="radio" name="sort" />
-                <span>Popular</span>
-              </label>
-              <label className="filter-option">
-                <input type="radio" name="sort" />
-                <span>Top Rated</span>
-              </label>
+          {/* Sidebar Filters - Conditionally rendered */}
+          <aside className={`sidebar ${showFilters ? 'sidebar-visible' : 'sidebar-hidden'}`}>
+            <div className="sidebar-header">
+              <h3 className="sidebar-title">Filters</h3>
+              <button 
+                className="close-filters-btn"
+                onClick={() => setShowFilters(false)}
+                aria-label="Close filters"
+              >
+                ✕
+              </button>
             </div>
 
-            <div className="filter-section">
-              <p className="filter-label">Price</p>
-              <label className="filter-option">
-                <input type="radio" name="price" />
-                <span>$ Range</span>
-              </label>
-            </div>
-
-            <div className="filter-section">
-              <p className="filter-label">Cuisine</p>
-              <label className="filter-option">
-                <input type="checkbox" />
-                <span>Bangladeshi</span>
-              </label>
-              <label className="filter-option">
-                <input type="checkbox" />
-                <span>Chinese</span>
-              </label>
-              <label className="filter-option">
-                <input type="checkbox" />
-                <span>Japanese</span>
-              </label>
-            </div>
-
-            <div className="filter-section">
-              <p className="filter-label">Tags</p>
-              <label className="filter-option">
-                <input type="radio" name="tags" />
-                <span>Special Offer</span>
-              </label>
-              <label className="filter-option">
-                <input type="radio" name="tags" />
-                <span>Free Delivery</span>
-              </label>
-            </div>
+            <SortOption />
+            <OfferOption />
+            <CuisineFilter />
+            <PriceOption />
           </aside>
 
           {/* Main Area */}
-          <main className="main-area">
-            {/* Search and Create Section */}
-            <div className="search-section">
+          <div className={`main-area ${showFilters ? '' : 'main-area-full'}`}>
+            {/* Search Bar with Filter Toggle */}
+            <div className="search-container">
               <div className="search-wrapper">
+                {/* Hamburger Menu Button */}
+                <button 
+                  className="filter-toggle-btn"
+                  onClick={() => setShowFilters(!showFilters)}
+                  aria-label="Toggle filters"
+                >
+                  <div className="hamburger-icon">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                  </div>
+                </button>
+
+                 <span>
+                    <img src="../../public/images/accessories/glass.png" className="glass-image" />
+                  </span>
                 <input
                   type="text"
-                  placeholder="Search for restaurants, dishes..."
+                  placeholder="Search for restaurants, cuisines, and dishes"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="search-input"
                 />
               </div>
-              <div className="action-buttons">
-                <button className="create-btn">🔄 Create</button>
-                <button className="play-btn">▶️</button>
-              </div>
             </div>
 
-            {/* Product Grid */}
-            <div className="product-grid">
-              {products.map((product) => (
-                <div key={product.id} className="product-card">
-                  <div className="product-image">
-                    {product.discount > 0 && (
-                      <div className="discount-badge">
-                        {product.discount}% OFF
-                      </div>
-                    )}
-                    <button className="favorite-btn">❤️</button>
-                    <div className="product-emoji">{product.image}</div>
-                  </div>
-                  <div className="product-info">
-                    <h3 className="product-name">{product.name}</h3>
-                    <p className="product-type">{product.type}</p>
-                    <div className="product-rating">
-                      <span className="stars">⭐⭐⭐⭐⭐</span>
-                      <span className="rating-number">{product.rating}</span>
-                    </div>
-                    <div className="product-footer">
-                      <span className="product-price">${product.price}</span>
-                      <button
-                        className="add-to-cart-btn"
-                        onClick={() => addToCart(product)}
-                      >
-                        Add to cart
-                      </button>
-                    </div>
-                  </div>
+            {/* Promo Banner */}
+            {!isLoggedIn && (
+              <div className="promo-banner">
+                <div className="promo-content">
+                  <h2 className="promo-title">
+                    Sign up for free delivery on
+                    <br />
+                    your first order
+                  </h2>
+                  <button className="promo-btn" onClick={onSignUpClick}>
+                    Sign up
+                  </button>
                 </div>
-              ))}
-            </div>
+                <div className="promo-image">🎁</div>
+              </div>
+            )}
 
-            {/* Pagination */}
-            <div className="pagination">
-              <div className="page-number">Page - 69</div>
-            </div>
-          </main>
-        </div>
-      </div>
+            {/* Cuisines Section */}
+            <section className="cuisines-section">
+              <h2 className="section-title">Cuisines</h2>
+              <div className="cuisines-grid">
+                {cuisines.map((cuisine) => (
+                  <button key={cuisine.id} className="cuisine-card">
+                    <div className="cuisine-icon">{cuisine.emoji}</div>
+                    <span className="cuisine-name">{cuisine.name}</span>
+                  </button>
+                ))}
+              </div>
+            </section>
 
-      {/* Footer */}
-      <footer className="footer">
-        <div className="footer-content">
-          <div className="footer-links">
-            <a href="#help">Help & Support</a>
-            <a href="#contact">Contact Support</a>
-          </div>
-          <div className="social-icons">
-            <a href="#facebook" className="social-icon">
-              f
-            </a>
-            <a href="#instagram" className="social-icon">
-              📷
-            </a>
-            <a href="#twitter" className="social-icon">
-              🐦
-            </a>
+            {/* Daily Deals Section */}
+            <section className="deals-section">
+              <h2 className="section-title">Your daily deals</h2>
+              <div className="deals-grid">
+                {deals.map((deal) => (
+                  <div key={deal.id} className="deal-card">
+                    <div className="deal-image">
+                      <div className="deal-emoji">{deal.image}</div>
+                      {deal.discount && (
+                        <div className="deal-discount">{deal.discount}</div>
+                      )}
+                    </div>
+                    <div className="deal-info">
+                      <h3 className="deal-name">{deal.name}</h3>
+                      <p className="deal-type">{deal.type}</p>
+                      <div className="deal-footer">
+                        <div className="deal-rating">
+                          <span>⭐</span>
+                          <span>{deal.rating}</span>
+                        </div>
+                        <span className="deal-time">{deal.deliveryTime}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
           </div>
         </div>
-      </footer>
+      </main>
     </div>
   );
 };
