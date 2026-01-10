@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import './sign_up_page.css';
 
-const SignUp = ({ onSwitchToSignIn }) => {
+const SignUp = ({ onSwitchToSignIn, onSignUpSuccess }) => {
   const [formData, setFormData] = useState({
     username: '',
     email: '',
@@ -21,16 +21,21 @@ const SignUp = ({ onSwitchToSignIn }) => {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (formData.terms) {
-      alert(`Sign up successful!\nUsername: ${formData.username}\nEmail/Mobile: ${formData.email}`);
-      // Here you would typically make an API call to register the user
+      onSignUpSuccess({
+        username: formData.username,
+        email: formData.email
+      });
     } else {
       alert('Please agree to the Terms & Conditions');
     }
   };
 
   const handleSocialSignUp = (provider) => {
-    alert(`${provider} Sign Up clicked! This would integrate with ${provider} OAuth.`);
-    // Here you would integrate with OAuth providers
+    onSignUpSuccess({
+      username: `User${Math.floor(Math.random() * 1000)}`,
+      email: `user@${provider.toLowerCase()}.com`,
+      provider: provider
+    });
   };
 
   return (
@@ -38,12 +43,12 @@ const SignUp = ({ onSwitchToSignIn }) => {
       {/* Left Side - Logo and Content */}
       <div className="signup-left-side">
         <div className="signup-logo-section">
-          <div className="signup-logo">YourLogo</div>
-          <h2 className="signup-tagline">Welcome to Our Platform</h2>
+          <div className="signup-logo">foodpanda</div>
+          <h2 className="signup-tagline">Welcome to foodpanda</h2>
           <p className="signup-description">
-            Join thousands of users who trust us with their daily tasks. 
-            Experience seamless integration and powerful features designed 
-            to make your life easier.
+            Join thousands of food lovers who order their favorite meals 
+            with just a few clicks. Get exclusive deals, track your orders 
+            in real-time, and enjoy fast delivery.
           </p>
         </div>
       </div>
