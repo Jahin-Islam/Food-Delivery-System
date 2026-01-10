@@ -9,12 +9,15 @@ function App() {
 
   return (
     <>
+      {/* 
       {currentView === 'signin' ? (
         <SignIn onSwitchToSignUp={() => setCurrentView('signup')} />
       ) : (
         <SignUp onSwitchToSignIn={() => setCurrentView('signin')} />
-      )}
-      {/* <Homepage/> */}
+      )} 
+      */}
+      
+      <Homepage/> 
     </>
   );
 }
