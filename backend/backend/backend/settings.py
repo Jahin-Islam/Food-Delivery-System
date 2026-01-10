@@ -48,6 +48,8 @@ INSTALLED_APPS = [
     'resturants',
     'customers',
     'riders',
+    'orders',
+    'items',
     
 
 
