@@ -23,3 +23,4 @@ class OrderItemList(models.Model):
     item = models.ForeignKey(Item, on_delete=models.SET_NULL, related_name="orders", null=True)
     order = models.ForeignKey(Order, on_delete=models.SET_NULL, related_name="items", null=True)
     quantity = models.IntegerField()
+    price_at_purchase = models.DecimalField(max_digits=10, decimal_places=2, blank=True)

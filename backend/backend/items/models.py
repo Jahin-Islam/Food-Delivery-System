@@ -6,7 +6,7 @@ class Item(models.Model):
     food_id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=50)
 
-class Prepare(models.Model):
+class MenuItem(models.Model):
     restaurant = models.ForeignKey(Restaurant, on_delete=models.CASCADE, related_name="items")
     item = models.ForeignKey(Item, on_delete = models.CASCADE, related_name = "restaurants")
     price = models.DecimalField(max_digits=10, decimal_places=2)

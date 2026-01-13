@@ -46,4 +46,5 @@ class Discount(models.Model):
 class Serve(models.Model):
     cuisine = models.ForeignKey(Cuisine, on_delete=models.SET_NULL, null=True)
     restaurant = models.ForeignKey(Restaurant, on_delete=models.CASCADE)
-    
+    cuisine_id = models.AutoField(primary_key=True)
+    cuisine_name = models.CharField(max_length=20)
