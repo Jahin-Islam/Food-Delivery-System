@@ -1,12 +1,10 @@
 from django.db import models
 from cuisines.models import Cuisine
+from django.conf import settings
 # Create your models here.
 
 class Restaurant(models.Model):
-    res_id = models.AutoField(
-        primary_key= True
-    )
-
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="restaurant_profile")
     name = models.CharField(
         max_length = 50,
     )
@@ -22,11 +20,14 @@ class Restaurant(models.Model):
     closing_time = models.TimeField()
     phone = models.CharField(max_length=15, null=True)
     address = models.CharField(max_length=200)
-    image_url = models.CharField(max_length=200, null=True)
+    image_url = models.CharField(max_length=500, null=True)
     min_order = models.DecimalField(
         max_digits = 5,
         decimal_places= 2
     )
+
+    latitude = models.FloatField()
+    longitude = models.FloatField()
 
     def __str__(self):
         return self.name
@@ -37,6 +38,7 @@ class Discount(models.Model):
         on_delete = models.CASCADE,
         related_name = "discounts"
     )
+    min_order = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
     percentage = models.FloatField()
     description = models.CharField(
         max_length = 200
@@ -46,5 +48,3 @@ class Discount(models.Model):
 class Serve(models.Model):
     cuisine = models.ForeignKey(Cuisine, on_delete=models.SET_NULL, null=True)
     restaurant = models.ForeignKey(Restaurant, on_delete=models.CASCADE)
-    cuisine_id = models.AutoField(primary_key=True)
-    cuisine_name = models.CharField(max_length=20)
