@@ -57,9 +57,11 @@ INSTALLED_APPS = [
     'payments',   
     'api',
     'rest_framework',
+    'corsheaders',
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -147,3 +149,10 @@ STATIC_URL = 'static/'
 
 ############## CUSTOM USER MODEL FOR AUTHENTICATION ##############
 AUTH_USER_MODEL = 'users.User'
+
+
+###########Allowing my react app to interact with django#########
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://localhost:5173",
+]
