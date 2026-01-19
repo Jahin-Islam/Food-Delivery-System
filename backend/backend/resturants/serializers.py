@@ -8,7 +8,7 @@ class DiscountSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 class RestaurantSerializer(serializers.ModelSerializer):
-    min_order = serializers.DecimalField(
+    min_order_for_dis = serializers.DecimalField(
         max_digits=8, 
         decimal_places=2, 
         allow_null=True, 
