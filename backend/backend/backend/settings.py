@@ -41,9 +41,27 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+
+
+
+    ###### My Installed App #######
+    'resturants',
+    'customers',
+    'riders',
+    'orders',
+    'items',
+    'cuisines',
+    'users',
+    'addresses', 
+    'reviews',
+    'payments',   
+    'api',
+    'rest_framework',
+    'corsheaders',
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -127,3 +145,14 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+
+
+############## CUSTOM USER MODEL FOR AUTHENTICATION ##############
+AUTH_USER_MODEL = 'users.User'
+
+
+###########Allowing my react app to interact with django#########
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://localhost:5173",
+]

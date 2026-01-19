@@ -4,6 +4,7 @@ import CuisineFilter from "./cuisineOption.jsx";
 import SortOption from "./sortbyOption.jsx";
 import OfferOption from "./offerOption.jsx";
 import PriceOption from "./priceOption.jsx";
+import Cart from "./Cart.jsx";
 
 const Homepage = ({ 
   isLoggedIn, 
@@ -11,15 +12,32 @@ const Homepage = ({
   setCartItems, 
   onLoginClick, 
   onSignUpClick, 
+  onRestaurantSignUpClick,
   onLogout 
 }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [showMobileMenu, setShowMobileMenu] = useState(false);
-  const [showFilters, setShowFilters] = useState(true); // State to toggle filters
+  const [showFilters, setShowFilters] = useState(true);
+  const [showCart, setShowCart] = useState(false);
+
+  // Cart handling functions
+  const handleUpdateQuantity = (itemId, newQuantity) => {
+    if (newQuantity <= 0) {
+      handleRemoveItem(itemId);
+      return;
+    }
+    setCartItems(cartItems.map(item => 
+      item.id === itemId ? { ...item, quantity: newQuantity } : item
+    ));
+  };
+
+  const handleRemoveItem = (itemId) => {
+    setCartItems(cartItems.filter(item => item.id !== itemId));
+  };
 
   const cuisines = [
     { id: 1, name: "Pizza", emoji: "🍕" },
-    { id: 2, name: "Biryani", emoji: "🍛" },
+    { id: 2, name: "Biryani", emoji: "🛕" },
     { id: 3, name: "Burgers", emoji: "🍔" },
     { id: 4, name: "Cakes", emoji: "🍰" },
     { id: 5, name: "Bangladeshi", emoji: "🍱" },
@@ -70,15 +88,18 @@ const Homepage = ({
   return (
     <div className="homepage-container">
       {/* Top Pink Banner */}
-      {!isLoggedIn? <div className="top-banner">
-        <div className="banner-icon"></div>
-        <button className="banner-btn">
-          SIGN UP TO BE A RESTAURANT PARTNER
-        </button>
-        <button className="banner-btn">SIGN UP FOR A BUSINESS ACCOUNT</button>
-      </div> : null}
+      {!isLoggedIn ? (
+        <div className="top-banner">    
+          <div className="banner-icon"></div>
+          <button className="banner-btn" onClick={onRestaurantSignUpClick}>
+            SIGN UP TO BE A RESTAURANT PARTNER
+          </button>
+          <button className="banner-btn" onClick={onRestaurantSignUpClick}>
+            SIGN UP FOR A BUSINESS ACCOUNT
+          </button>
+        </div>
+      ) : null}
      
-
       {/* Header */}
       <header className="header">
         <div className="header-content">
@@ -89,9 +110,9 @@ const Homepage = ({
               <span className="logo-text">foodpanda</span>
             </div>
             <button className="address-button">
-               <span className="logo-image">
-                    <img src="../../public/images/accessories/gps.png" alt="Favourites" />
-                  </span>
+              <span className="logo-image">
+                <img src="../../public/images/accessories/gps.png" alt="Favourites" />
+              </span>
               <div className="address-text">
                 <div className="address-label">New address</div>
                 <div className="address-full">Road 71, Dhaka, Bangladesh</div>
@@ -118,7 +139,10 @@ const Homepage = ({
                   </span>
                   <span>EN</span>
                 </button>
-                <button className="header-btn cart-button">
+                <button 
+                  className="header-btn cart-button"
+                  onClick={() => setShowCart(!showCart)}
+                >
                   <span className="logo-image">
                     <img src="../../public/images/accessories/cart.png" alt="Cart" />
                   </span>
@@ -133,7 +157,7 @@ const Homepage = ({
                   </span>
                   <span>FAVOURITES</span>
                 </button>
-                <button className="header-btn profile-btn" onClick={onLogout}>
+                <button className="header-btn profile-btn">
                   <span className="logo-image">
                     <img src="../../public/images/accessories/profile.png" alt="Profile" />
                   </span>
@@ -209,9 +233,9 @@ const Homepage = ({
                   </div>
                 </button>
 
-                 <span>
-                    <img src="../../public/images/accessories/glass.png" className="glass-image" />
-                  </span>
+                <span>
+                  <img src="../../public/images/accessories/glass.png" className="glass-image" />
+                </span>
                 <input
                   type="text"
                   placeholder="Search for restaurants, cuisines, and dishes"
@@ -282,6 +306,15 @@ const Homepage = ({
           </div>
         </div>
       </main>
+
+      {/* Cart Sidebar */}
+      <Cart 
+        isOpen={showCart}
+        onClose={() => setShowCart(false)}
+        cartItems={cartItems}
+        onUpdateQuantity={handleUpdateQuantity}
+        onRemoveItem={handleRemoveItem}
+      />
     </div>
   );
 };
