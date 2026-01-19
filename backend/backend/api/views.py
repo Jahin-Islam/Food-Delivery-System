@@ -8,7 +8,13 @@ from items.models import MenuItem, Category
 
 
 class RestaurantView(mixins.ListModelMixin, generics.GenericAPIView):
-    queryset = Restaurant.objects.raw("SELECT * FROM resturants_Restaurant")
+    query = """
+            SELECT *
+            FROM resturants_Restaurant
+            LEFT JOIN resturants_Discount ON
+            resturants_Restaurant.id = resturants_Discount.id
+        """
+    queryset = Restaurant.objects.raw(query)
     serializer_class = RestaurantSerializer
 
     def get(self, request):

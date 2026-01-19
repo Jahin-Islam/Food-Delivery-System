@@ -8,7 +8,15 @@ class DiscountSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 class RestaurantSerializer(serializers.ModelSerializer):
-    discounts = DiscountSerializer(many = True, read_only = True)
+    min_order = serializers.DecimalField(
+        max_digits=8, 
+        decimal_places=2, 
+        allow_null=True, 
+        required=False
+    )
+    
+    percentage = serializers.FloatField(allow_null=True, required=False)
+    description = serializers.CharField(max_length=200, allow_null=True, required=False)
     class Meta:
         model = Restaurant
         fields = "__all__"
