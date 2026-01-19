@@ -4,6 +4,7 @@ from customers.models import Customer
 from items.models import MenuItem
 from riders.models import Rider
 from reviews.models import Review
+from addresses.models import Address
 
 # Create your models here.
 
@@ -20,6 +21,7 @@ class Order(models.Model):
     rider = models.ForeignKey(Rider, on_delete=models.SET_NULL, related_name="orders", null=True)
     customer = models.ForeignKey(Customer, on_delete=models.SET_NULL, related_name="orders", null= True)
     review  = models.OneToOneField(Review, on_delete=models.SET_NULL, related_name="review", null=True, blank=True)
+    address = models.OneToOneField(Address, on_delete=models.SET_NULL, null= True, blank=True)
 
     order_id = models.AutoField(primary_key=True)
     status = models.CharField(max_length=20, choices=OrderStatus.choices, default=OrderStatus.PENDING)
@@ -29,7 +31,6 @@ class Order(models.Model):
     delivered_at = models.DateTimeField(null=True)
     created_at = models.DateTimeField(null=True)
 
-    delivery_address = models.TextField(null=True, blank=True)
     delivery_latitude = models.FloatField(null=True)
     delivery_longitude = models.FloatField(null=True)
 

@@ -1,5 +1,6 @@
 from django.db import models
 from django.conf import settings
+from addresses.models import Address
 # Create your models here.
 
 class Rider(models.Model):

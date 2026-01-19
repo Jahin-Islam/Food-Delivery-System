@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
+from addresses.models import Address
 # Create your models here.
 class User(AbstractUser):
     class Role(models.TextChoices):
@@ -14,9 +15,7 @@ class User(AbstractUser):
     phone_number = models.CharField(max_length=20, blank=True, unique=True)
     image_url = models.CharField(max_length=500, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
-
-    #Have to think about the address in the user model, suggetion is creating a separte table for address
-    address = models.CharField(max_length=200)
+    address = models.OneToOneField(Address, on_delete=models.CASCADE,  null= True, blank=True)
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = []
