@@ -2,6 +2,10 @@ import { useState } from 'react';
 import SignIn from './log in and sign up/log_in_page.jsx';
 import SignUp from './log in and sign up/sign_up_page.jsx';
 import Homepage from './homepage/homepage.jsx';
+import RestaurantPartnerSignUp from './homepage/RestaurantSignUp.jsx';
+import RestaurantLogIn from './homepage/RestaurantLogIn.jsx';
+import RiderSignUp  from './homepage/RiderSignUp.jsx';
+import RiderOnBoarding from './homepage/RiderOnBoarding.jsx';
 import './App.css';
 function App() {
   const [currentPage, setCurrentPage] = useState("home"); // 'home', 'signin', 'signup'
@@ -51,6 +55,35 @@ function App() {
             onSignUpSuccess={handleSignUpSuccess}
           />
         );
+        case "restaurant-signup":
+        return (
+          <RestaurantPartnerSignUp
+            onSwitchToLogin={() => navigateTo("restaurant-signin")}
+            onRiderSignUp={() => navigateTo("rider-signup")}
+            onSignUpSuccess={handleSignUpSuccess}
+          
+          />
+        );
+        case "restaurant-signin":
+        return (
+          <RestaurantLogIn
+            onSwitchToSignUp={() => navigateTo("restaurant-signup")}
+            onLoginSuccess={handleLoginSuccess}
+          />
+        );
+        case "rider-onboarding":
+        return (
+          <RiderOnBoarding
+            onCompletion={() => navigateTo("home")}
+          />
+        );
+        case "rider-signup":
+        return (
+          <RiderSignUp
+            onSignUpSuccess={handleSignUpSuccess}
+            onRiderOnBoarding={() => navigateTo("rider-onboarding")}
+          />
+        );
       case "home":
       default:
         return (
@@ -60,13 +93,15 @@ function App() {
             setCartItems={setCartItems}
             onLoginClick={() => navigateTo("signin")}
             onSignUpClick={() => navigateTo("signup")}
+            onRestaurantSignUpClick={() => navigateTo("restaurant-signup")}
             onLogout={handleLogout}
           />
         );
     }
   };
+ 
+  return(renderPage());
 
-  return <div className="app">{renderPage()}</div>;
 }
 
 export default App;
