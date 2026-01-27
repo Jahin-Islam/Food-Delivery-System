@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import "./Homepage.css";
 import CuisineFilter from "./cuisineOption.jsx";
 import SortOption from "./sortbyOption.jsx";
@@ -19,6 +19,34 @@ const Homepage = ({
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showFilters, setShowFilters] = useState(true);
   const [showCart, setShowCart] = useState(false);
+  const [restaurants, setRestaurants] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Fetch restaurants from API
+  useEffect(() => {
+    const fetchRestaurants = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch("http://127.0.0.1:8000/api/v1/restaurants/");
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch restaurants');
+        }
+        
+        const data = await response.json();
+        setRestaurants(data);
+        setError(null);
+      } catch (err) {
+        console.error("Error fetching restaurants:", err);
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchRestaurants();
+  }, []);
 
   // Cart handling functions
   const handleUpdateQuantity = (itemId, newQuantity) => {
@@ -35,54 +63,36 @@ const Homepage = ({
     setCartItems(cartItems.filter(item => item.id !== itemId));
   };
 
+  // Add item to cart
+  const handleAddToCart = (restaurant) => {
+    const newItem = {
+      id: `restaurant-${restaurant.id}-${Date.now()}`,
+      name: restaurant.name,
+      restaurant: restaurant.name,
+      price: parseFloat(restaurant.min_order) || 0,
+      quantity: 1,
+      emoji: "🍽️"
+    };
+    
+    setCartItems([...cartItems, newItem]);
+    setShowCart(true);
+  };
+
+  // Filter restaurants based on search query
+  const filteredRestaurants = restaurants.filter(restaurant =>
+    restaurant.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    restaurant.description?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   const cuisines = [
     { id: 1, name: "Pizza", emoji: "🍕" },
-    { id: 2, name: "Biryani", emoji: "🛕" },
+    { id: 2, name: "Biryani", emoji: "🍛" },
     { id: 3, name: "Burgers", emoji: "🍔" },
     { id: 4, name: "Cakes", emoji: "🍰" },
     { id: 5, name: "Bangladeshi", emoji: "🍱" },
     { id: 6, name: "Snacks", emoji: "🍟" },
     { id: 7, name: "Cafe", emoji: "☕" },
     { id: 8, name: "Fast Food", emoji: "🌭" },
-  ];
-
-  const deals = [
-    {
-      id: 1,
-      name: "Burger King",
-      type: "Fast Food • Burgers",
-      rating: 4.5,
-      deliveryTime: "25-35 min",
-      discount: "20% OFF",
-      image: "🍔",
-    },
-    {
-      id: 2,
-      name: "Pizza Hut",
-      type: "Pizza • Italian",
-      rating: 4.7,
-      deliveryTime: "30-40 min",
-      discount: "15% OFF",
-      image: "🍕",
-    },
-    {
-      id: 3,
-      name: "Starbucks",
-      type: "Cafe • Coffee",
-      rating: 4.8,
-      deliveryTime: "20-30 min",
-      discount: "10% OFF",
-      image: "☕",
-    },
-    {
-      id: 4,
-      name: "KFC",
-      type: "Fast Food • Chicken",
-      rating: 4.6,
-      deliveryTime: "25-35 min",
-      discount: "25% OFF",
-      image: "🍗",
-    },
   ];
 
   return (
@@ -111,7 +121,7 @@ const Homepage = ({
             </div>
             <button className="address-button">
               <span className="logo-image">
-                <img src="../../public/images/accessories/gps.png" alt="Favourites" />
+                <img src="../../public/images/accessories/gps.png" alt="GPS" />
               </span>
               <div className="address-text">
                 <div className="address-label">New address</div>
@@ -196,7 +206,7 @@ const Homepage = ({
       {/* Main Content */}
       <main className="main-content">
         <div className="content-wrapper">
-          {/* Sidebar Filters - Conditionally rendered */}
+          {/* Sidebar Filters */}
           <aside className={`sidebar ${showFilters ? 'sidebar-visible' : 'sidebar-hidden'}`}>
             <div className="sidebar-header">
               <h3 className="sidebar-title">Filters</h3>
@@ -234,7 +244,7 @@ const Homepage = ({
                 </button>
 
                 <span>
-                  <img src="../../public/images/accessories/glass.png" className="glass-image" />
+                  <img src="../../public/images/accessories/glass.png" className="glass-image" alt="Search" />
                 </span>
                 <input
                   type="text"
@@ -276,32 +286,83 @@ const Homepage = ({
               </div>
             </section>
 
-            {/* Daily Deals Section */}
+            {/* Restaurants Section */}
             <section className="deals-section">
-              <h2 className="section-title">Your daily deals</h2>
-              <div className="deals-grid">
-                {deals.map((deal) => (
-                  <div key={deal.id} className="deal-card">
-                    <div className="deal-image">
-                      <div className="deal-emoji">{deal.image}</div>
-                      {deal.discount && (
-                        <div className="deal-discount">{deal.discount}</div>
-                      )}
-                    </div>
-                    <div className="deal-info">
-                      <h3 className="deal-name">{deal.name}</h3>
-                      <p className="deal-type">{deal.type}</p>
-                      <div className="deal-footer">
-                        <div className="deal-rating">
-                          <span>⭐</span>
-                          <span>{deal.rating}</span>
+              <h2 className="section-title">
+                {searchQuery ? `Search results for "${searchQuery}"` : 'Featured Restaurants'}
+              </h2>
+
+              {/* Loading State */}
+              {loading && (
+                <div className="loading-state">
+                  <div className="loading-spinner">🔄</div>
+                  <p>Loading restaurants...</p>
+                </div>
+              )}
+
+              {/* Error State */}
+              {error && (
+                <div className="error-state">
+                  <div className="error-icon">⚠️</div>
+                  <p>Failed to load restaurants: {error}</p>
+                  <button onClick={() => window.location.reload()} className="retry-btn">
+                    Retry
+                  </button>
+                </div>
+              )}
+
+              {/* Restaurants Grid */}
+              {!loading && !error && (
+                <div className="deals-grid">
+                  {filteredRestaurants.length > 0 ? (
+                    filteredRestaurants.map((restaurant) => (
+                      <div 
+                        key={restaurant.id} 
+                        className="deal-card"
+                        onClick={() => handleAddToCart(restaurant)}
+                      >
+                        <div className="deal-image">
+                          {restaurant.image_url ? (
+                            <img 
+                              src={restaurant.image_url} 
+                              alt={restaurant.name}
+                              className="restaurant-img"
+                              onError={(e) => {
+                                e.target.style.display = 'none';
+                                e.target.nextSibling.style.display = 'flex';
+                              }}
+                            />
+                          ) : null}
+                          <div className="deal-emoji" style={{ display: restaurant.image_url ? 'none' : 'flex' }}>
+                            🍽️
+                          </div>
+                          {restaurant.percentage > 0 && (
+                            <div className="deal-discount">{restaurant.percentage}% OFF</div>
+                          )}
                         </div>
-                        <span className="deal-time">{deal.deliveryTime}</span>
+                        <div className="deal-info">
+                          <h3 className="deal-name">{restaurant.name}</h3>
+                          <p className="deal-type">{restaurant.description || 'Food • Restaurant'}</p>
+                          <p className="deal-address">{restaurant.address}</p>
+                          <div className="deal-footer">
+                            <div className="deal-rating">
+                              <span>⭐</span>
+                              <span>{restaurant.rating}</span>
+                              <span className="rating-count">({restaurant.total_rated})</span>
+                            </div>
+                            <span className="deal-min-order">Min: ৳{restaurant.min_order}</span>
+                          </div>
+                        </div>
                       </div>
+                    ))
+                  ) : (
+                    <div className="no-results">
+                      <div className="no-results-icon">🔍</div>
+                      <p>No restaurants found matching "{searchQuery}"</p>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  )}
+                </div>
+              )}
             </section>
           </div>
         </div>

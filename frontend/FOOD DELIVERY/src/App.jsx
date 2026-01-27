@@ -7,6 +7,7 @@ import RestaurantLogIn from './homepage/RestaurantLogIn.jsx';
 import RiderSignUp  from './homepage/RiderSignUp.jsx';
 import RiderOnBoarding from './homepage/RiderOnBoarding.jsx';
 import './App.css';
+
 function App() {
   const [currentPage, setCurrentPage] = useState("home"); // 'home', 'signin', 'signup'
   const [isLoggedIn, setIsLoggedIn] = useState(false);
