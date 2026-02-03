@@ -1,5 +1,6 @@
 from django.db import models
 from resturants.models import Restaurant
+from cuisines.models import Cuisine
 
 # Create your models here.
 class Category(models.Model):
@@ -11,6 +12,7 @@ class Category(models.Model):
 
 class MenuItem(models.Model):
     restaurant = models.ForeignKey(Restaurant, on_delete=models.CASCADE, related_name="items")
+    cuisine = models.ForeignKey(Cuisine, on_delete=models.SET_NULL, related_name="items", null=True, blank=True)
     food_id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=100)
     price = models.DecimalField(max_digits=10, decimal_places=2)
