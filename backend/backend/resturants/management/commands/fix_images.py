@@ -1,14 +1,14 @@
 import requests
 from django.core.management.base import BaseCommand
 from django.core.files.base import ContentFile
-from resturants.models import Restaurant # REPLACE with your app name
+from items.models import MenuItem # REPLACE with your app name
 
 class Command(BaseCommand):
     help = 'Downloads images from external_url and uploads to Cloudinary'
 
     def handle(self, *args, **kwargs):
         # We use ORM here because handling file uploads via Raw SQL is extremely difficult
-        items = Restaurant.objects.filter(image__isnull = True, image_url__isnull=False)
+        items = MenuItem.objects.filter(image_url__isnull=False, image = '')
 
         for item in items:
             print(f"Downloading {item.name}...")

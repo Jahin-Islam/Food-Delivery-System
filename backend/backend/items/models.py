@@ -20,8 +20,9 @@ class MenuItem(models.Model):
     discount_description = models.CharField(max_length=100, null=True)
     description = models.TextField(null=True, blank=True)
     is_available = models.BooleanField(default=True)
+    ##We will Delete Image_URL later##
     image_url = models.CharField(max_length=500, null=True, blank=True)
-    image_path = models.ImageField(upload_to=f"{restaurant.name}/", blank=True, null=True)
+    image = models.ImageField(upload_to=f"menu_items/", blank=True, null=True)
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, related_name="items", null=True, blank=True)    
 
 

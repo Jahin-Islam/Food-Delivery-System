@@ -7,6 +7,7 @@ from resturants.models import Discount, Restaurant, Serve
 from resturants.serializers import DiscountSerializer, RestaurantSerializer, ResturantDetailedSerializer
 from items.serializers import ItemSerializer
 from items.models import MenuItem, Category
+from cloudinary import CloudinaryImage
 # Create your views here.
 
 
@@ -46,7 +47,14 @@ class RestaurantView(mixins.ListModelMixin, generics.GenericAPIView):
     serializer_class = RestaurantSerializer
 
     def get(self, request):
-        return self.list(request)
+        response = self.list(request)
+
+        if(isinstance(response.data, list)):
+            for restaurant in response.data:
+                restaurant['image_url'] = CloudinaryImage(str(restaurant['image'])).build_url(
+                )
+        
+        return response
 
 
 class RestaurantDetailedView(APIView):

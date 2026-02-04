@@ -23,6 +23,7 @@ class Restaurant(models.Model):
     phone = models.CharField(max_length=15, null=True)
     ######### Address Need some Fixing ###########
     address = models.CharField(max_length=200)
+    ##We Will use image_url later##
     image_url = models.CharField(max_length=500, null=True)
     image = models.ImageField(upload_to="restaurants/", blank=True, null=True)
     min_order = models.DecimalField(
