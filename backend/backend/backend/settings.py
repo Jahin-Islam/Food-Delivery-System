@@ -33,6 +33,9 @@ INSTALLED_APPS = [
 
 
     ###### My Installed App #######
+    'cloudinary_storage',
+    'cloudinary',
+
     'resturants',
     'customers',
     'riders',
@@ -44,6 +47,7 @@ INSTALLED_APPS = [
     'reviews',
     'payments',   
     'api',
+
     'rest_framework',
     'corsheaders',
     'rest_framework_simplejwt',
@@ -81,12 +85,10 @@ TEMPLATES = [
 WSGI_APPLICATION = 'backend.wsgi.application'
 
 
-# Database
-# https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
 
 #Loading the env file
-load_dotenv()
+load_dotenv(BASE_DIR/ '.env')
 
 DATABASES = {
     'default': {
@@ -99,9 +101,6 @@ DATABASES = {
     }
 }
 
-
-# Password validation
-# https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -134,8 +133,6 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
-STATIC_URL = 'static/'
-
 
 ############## CUSTOM USER MODEL FOR AUTHENTICATION ##############
 AUTH_USER_MODEL = 'users.User'
@@ -158,6 +155,22 @@ from datetime import timedelta
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
-    # IMPORTANT: SimpleJWT uses the 'USERNAME_FIELD' from your model automatically.
-    # Since you set USERNAME_FIELD = 'email', it will expect an email to login.
 }
+
+# Cloudinary Configuration
+CLOUDINARY_STORAGE = {
+    'CLOUD_NAME': os.getenv('CLOUDINARY_CLOUD_NAME'),
+    'API_KEY': os.getenv('CLOUDINARY_API_KEY'),
+    'API_SECRET': os.getenv('CLOUDINARY_API_SECRET'),
+}
+STORAGES = {
+    "default": {
+        "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+    },
+}
+DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+STATIC_URL = '/static/'
+MEDIA_URL = '/media/'
