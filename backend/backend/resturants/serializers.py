@@ -17,6 +17,7 @@ class RestaurantSerializer(serializers.ModelSerializer):
     
     percentage = serializers.FloatField(allow_null=True, required=False)
     description = serializers.CharField(max_length=200, allow_null=True, required=False)
+    street_address = serializers.CharField(max_length = 500, allow_null=True, required = False)
     class Meta:
         model = Restaurant
         fields = "__all__"
@@ -25,6 +26,3 @@ class ResturantDetailedSerializer(serializers.ModelSerializer):
     class Meta:
         model = Restaurant
         fields = "__all__"
-
-    discounts = DiscountSerializer(many = True, read_only = True)
-    items = ItemSerializer(many = True, read_only = True)

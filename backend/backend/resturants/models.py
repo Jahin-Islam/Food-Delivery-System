@@ -1,5 +1,6 @@
 from django.db import models
 from cuisines.models import Cuisine
+from addresses.models import Address
 from django.conf import settings
 # Create your models here.
 
@@ -7,6 +8,7 @@ from django.conf import settings
 class Restaurant(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="restaurant_profiles")
+    address = models.OneToOneField(Address, on_delete=models.SET_NULL, null=True)
     name = models.CharField(
         max_length=50,
     )
@@ -21,9 +23,7 @@ class Restaurant(models.Model):
     opening_time = models.TimeField()
     closing_time = models.TimeField()
     phone = models.CharField(max_length=15, null=True)
-    ######### Address Need some Fixing ###########
-    address = models.CharField(max_length=200)
-    ##We Will use image_url later##
+    ##We will image_url later##
     image_url = models.CharField(max_length=500, null=True)
     image = models.ImageField(upload_to="restaurants/", blank=True, null=True)
     min_order = models.DecimalField(
