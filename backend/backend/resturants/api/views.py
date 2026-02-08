@@ -3,10 +3,11 @@ from django.db import connection
 from rest_framework import mixins, generics, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from resturants.models import Discount, Restaurant, Serve
-from resturants.serializers import DiscountSerializer, RestaurantSerializer, ResturantDetailedSerializer
+from ..models import Discount, Restaurant, Serve
+from .serializers import DiscountSerializer, RestaurantSerializer, ResturantDetailedSerializer
 from items.serializers import ItemSerializer
 from items.models import MenuItem, Category
+from cloudinary import CloudinaryImage
 # Create your views here.
 
 
@@ -29,24 +30,35 @@ def dictfetchone(cursor):
 
 class RestaurantView(mixins.ListModelMixin, generics.GenericAPIView):
     query = """
-            SELECT *
-            FROM (
-                SELECT 
-                res.*, 
-                disc.percentage, 
-                disc.min_order as min_order_for_dis, 
-                disc.description,
-                ROW_NUMBER() OVER (PARTITION BY res.id ORDER BY disc.percentage DESC) as rank_id
-                FROM resturants_Restaurant res
-                LEFT JOIN resturants_Discount disc ON res.id = disc.resturant_id
-            ) AS ranked_results
-            WHERE rank_id = 1;
+     SELECT *
+    FROM (
+        SELECT 
+        res.id,
+        res.name,
+        res.rating,
+        res.opening_time,
+        res.closing_time,
+        res.min_order,
+        addr.street_address,
+        disc.percentage, 
+        disc.min_order AS min_order_for_discount, 
+        disc.description AS discount_desc,
+        ROW_NUMBER() OVER (
+            PARTITION BY res.id 
+            ORDER BY disc.percentage DESC
+        ) AS rank_id
+        FROM resturants_restaurant res
+        LEFT JOIN resturants_discount disc ON res.id = disc.resturant_id
+        LEFT JOIN addresses_address addr ON addr.address_id = res.address_id
+    ) AS ranked_results
+    WHERE rank_id = 1;
         """
     queryset = Restaurant.objects.raw(query)
     serializer_class = RestaurantSerializer
 
     def get(self, request):
-        return self.list(request)
+        response = self.list(request)
+        return response
 
 
 class RestaurantDetailedView(APIView):
@@ -57,7 +69,6 @@ class RestaurantDetailedView(APIView):
                     FROM resturants_Restaurant
                     WHERE id = %s
                 """
-            
             cursor.execute(res_find_query, [pk])
             restaurant = dictfetchone(cursor)
 

@@ -15,15 +15,14 @@ class Payment(models.Model):
         COMPLETED = 'COMPLETED', 'Completed'
         FAILED = 'FAILED', 'Failed'
         REFUNDED = 'REFUNDED', 'Refunded'
-
-    # Link to the Order (One Order can have multiple payment attempts)
+        
     order = models.ForeignKey(
         Order, 
         on_delete=models.CASCADE, 
         related_name="payments"
     )
+    payment_num = models.IntegerField(null=True)
 
-    # Unique ID from the Payment Gateway (e.g., Stripe ID or Bkash TrxID)
     transaction_id = models.CharField(max_length=100, null=True, blank=True)
     
     payment_method = models.CharField(
@@ -38,12 +37,12 @@ class Payment(models.Model):
         choices=PaymentStatus.choices, 
         default=PaymentStatus.PENDING
     )
-
-    # IMPORTANT: Store the full raw response from the payment gateway
-    # This is crucial for debugging why a payment failed.
     gateway_response = models.JSONField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = (('order', 'payment_num'),) 
 
     def __str__(self):
         return f"Payment {self.id} for Order {self.order.order_id} - {self.status}"

@@ -333,7 +333,7 @@ const Homepage = ({
                               }}
                             />
                           ) : null}
-                          <div className="deal-emoji" style={{ display: restaurant.image_url ? 'none' : 'flex' }}>
+                          <div className="deal-emoji" style={{ display: restaurant.image ? 'none' : 'flex' }}>
                             🍽️
                           </div>
                           {restaurant.percentage > 0 && (
@@ -343,7 +343,7 @@ const Homepage = ({
                         <div className="deal-info">
                           <h3 className="deal-name">{restaurant.name}</h3>
                           <p className="deal-type">{restaurant.description || 'Food • Restaurant'}</p>
-                          <p className="deal-address">{restaurant.address}</p>
+                          <p className="deal-address">{restaurant.street_address}</p>
                           <div className="deal-footer">
                             <div className="deal-rating">
                               <span>⭐</span>
