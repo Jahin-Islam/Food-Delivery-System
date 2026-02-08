@@ -3,8 +3,8 @@ from django.db import connection
 from rest_framework import mixins, generics, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from resturants.models import Discount, Restaurant, Serve
-from resturants.serializers import DiscountSerializer, RestaurantSerializer, ResturantDetailedSerializer
+from ..models import Discount, Restaurant, Serve
+from .serializers import DiscountSerializer, RestaurantSerializer, ResturantDetailedSerializer
 from items.serializers import ItemSerializer
 from items.models import MenuItem, Category
 from cloudinary import CloudinaryImage

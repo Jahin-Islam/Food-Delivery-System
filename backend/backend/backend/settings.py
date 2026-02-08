@@ -46,8 +46,7 @@ INSTALLED_APPS = [
     'addresses', 
     'reviews',
     'payments',   
-    'api',
-
+    
     'rest_framework',
     'corsheaders',
     'rest_framework_simplejwt',

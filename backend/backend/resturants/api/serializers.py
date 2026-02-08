@@ -1,4 +1,4 @@
-from .models import Discount, Restaurant
+from ..models import Discount, Restaurant
 from items.serializers import ItemSerializer
 from rest_framework import serializers
 

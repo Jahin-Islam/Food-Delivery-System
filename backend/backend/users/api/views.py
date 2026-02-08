@@ -5,8 +5,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.views import TokenObtainPairView
-from django.db import connection, IntegrityError # Required for Raw SQL
-from .models import User
+from django.db import connection, IntegrityError
+from ..models import User
 from .serializers import UserRegistrationSerializer, MyTokenObtainPairSerializer
 
 class RegisterView(APIView):
