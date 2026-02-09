@@ -5,15 +5,18 @@ import SortOption from "./sortbyOption.jsx";
 import OfferOption from "./offerOption.jsx";
 import PriceOption from "./priceOption.jsx";
 import Cart from "./Cart.jsx";
+import authService from "../Authservice.js";
 
 const Homepage = ({ 
   isLoggedIn, 
+  user,
   cartItems, 
   setCartItems, 
   onLoginClick, 
   onSignUpClick, 
   onRestaurantSignUpClick,
-  onLogout 
+  onLogout,
+  onRestaurantClick
 }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [showMobileMenu, setShowMobileMenu] = useState(false);
@@ -23,18 +26,25 @@ const Homepage = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Fetch restaurants from API
+  // Fetch restaurants from API (with or without authentication)
   useEffect(() => {
     const fetchRestaurants = async () => {
       try {
         setLoading(true);
-        const response = await fetch("http://127.0.0.1:8000/api/v1/restaurants/");
+        let data;
         
-        if (!response.ok) {
-          throw new Error('Failed to fetch restaurants');
+        // If user is logged in, use authenticated fetch
+        if (isLoggedIn) {
+          data = await authService.authenticatedFetch("http://127.0.0.1:8000/api/v1/restaurants/");
+        } else {
+          // Public endpoint - no authentication required
+          const response = await fetch("http://127.0.0.1:8000/api/v1/restaurants/");
+          if (!response.ok) {
+            throw new Error('Failed to fetch restaurants');
+          }
+          data = await response.json();
         }
         
-        const data = await response.json();
         setRestaurants(data);
         setError(null);
       } catch (err) {
@@ -46,7 +56,7 @@ const Homepage = ({
     };
 
     fetchRestaurants();
-  }, []);
+  }, [isLoggedIn]);
 
   // Cart handling functions
   const handleUpdateQuantity = (itemId, newQuantity) => {
@@ -63,19 +73,11 @@ const Homepage = ({
     setCartItems(cartItems.filter(item => item.id !== itemId));
   };
 
-  // Add item to cart
-  const handleAddToCart = (restaurant) => {
-    const newItem = {
-      id: `restaurant-${restaurant.id}-${Date.now()}`,
-      name: restaurant.name,
-      restaurant: restaurant.name,
-      price: parseFloat(restaurant.min_order) || 0,
-      quantity: 1,
-      emoji: "🍽️"
-    };
-    
-    setCartItems([...cartItems, newItem]);
-    setShowCart(true);
+  // Navigate to restaurant detail page
+  const handleRestaurantClick = (restaurant) => {
+    if (onRestaurantClick) {
+      onRestaurantClick(restaurant);
+    }
   };
 
   // Filter restaurants based on search query
@@ -167,11 +169,11 @@ const Homepage = ({
                   </span>
                   <span>FAVOURITES</span>
                 </button>
-                <button className="header-btn profile-btn">
+                <button className="header-btn profile-btn" onClick={onLogout}>
                   <span className="logo-image">
                     <img src="../../public/images/accessories/profile.png" alt="Profile" />
                   </span>
-                  <span>PROFILE</span>
+                  <span>{user?.first_name || 'PROFILE'}</span>
                 </button>
               </>
             )}
@@ -319,7 +321,7 @@ const Homepage = ({
                       <div 
                         key={restaurant.id} 
                         className="deal-card"
-                        onClick={() => handleAddToCart(restaurant)}
+                        onClick={() => handleRestaurantClick(restaurant)}
                       >
                         <div className="deal-image">
                           {restaurant.image_url ? (
@@ -333,7 +335,7 @@ const Homepage = ({
                               }}
                             />
                           ) : null}
-                          <div className="deal-emoji" style={{ display: restaurant.image ? 'none' : 'flex' }}>
+                          <div className="deal-emoji" style={{ display: restaurant.image_url ? 'none' : 'flex' }}>
                             🍽️
                           </div>
                           {restaurant.percentage > 0 && (
@@ -343,7 +345,7 @@ const Homepage = ({
                         <div className="deal-info">
                           <h3 className="deal-name">{restaurant.name}</h3>
                           <p className="deal-type">{restaurant.description || 'Food • Restaurant'}</p>
-                          <p className="deal-address">{restaurant.street_address}</p>
+                          <p className="deal-address">{restaurant.address}</p>
                           <div className="deal-footer">
                             <div className="deal-rating">
                               <span>⭐</span>

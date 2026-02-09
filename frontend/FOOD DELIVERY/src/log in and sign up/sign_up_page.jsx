@@ -1,125 +1,171 @@
 import { useState } from 'react';
+import authService from '../Authservice.js';
 import './sign_up_page.css';
 
 const SignUp = ({ onSwitchToSignIn, onSignUpSuccess }) => {
   const [formData, setFormData] = useState({
-    username: '',
     email: '',
     password: '',
-    terms: false
+    password2: '',
+    first_name: '',
+    last_name: '',
+    phone: ''
   });
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
+    const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value
+      [name]: value
     }));
+    if (error) setError('');
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (formData.terms) {
-      onSignUpSuccess({
-        username: formData.username,
-        email: formData.email
-      });
-    } else {
-      alert('Please agree to the Terms & Conditions');
-    }
-  };
+    setError('');
 
-  const handleSocialSignUp = (provider) => {
-    onSignUpSuccess({
-      username: `User${Math.floor(Math.random() * 1000)}`,
-      email: `user@${provider.toLowerCase()}.com`,
-      provider: provider
-    });
+    if (!formData.email || !formData.password || !formData.password2 || 
+        !formData.first_name || !formData.last_name) {
+      setError('Please fill in all required fields');
+      return;
+    }
+
+    if (formData.password !== formData.password2) {
+      setError('Passwords do not match');
+      return;
+    }
+
+    if (formData.password.length < 8) {
+      setError('Password must be at least 8 characters long');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const userData = {
+        email: formData.email,
+        password: formData.password,
+        password2: formData.password2,
+        first_name: formData.first_name,
+        last_name: formData.last_name,
+      };
+
+      if (formData.phone) {
+        userData.phone = formData.phone;
+      }
+
+      const result = await authService.register(userData);
+      
+      if (result.success) {
+        onSignUpSuccess(result.user || result.data);
+      } else {
+        setError(result.error || 'Registration failed. Please try again.');
+      }
+    } catch (err) {
+      setError('An error occurred. Please try again.');
+      console.error('Registration error:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="signup-container">
-      {/* Left Side - Logo and Content */}
       <div className="signup-left-side">
         <div className="signup-logo-section">
           <div className="signup-logo">foodpanda</div>
-          <h2 className="signup-tagline">Welcome to foodpanda</h2>
-          <p className="signup-description">
-            Join thousands of food lovers who order their favorite meals 
-            with just a few clicks. Get exclusive deals, track your orders 
-            in real-time, and enjoy fast delivery.
-          </p>
+          <div className="signup-tagline">It's the food and groceries you love, delivered</div>
+          <div className="signup-description">
+            Join thousands of happy customers and enjoy delicious meals delivered to your doorstep.
+          </div>
         </div>
       </div>
 
-      {/* Right Side - Form */}
       <div className="signup-right-side">
         <div className="signup-card">
           <div className="signup-header">
             <h1>Create Account</h1>
-            <p>Sign up to get started</p>
+            <p>Join foodpanda today</p>
           </div>
 
-          <div className="signup-social-buttons">
-            <button className="signup-social-btn" onClick={() => handleSocialSignUp('Google')}>
-              <svg width="20" height="20" viewBox="0 0 24 24">
-                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-              </svg>
-              Google
-            </button>
-            <button className="signup-social-btn" onClick={() => handleSocialSignUp('Facebook')}>
-              <svg width="20" height="20" viewBox="0 0 24 24">
-                <path fill="#1877F2" d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-              </svg>
-              Facebook
-            </button>
-          </div>
-
-          <div className="signup-divider">
-            <span>OR</span>
-          </div>
+          {error && (
+            <div className="signin-error-message show">
+              {error}
+            </div>
+          )}
 
           <form onSubmit={handleSubmit}>
             <div className="signup-form-group">
-              <label htmlFor="username">Username</label>
+              <label htmlFor="first_name">First Name *</label>
               <input
                 type="text"
-                id="username"
-                name="username"
-                placeholder="Enter your username"
-                value={formData.username}
+                id="first_name"
+                name="first_name"
+                placeholder="First name"
+                value={formData.first_name}
                 onChange={handleChange}
+                disabled={loading}
                 required
               />
             </div>
 
             <div className="signup-form-group">
-              <label htmlFor="email">Email or Mobile</label>
+              <label htmlFor="last_name">Last Name *</label>
               <input
                 type="text"
+                id="last_name"
+                name="last_name"
+                placeholder="Last name"
+                value={formData.last_name}
+                onChange={handleChange}
+                disabled={loading}
+                required
+              />
+            </div>
+
+            <div className="signup-form-group">
+              <label htmlFor="email">Email Address *</label>
+              <input
+                type="email"
                 id="email"
                 name="email"
-                placeholder="Enter email or mobile number"
+                placeholder="Enter your email"
                 value={formData.email}
                 onChange={handleChange}
+                disabled={loading}
                 required
               />
             </div>
 
             <div className="signup-form-group">
-              <label htmlFor="password">Password</label>
+              <label htmlFor="phone">Phone Number (Optional)</label>
+              <input
+                type="tel"
+                id="phone"
+                name="phone"
+                placeholder="+880 1712345678"
+                value={formData.phone}
+                onChange={handleChange}
+                disabled={loading}
+              />
+            </div>
+
+            <div className="signup-form-group">
+              <label htmlFor="password">Password *</label>
               <div className="signup-password-wrapper">
                 <input
                   type={showPassword ? 'text' : 'password'}
                   id="password"
                   name="password"
-                  placeholder="Create a password"
+                  placeholder="Create a password (min. 8 characters)"
                   value={formData.password}
                   onChange={handleChange}
+                  disabled={loading}
                   required
                 />
                 <span
@@ -131,27 +177,39 @@ const SignUp = ({ onSwitchToSignIn, onSignUpSuccess }) => {
               </div>
             </div>
 
-            <div className="signup-checkbox-group">
+            <div className="signup-form-group">
+              <label htmlFor="password2">Confirm Password *</label>
               <input
-                type="checkbox"
-                id="terms"
-                name="terms"
-                checked={formData.terms}
+                type={showPassword ? 'text' : 'password'}
+                id="password2"
+                name="password2"
+                placeholder="Re-enter your password"
+                value={formData.password2}
                 onChange={handleChange}
+                disabled={loading}
                 required
               />
+            </div>
+
+            <div className="signup-checkbox-group">
+              <input type="checkbox" id="terms" required />
               <label htmlFor="terms">
                 I agree to the <a href="#">Terms & Conditions</a>
               </label>
             </div>
 
-            <button type="submit" className="signup-submit-btn">
-              Sign Up
+            <button 
+              type="submit" 
+              className="signup-submit-btn"
+              disabled={loading}
+            >
+              {loading ? 'Creating Account...' : 'Sign Up'}
             </button>
           </form>
 
           <div className="signup-signin-link">
-            Already have an account? <a onClick={onSwitchToSignIn}>Sign In</a>
+            Already have an account?{' '}
+            <a onClick={onSwitchToSignIn}>Sign In</a>
           </div>
         </div>
       </div>

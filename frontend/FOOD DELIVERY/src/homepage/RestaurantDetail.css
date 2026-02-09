@@ -1,0 +1,493 @@
+/* Restaurant Detail Container */
+.restaurant-detail-container {
+  min-height: 100vh;
+  background: #f9fafb;
+  padding-bottom: 40px;
+}
+
+/* Header */
+.restaurant-detail-header {
+  background: white;
+  padding: 20px 40px;
+  border-bottom: 1px solid #e5e7eb;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.back-button {
+  background: none;
+  border: 2px solid #db2777;
+  color: #db2777;
+  padding: 10px 24px;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.back-button:hover {
+  background: #db2777;
+  color: white;
+}
+
+/* Restaurant Banner */
+.restaurant-banner {
+  background: white;
+  padding: 30px 40px;
+  margin-bottom: 20px;
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+.banner-image {
+  width: 120px;
+  height: 120px;
+  background: linear-gradient(135deg, #fce7f3, #fed7aa);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.banner-emoji {
+  font-size: 64px;
+}
+
+.restaurant-info-banner {
+  flex: 1;
+}
+
+.restaurant-name {
+  font-size: 32px;
+  font-weight: bold;
+  color: #111827;
+  margin: 0 0 12px 0;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.restaurant-meta {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 12px;
+}
+
+.meta-item {
+  color: #6b7280;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.restaurant-tags {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.tag {
+  background: #f3f4f6;
+  color: #374151;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* Deals Section */
+.deals-section-detail {
+  background: white;
+  padding: 30px 40px;
+  margin-bottom: 20px;
+}
+
+.section-title-detail {
+  font-size: 24px;
+  font-weight: bold;
+  color: #111827;
+  margin: 0 0 20px 0;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.deals-grid-detail {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.deal-card-detail {
+  padding: 20px;
+  border-radius: 12px;
+  color: white;
+  transition: all 0.3s ease;
+}
+
+.deal-card-detail:first-child {
+  background: #1f2937;
+}
+
+.deal-card-detail:nth-child(2) {
+  background: #fce7f3;
+  color: #111827;
+}
+
+.deal-card-detail:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+.deal-title-detail {
+  font-size: 20px;
+  font-weight: bold;
+  margin: 0 0 8px 0;
+}
+
+.deal-description {
+  font-size: 14px;
+  margin: 0 0 12px 0;
+  opacity: 0.9;
+}
+
+.deal-code-btn {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: inherit;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.deal-code-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.view-all-deals {
+  background: none;
+  border: 2px solid #db2777;
+  color: #db2777;
+  padding: 10px 24px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.view-all-deals:hover {
+  background: #fce7f3;
+}
+
+/* Menu Section */
+.menu-section {
+  background: white;
+  padding: 30px 40px;
+  margin-bottom: 20px;
+}
+
+.menu-categories-scroll {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 16px;
+  margin-bottom: 24px;
+  border-bottom: 2px solid #f3f4f6;
+}
+
+.menu-categories-scroll::-webkit-scrollbar {
+  height: 6px;
+}
+
+.menu-categories-scroll::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+
+.menu-categories-scroll::-webkit-scrollbar-thumb {
+  background: #db2777;
+  border-radius: 10px;
+}
+
+.menu-category-btn {
+  background: #f9fafb;
+  border: 2px solid transparent;
+  color: #6b7280;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.3s ease;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.menu-category-btn.active {
+  background: #fce7f3;
+  border-color: #db2777;
+  color: #db2777;
+}
+
+.menu-category-btn:hover {
+  background: #fce7f3;
+}
+
+.menu-items-container {
+  margin-top: 24px;
+}
+
+.menu-category-title {
+  font-size: 22px;
+  font-weight: bold;
+  color: #111827;
+  margin: 0 0 8px 0;
+}
+
+.menu-category-subtitle {
+  font-size: 14px;
+  color: #6b7280;
+  margin: 0 0 20px 0;
+}
+
+/* Menu Items Grid */
+.menu-items-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+.menu-item-card {
+  background: #f9fafb;
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.menu-item-card:hover {
+  background: #f3f4f6;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.menu-item-image {
+  width: 80px;
+  height: 80px;
+  background: linear-gradient(135deg, #fce7f3, #fed7aa);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.menu-item-emoji {
+  font-size: 40px;
+}
+
+.menu-item-info {
+  flex: 1;
+}
+
+.menu-item-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: #111827;
+  margin: 0 0 6px 0;
+}
+
+.menu-item-description {
+  font-size: 13px;
+  color: #6b7280;
+  margin: 0 0 10px 0;
+  line-height: 1.4;
+}
+
+.menu-item-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.menu-item-price {
+  font-size: 18px;
+  font-weight: bold;
+  color: #111827;
+}
+
+.menu-item-rating {
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.add-item-btn {
+  width: 36px;
+  height: 36px;
+  background: #db2777;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 24px;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  flex-shrink: 0;
+}
+
+.add-item-btn:hover {
+  background: #be185d;
+  transform: scale(1.1);
+}
+
+/* Similar Restaurants */
+.similar-restaurants-section {
+  background: white;
+  padding: 30px 40px;
+  margin-bottom: 20px;
+}
+
+.similar-restaurants-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.similar-restaurant-card {
+  background: #f9fafb;
+  border-radius: 12px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.similar-restaurant-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.similar-rest-image {
+  position: relative;
+  height: 140px;
+  background: linear-gradient(135deg, #fce7f3, #fed7aa);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.similar-rest-emoji {
+  font-size: 56px;
+}
+
+.similar-rest-deal {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background: #db2777;
+  color: white;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.similar-rest-info {
+  padding: 12px;
+}
+
+.similar-rest-info h4 {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+  margin: 0 0 6px 0;
+}
+
+.similar-rest-rating {
+  font-size: 13px;
+  color: #6b7280;
+}
+
+/* Footer Info */
+.restaurant-footer-info {
+  background: white;
+  padding: 30px 40px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 30px;
+}
+
+.footer-info-section h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #111827;
+  margin: 0 0 10px 0;
+}
+
+.footer-info-section p {
+  font-size: 14px;
+  color: #6b7280;
+  margin: 0;
+  line-height: 1.6;
+}
+
+/* Responsive */
+@media (max-width: 968px) {
+  .restaurant-detail-header,
+  .restaurant-banner,
+  .deals-section-detail,
+  .menu-section,
+  .similar-restaurants-section,
+  .restaurant-footer-info {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+
+  .restaurant-banner {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .restaurant-meta {
+    justify-content: center;
+  }
+
+  .restaurant-tags {
+    justify-content: center;
+  }
+
+  .menu-items-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .similar-restaurants-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  .restaurant-name {
+    font-size: 24px;
+  }
+
+  .section-title-detail {
+    font-size: 20px;
+  }
+
+  .deals-grid-detail {
+    grid-template-columns: 1fr;
+  }
+}
