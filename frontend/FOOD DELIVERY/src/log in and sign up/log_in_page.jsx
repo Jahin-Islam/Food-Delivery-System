@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import authService from '../Authservice';
+import authService from '../Authservice.js';
 import './log_in_page.css';
 
 const SignIn = ({ onSwitchToSignUp, onLoginSuccess }) => {
@@ -33,14 +33,15 @@ const SignIn = ({ onSwitchToSignUp, onLoginSuccess }) => {
 
     try {
       const result = await authService.login(formData.email, formData.password);
+      console.log('Login result:', result);
       
-      if (result.success) {
-        onLoginSuccess(result.user);
-      } else {
-        setError(result.error || 'Login failed. Please check your credentials.');
+      // Login successful - authService already stores tokens
+      // Call success callback
+      if (onLoginSuccess) {
+        onLoginSuccess(authService.getUser());
       }
     } catch (err) {
-      setError('An error occurred. Please try again.');
+      setError(err.message || 'Login failed. Please check your credentials.');
       console.error('Login error:', err);
     } finally {
       setLoading(false);

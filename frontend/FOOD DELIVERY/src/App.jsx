@@ -1,202 +1,263 @@
 import { useState, useEffect } from 'react';
-import SignIn from './log in and sign up/log_in_page.jsx';
-import SignUp from './log in and sign up/sign_up_page.jsx';
 import Homepage from './homepage/homepage.jsx';
 import RestaurantDetail from './homepage/RestaurantDetail.jsx';
-import RestaurantPartnerSignUp from './homepage/RestaurantSignUp.jsx';
-import RestaurantLogIn from './homepage/RestaurantLogIn.jsx';
-import RiderSignUp  from './homepage/RiderSignUp.jsx';
-import RiderOnBoarding from './homepage/RiderOnBoarding.jsx';
+import SignIn from './log in and sign up/log_in_page.jsx';
+import SignUp from './log in and sign up/sign_up_page.jsx';
 import authService from './Authservice.js';
-import './App.css';
+import cartService from './Cartservice.js';
 
 function App() {
-  const [currentPage, setCurrentPage] = useState("home");
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [cartItems, setCartItems] = useState([]);
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState('home'); // 'home', 'restaurant', 'login', 'signup'
   const [selectedRestaurant, setSelectedRestaurant] = useState(null);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [user, setUser] = useState(null);
+  const [cartItems, setCartItems] = useState([]);
+  const [isInitializing, setIsInitializing] = useState(true);
 
-  // Check authentication status on app load
+  // ============================================
+  // INITIALIZE APP - Check auth and load cart
+  // ============================================
   useEffect(() => {
-    const checkAuth = async () => {
+    const initializeApp = async () => {
       try {
-        if (authService.isAuthenticated()) {
-          const userData = authService.getUser();
-          if (userData) {
-            setUser(userData);
-            setIsLoggedIn(true);
-          } else {
-            // Try to fetch user data
-            const currentUser = await authService.getCurrentUser();
-            if (currentUser) {
-              setUser(currentUser);
-              setIsLoggedIn(true);
-              authService.saveUser(currentUser);
-            }
-          }
-        }
+        setIsInitializing(true);
+
+        // Check authentication status
+        const authState = await authService.initialize();
+        setIsLoggedIn(authState.isAuthenticated);
+        setUser(authState.user);
+
+        // Load cart from localStorage
+        const savedCart = cartService.loadCart();
+        setCartItems(savedCart);
+
+        console.log('App initialized:', {
+          isAuthenticated: authState.isAuthenticated,
+          user: authState.user,
+          cartItems: savedCart.length
+        });
       } catch (error) {
-        console.error('Auth check error:', error);
-        authService.clearTokens();
+        console.error('App initialization error:', error);
+        // On error, assume not logged in
+        setIsLoggedIn(false);
+        setUser(null);
       } finally {
-        setLoading(false);
+        setIsInitializing(false);
       }
     };
 
-    checkAuth();
+    initializeApp();
   }, []);
 
-  // Handle successful login
-  const handleLoginSuccess = async (userData) => {
-    setUser(userData);
-    setIsLoggedIn(true);
-    setCurrentPage("home");
+  // ============================================
+  // SAVE CART whenever it changes
+  // ============================================
+  useEffect(() => {
+    if (!isInitializing) {
+      cartService.saveCart(cartItems);
+      console.log('Cart saved to localStorage:', cartItems.length, 'items');
+    }
+  }, [cartItems, isInitializing]);
+
+  // ============================================
+  // CART MANAGEMENT
+  // ============================================
+
+  // Smart Add to Cart - Increases quantity if item already exists
+  const handleAddToCart = (newItem) => {
+    setCartItems(prevItems => {
+      const existingItemIndex = prevItems.findIndex(
+        item => item.foodId === newItem.foodId && 
+                item.restaurantId === newItem.restaurantId
+      );
+
+      if (existingItemIndex !== -1) {
+        // Item exists - increase quantity
+        const updatedItems = [...prevItems];
+        updatedItems[existingItemIndex] = {
+          ...updatedItems[existingItemIndex],
+          quantity: updatedItems[existingItemIndex].quantity + 1
+        };
+        console.log('Increased quantity:', updatedItems[existingItemIndex].name);
+        return updatedItems;
+      } else {
+        // New item - add to cart
+        console.log('Added new item:', newItem.name);
+        return [...prevItems, { ...newItem, quantity: 1 }];
+      }
+    });
   };
 
-  // Handle successful signup
-  const handleSignUpSuccess = async (userData) => {
-    setUser(userData);
-    setIsLoggedIn(true);
-    setCurrentPage("home");
-  };
-
-  // Handle logout
-  const handleLogout = () => {
-    authService.logout();
-    setIsLoggedIn(false);
-    setUser(null);
-    setCartItems([]);
-    setCurrentPage("home");
-  };
-
-  // Navigate to different pages
-  const navigateTo = (page) => {
-    setCurrentPage(page);
-  };
-
-  // Handle restaurant click
-  const handleRestaurantClick = (restaurant) => {
-    setSelectedRestaurant(restaurant);
-    setCurrentPage("restaurant-detail");
-  };
-
-  // Handle back from restaurant detail
-  const handleBackToHome = () => {
-    setSelectedRestaurant(null);
-    setCurrentPage("home");
-  };
-
-  // Handle add to cart from restaurant detail
-  const handleAddToCart = (item) => {
-    if (!isLoggedIn) {
-      alert('Please login to add items to cart');
-      navigateTo("signin");
+  const handleUpdateQuantity = (itemId, newQuantity) => {
+    if (newQuantity <= 0) {
+      handleRemoveItem(itemId);
       return;
     }
-
-    const newItem = {
-      id: `${item.id}-${Date.now()}`,
-      name: item.name,
-      restaurant: item.restaurantName,
-      price: item.price,
-      quantity: item.quantity || 1,
-      emoji: item.image
-    };
     
-    setCartItems([...cartItems, newItem]);
+    setCartItems(prevItems =>
+      prevItems.map(item =>
+        item.id === itemId ? { ...item, quantity: newQuantity } : item
+      )
+    );
   };
 
-  // Show loading screen while checking auth
-  if (loading) {
+  const handleRemoveItem = (itemId) => {
+    setCartItems(prevItems => prevItems.filter(item => item.id !== itemId));
+  };
+
+  const handleClearCart = () => {
+    setCartItems([]);
+    cartService.clearCart();
+  };
+
+  // ============================================
+  // NAVIGATION
+  // ============================================
+
+  const handleRestaurantClick = (restaurant) => {
+    setSelectedRestaurant(restaurant);
+    setCurrentPage('restaurant');
+  };
+
+  const handleBackToHome = () => {
+    setCurrentPage('home');
+    setSelectedRestaurant(null);
+  };
+
+  // ============================================
+  // AUTH HANDLERS - FIXED
+  // ============================================
+
+  const handleLoginClick = () => {
+    console.log('Navigating to login page');
+    setCurrentPage('login');
+  };
+
+  const handleSignUpClick = () => {
+    console.log('Navigating to signup page');
+    setCurrentPage('signup');
+  };
+
+  const handleRestaurantSignUpClick = () => {
+    console.log('Restaurant sign up clicked');
+    // Navigate to restaurant signup page (you can implement this later)
+    alert('Restaurant signup - to be implemented');
+  };
+
+  const handleLoginSuccess = async (userData) => {
+    console.log('Login successful:', userData);
+    setIsLoggedIn(true);
+    setUser(authService.getUser());
+    setCurrentPage('home'); // Go back to home page after login
+  };
+
+  const handleSignUpSuccess = async (userData) => {
+    console.log('Sign up successful:', userData);
+    setIsLoggedIn(true);
+    setUser(authService.getUser());
+    setCurrentPage('home'); // Go back to home page after signup
+  };
+
+  const handleLogout = async () => {
+    try {
+      await authService.logout();
+      setIsLoggedIn(false);
+      setUser(null);
+      setCartItems([]);
+      cartService.clearCart();
+      setCurrentPage('home');
+      console.log('Logged out successfully');
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
+
+  const handleSwitchToLogin = () => {
+    setCurrentPage('login');
+  };
+
+  const handleSwitchToSignUp = () => {
+    setCurrentPage('signup');
+  };
+
+  // ============================================
+  // LOADING STATE
+  // ============================================
+
+  if (isInitializing) {
     return (
       <div style={{
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
         height: '100vh',
-        fontSize: '24px',
-        color: '#db2777'
+        flexDirection: 'column',
+        gap: '20px'
       }}>
-        Loading...
+        <div style={{ fontSize: '48px' }}>🔄</div>
+        <p style={{ fontSize: '18px', color: '#6b7280' }}>Loading...</p>
       </div>
     );
   }
 
-  // Render the appropriate page
-  const renderPage = () => {
-    switch (currentPage) {
-      case "signin":
-        return (
-          <SignIn
-            onSwitchToSignUp={() => navigateTo("signup")}
-            onLoginSuccess={handleLoginSuccess}
-          />
-        );
-      case "signup":
-        return (
-          <SignUp
-            onSwitchToSignIn={() => navigateTo("signin")}
-            onSignUpSuccess={handleSignUpSuccess}
-          />
-        );
-      case "restaurant-signup":
-        return (
-          <RestaurantPartnerSignUp
-            onSwitchToLogin={() => navigateTo("restaurant-signin")}
-            onRiderSignUp={() => navigateTo("rider-signup")}
-            onSignUpSuccess={handleSignUpSuccess}
-          />
-        );
-      case "restaurant-signin":
-        return (
-          <RestaurantLogIn
-            onSwitchToSignUp={() => navigateTo("restaurant-signup")}
-            onLoginSuccess={handleLoginSuccess}
-          />
-        );
-      case "rider-onboarding":
-        return (
-          <RiderOnBoarding
-            onCompletion={() => navigateTo("home")}
-          />
-        );
-      case "rider-signup":
-        return (
-          <RiderSignUp
-            onSignUpSuccess={handleSignUpSuccess}
-            onRiderOnBoarding={() => navigateTo("rider-onboarding")}
-          />
-        );
-      case "restaurant-detail":
-        return (
-          <RestaurantDetail
-            restaurant={selectedRestaurant}
-            onBack={handleBackToHome}
-            onAddToCart={handleAddToCart}
-            isLoggedIn={isLoggedIn}
-          />
-        );
-      case "home":
-      default:
-        return (
-          <Homepage
-            isLoggedIn={isLoggedIn}
-            user={user}
-            cartItems={cartItems}
-            setCartItems={setCartItems}
-            onLoginClick={() => navigateTo("signin")}
-            onSignUpClick={() => navigateTo("signup")}
-            onRestaurantSignUpClick={() => navigateTo("restaurant-signup")}
-            onLogout={handleLogout}
-            onRestaurantClick={handleRestaurantClick}
-          />
-        );
-    }
-  };
- 
-  return renderPage();
+  // ============================================
+  // RENDER - Show different pages based on currentPage state
+  // ============================================
+
+  return (
+    <div className="App">
+      {/* LOGIN PAGE */}
+      {currentPage === 'login' && (
+        <SignIn
+          onSwitchToSignUp={handleSwitchToSignUp}
+          onLoginSuccess={handleLoginSuccess}
+        />
+      )}
+
+      {/* SIGNUP PAGE */}
+      {currentPage === 'signup' && (
+        <SignUp
+          onSwitchToSignIn={handleSwitchToLogin}
+          onSignUpSuccess={handleSignUpSuccess}
+        />
+      )}
+
+      {/* HOME PAGE */}
+      {currentPage === 'home' && (
+        <Homepage
+          isLoggedIn={isLoggedIn}
+          user={user}
+          cartItems={cartItems}
+          setCartItems={setCartItems}
+          onAddToCart={handleAddToCart}
+          onUpdateQuantity={handleUpdateQuantity}
+          onRemoveItem={handleRemoveItem}
+          onLoginClick={handleLoginClick}
+          onSignUpClick={handleSignUpClick}
+          onRestaurantSignUpClick={handleRestaurantSignUpClick}
+          onLogout={handleLogout}
+          onRestaurantClick={handleRestaurantClick}
+        />
+      )}
+
+      {/* RESTAURANT DETAIL PAGE */}
+      {currentPage === 'restaurant' && selectedRestaurant && (
+        <RestaurantDetail
+          restaurant={selectedRestaurant}
+          onBack={handleBackToHome}
+          onAddToCart={handleAddToCart}
+          cartItems={cartItems}
+          onUpdateQuantity={handleUpdateQuantity}
+          onRemoveItem={handleRemoveItem}
+          isLoggedIn={isLoggedIn}
+          user={user}
+          onLoginClick={handleLoginClick}
+          onSignUpClick={handleSignUpClick}
+          onLogout={handleLogout}
+        />
+      )}
+    </div>
+  );
 }
 
 export default App;

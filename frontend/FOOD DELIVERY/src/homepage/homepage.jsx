@@ -1,22 +1,23 @@
 import { useState, useEffect } from "react";
-import "./Homepage.css";
+import "./homepage.css";
+import Header from "./Header.jsx";
 import CuisineFilter from "./cuisineOption.jsx";
 import SortOption from "./sortbyOption.jsx";
 import OfferOption from "./offerOption.jsx";
 import PriceOption from "./priceOption.jsx";
-import Cart from "./Cart.jsx";
+import AllCarts from "./AllCarts.jsx";
 import authService from "../Authservice.js";
 
-const Homepage = ({ 
-  isLoggedIn, 
+const Homepage = ({
+  isLoggedIn,
   user,
-  cartItems, 
-  setCartItems, 
-  onLoginClick, 
-  onSignUpClick, 
+  cartItems,
+  setCartItems,
+  onLoginClick,
+  onSignUpClick,
   onRestaurantSignUpClick,
   onLogout,
-  onRestaurantClick
+  onRestaurantClick,
 }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [showMobileMenu, setShowMobileMenu] = useState(false);
@@ -32,19 +33,23 @@ const Homepage = ({
       try {
         setLoading(true);
         let data;
-        
+
         // If user is logged in, use authenticated fetch
         if (isLoggedIn) {
-          data = await authService.authenticatedFetch("http://127.0.0.1:8000/api/v1/restaurants/");
+          data = await authService.authenticatedFetch(
+            "http://127.0.0.1:8000/api/v1/restaurants/",
+          );
         } else {
           // Public endpoint - no authentication required
-          const response = await fetch("http://127.0.0.1:8000/api/v1/restaurants/");
+          const response = await fetch(
+            "http://127.0.0.1:8000/api/v1/restaurants/",
+          );
           if (!response.ok) {
-            throw new Error('Failed to fetch restaurants');
+            throw new Error("Failed to fetch restaurants");
           }
           data = await response.json();
         }
-        
+
         setRestaurants(data);
         setError(null);
       } catch (err) {
@@ -64,13 +69,15 @@ const Homepage = ({
       handleRemoveItem(itemId);
       return;
     }
-    setCartItems(cartItems.map(item => 
-      item.id === itemId ? { ...item, quantity: newQuantity } : item
-    ));
+    setCartItems(
+      cartItems.map((item) =>
+        item.id === itemId ? { ...item, quantity: newQuantity } : item,
+      ),
+    );
   };
 
   const handleRemoveItem = (itemId) => {
-    setCartItems(cartItems.filter(item => item.id !== itemId));
+    setCartItems(cartItems.filter((item) => item.id !== itemId));
   };
 
   // Navigate to restaurant detail page
@@ -80,10 +87,24 @@ const Homepage = ({
     }
   };
 
+  const handleCheckout = (restaurantId) => {
+    console.log("Checkout for restaurant:", restaurantId);
+    // TODO: Navigate to checkout page
+  };
+
+  const handleNavigateToRestaurant = (restaurantId) => {
+    const restaurant = restaurants.find((r) => r.id === restaurantId);
+    if (restaurant && onRestaurantClick) {
+      onRestaurantClick(restaurant);
+      setShowCart(false);
+    }
+  };
+
   // Filter restaurants based on search query
-  const filteredRestaurants = restaurants.filter(restaurant =>
-    restaurant.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    restaurant.description?.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredRestaurants = restaurants.filter(
+    (restaurant) =>
+      restaurant.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      restaurant.description?.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
   const cuisines = [
@@ -99,120 +120,29 @@ const Homepage = ({
 
   return (
     <div className="homepage-container">
-      {/* Top Pink Banner */}
-      {!isLoggedIn ? (
-        <div className="top-banner">    
-          <div className="banner-icon"></div>
-          <button className="banner-btn" onClick={onRestaurantSignUpClick}>
-            SIGN UP TO BE A RESTAURANT PARTNER
-          </button>
-          <button className="banner-btn" onClick={onRestaurantSignUpClick}>
-            SIGN UP FOR A BUSINESS ACCOUNT
-          </button>
-        </div>
-      ) : null}
-     
-      {/* Header */}
-      <header className="header">
-        <div className="header-content">
-          <div className="header-left">
-            {/* Logo and Address */}
-            <div className="logo-section">
-              <button className="logo-icon"></button>
-              <span className="logo-text">foodpanda</span>
-            </div>
-            <button className="address-button">
-              <span className="logo-image">
-                <img src="../../public/images/accessories/gps.png" alt="GPS" />
-              </span>
-              <div className="address-text">
-                <div className="address-label">New address</div>
-                <div className="address-full">Road 71, Dhaka, Bangladesh</div>
-              </div>
-            </button>
-          </div>
-
-          {/* Right Side Buttons */}
-          <div className="header-right">
-            {!isLoggedIn ? (
-              <>
-                <button className="header-btn" onClick={onLoginClick}>
-                  Log in
-                </button>
-                <button className="header-btn signup-btn" onClick={onSignUpClick}>
-                  Sign up for free delivery
-                </button>
-              </>
-            ) : (
-              <>
-                <button className="header-btn language-btn">
-                  <span className="logo-image">
-                    <img src="../../public/images/accessories/world.png" alt="Language" />
-                  </span>
-                  <span>EN</span>
-                </button>
-                <button 
-                  className="header-btn cart-button"
-                  onClick={() => setShowCart(!showCart)}
-                >
-                  <span className="logo-image">
-                    <img src="../../public/images/accessories/cart.png" alt="Cart" />
-                  </span>
-                  {cartItems && cartItems.length > 0 && (
-                    <span className="cart-badge">{cartItems.length}</span>
-                  )}
-                  <span>CART</span>
-                </button>
-                <button className="header-btn favourite-btn">
-                  <span className="logo-image">
-                    <img src="../../public/images/accessories/heart.png" alt="Favourites" />
-                  </span>
-                  <span>FAVOURITES</span>
-                </button>
-                <button className="header-btn profile-btn" onClick={onLogout}>
-                  <span className="logo-image">
-                    <img src="../../public/images/accessories/profile.png" alt="Profile" />
-                  </span>
-                  <span>{user?.first_name || 'PROFILE'}</span>
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-
-        {/* Navigation Tabs */}
-        <div className="nav-tabs">
-          <div className="nav-tabs-content">
-            <button className="nav-tab active">
-              <span className="logo-image">
-                <img src="../../public/images/accessories/delivery.png" alt="Delivery" />
-              </span>
-              <span>Delivery</span>
-            </button>
-            <button className="nav-tab">
-              <span className="logo-image">
-                <img src="../../public/images/accessories/pick-up.png" alt="Pick-up" />
-              </span>
-              <span>Pick-up</span>
-            </button>
-            <button className="nav-tab">
-              <span className="logo-image">
-                <img src="../../public/images/accessories/restaurant.png" alt="Restaurant" />
-              </span>
-              <span>Restaurant</span>
-            </button>
-          </div>
-        </div>
-      </header>
+      {/* Reusable Header Component */}
+      <Header
+        isLoggedIn={isLoggedIn}
+        user={user}
+        cartItems={cartItems}
+        onLoginClick={onLoginClick}
+        onSignUpClick={onSignUpClick}
+        onRestaurantSignUpClick={onRestaurantSignUpClick}
+        onCartClick={() => setShowCart(!showCart)}
+        onLogout={onLogout}
+        showBanner={true}
+      />
 
       {/* Main Content */}
       <main className="main-content">
         <div className="content-wrapper">
           {/* Sidebar Filters */}
-          <aside className={`sidebar ${showFilters ? 'sidebar-visible' : 'sidebar-hidden'}`}>
+          <aside
+            className={`sidebar ${showFilters ? "sidebar-visible" : "sidebar-hidden"}`}
+          >
             <div className="sidebar-header">
               <h3 className="sidebar-title">Filters</h3>
-              <button 
+              <button
                 className="close-filters-btn"
                 onClick={() => setShowFilters(false)}
                 aria-label="Close filters"
@@ -228,12 +158,12 @@ const Homepage = ({
           </aside>
 
           {/* Main Area */}
-          <div className={`main-area ${showFilters ? '' : 'main-area-full'}`}>
+          <div className={`main-area ${showFilters ? "" : "main-area-full"}`}>
             {/* Search Bar with Filter Toggle */}
             <div className="search-container">
               <div className="search-wrapper">
                 {/* Hamburger Menu Button */}
-                <button 
+                <button
                   className="filter-toggle-btn"
                   onClick={() => setShowFilters(!showFilters)}
                   aria-label="Toggle filters"
@@ -246,7 +176,11 @@ const Homepage = ({
                 </button>
 
                 <span>
-                  <img src="../../public/images/accessories/glass.png" className="glass-image" alt="Search" />
+                  <img
+                    src="../../public/images/accessories/glass.png"
+                    className="glass-image"
+                    alt="Search"
+                  />
                 </span>
                 <input
                   type="text"
@@ -291,7 +225,9 @@ const Homepage = ({
             {/* Restaurants Section */}
             <section className="deals-section">
               <h2 className="section-title">
-                {searchQuery ? `Search results for "${searchQuery}"` : 'Featured Restaurants'}
+                {searchQuery
+                  ? `Search results for "${searchQuery}"`
+                  : "Featured Restaurants"}
               </h2>
 
               {/* Loading State */}
@@ -307,7 +243,10 @@ const Homepage = ({
                 <div className="error-state">
                   <div className="error-icon">⚠️</div>
                   <p>Failed to load restaurants: {error}</p>
-                  <button onClick={() => window.location.reload()} className="retry-btn">
+                  <button
+                    onClick={() => window.location.reload()}
+                    className="retry-btn"
+                  >
                     Retry
                   </button>
                 </div>
@@ -318,41 +257,54 @@ const Homepage = ({
                 <div className="deals-grid">
                   {filteredRestaurants.length > 0 ? (
                     filteredRestaurants.map((restaurant) => (
-                      <div 
-                        key={restaurant.id} 
+                      <div
+                        key={restaurant.id}
                         className="deal-card"
                         onClick={() => handleRestaurantClick(restaurant)}
                       >
                         <div className="deal-image">
                           {restaurant.image_url ? (
-                            <img 
-                              src={restaurant.image_url} 
+                            <img
+                              src={restaurant.image_url}
                               alt={restaurant.name}
                               className="restaurant-img"
                               onError={(e) => {
-                                e.target.style.display = 'none';
-                                e.target.nextSibling.style.display = 'flex';
+                                e.target.style.display = "none";
+                                e.target.nextSibling.style.display = "flex";
                               }}
                             />
                           ) : null}
-                          <div className="deal-emoji" style={{ display: restaurant.image_url ? 'none' : 'flex' }}>
+                          <div
+                            className="deal-emoji"
+                            style={{
+                              display: restaurant.image_url ? "none" : "flex",
+                            }}
+                          >
                             🍽️
                           </div>
                           {restaurant.percentage > 0 && (
-                            <div className="deal-discount">{restaurant.percentage}% OFF</div>
+                            <div className="deal-discount">
+                              {restaurant.percentage}% OFF
+                            </div>
                           )}
                         </div>
                         <div className="deal-info">
                           <h3 className="deal-name">{restaurant.name}</h3>
-                          <p className="deal-type">{restaurant.description || 'Food • Restaurant'}</p>
+                          <p className="deal-type">
+                            {restaurant.description || "Food • Restaurant"}
+                          </p>
                           <p className="deal-address">{restaurant.address}</p>
                           <div className="deal-footer">
                             <div className="deal-rating">
                               <span>⭐</span>
                               <span>{restaurant.rating}</span>
-                              <span className="rating-count">({restaurant.total_rated})</span>
+                              <span className="rating-count">
+                                ({restaurant.total_rated})
+                              </span>
                             </div>
-                            <span className="deal-min-order">Min: ৳{restaurant.min_order}</span>
+                            <span className="deal-min-order">
+                              Min: ৳{restaurant.min_order}
+                            </span>
                           </div>
                         </div>
                       </div>
@@ -371,12 +323,12 @@ const Homepage = ({
       </main>
 
       {/* Cart Sidebar */}
-      <Cart 
+      <AllCarts
         isOpen={showCart}
         onClose={() => setShowCart(false)}
         cartItems={cartItems}
-        onUpdateQuantity={handleUpdateQuantity}
-        onRemoveItem={handleRemoveItem}
+        onCheckout={handleCheckout}
+        onNavigateToRestaurant={handleNavigateToRestaurant}
       />
     </div>
   );

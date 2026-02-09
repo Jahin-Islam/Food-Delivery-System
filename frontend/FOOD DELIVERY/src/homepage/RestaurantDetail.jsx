@@ -1,19 +1,30 @@
 import { useState, useEffect } from 'react';
 import './RestaurantDetail.css';
+import Header from './Header.jsx';
 import authService from '../Authservice.js';
-import RestaurantCart from './RestaurantCart.jsx';
+import OrderSummary from './OrderSummary.jsx';
 
-const RestaurantDetail = ({ restaurant, onBack, onAddToCart, isLoggedIn }) => {
+const RestaurantDetail = ({ 
+  restaurant, 
+  onBack, 
+  onAddToCart,
+  cartItems = [],
+  onUpdateQuantity,
+  onRemoveItem,
+  isLoggedIn, 
+  user,
+  onLoginClick,
+  onSignUpClick,
+  onLogout 
+}) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
-  const [deliveryMode, setDeliveryMode] = useState('delivery');
   const [menuItems, setMenuItems] = useState([]);
   const [categories, setCategories] = useState([]);
   const [restaurantDetails, setRestaurantDetails] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showCart, setShowCart] = useState(false);
-  const [localCartItems, setLocalCartItems] = useState([]);
 
   useEffect(() => {
     const fetchRestaurantDetails = async () => {
@@ -26,7 +37,6 @@ const RestaurantDetail = ({ restaurant, onBack, onAddToCart, isLoggedIn }) => {
         setLoading(true);
         let data;
         
-        // Fetch detailed restaurant data with menu items
         if (isLoggedIn) {
           data = await authService.authenticatedFetch(
             `http://127.0.0.1:8000/api/v1/restaurants/${restaurant.id}/`
@@ -43,7 +53,6 @@ const RestaurantDetail = ({ restaurant, onBack, onAddToCart, isLoggedIn }) => {
         
         setRestaurantDetails(data);
         
-        // Extract unique categories from menu items
         if (data.items && data.items.length > 0) {
           const uniqueCategories = ['All', ...new Set(data.items.map(item => item.category_name))];
           setCategories(uniqueCategories);
@@ -68,6 +77,16 @@ const RestaurantDetail = ({ restaurant, onBack, onAddToCart, isLoggedIn }) => {
   if (!restaurant) {
     return (
       <div className="restaurant-detail-container">
+        <Header
+          isLoggedIn={isLoggedIn}
+          user={user}
+          cartItems={cartItems}
+          onLoginClick={onLoginClick}
+          onSignUpClick={onSignUpClick}
+          onCartClick={() => setShowCart(!showCart)}
+          onLogout={onLogout}
+          showBanner={false}
+        />
         <div className="restaurant-detail-header">
           <button className="back-button" onClick={onBack}>
             ← Back
@@ -83,6 +102,16 @@ const RestaurantDetail = ({ restaurant, onBack, onAddToCart, isLoggedIn }) => {
   if (loading) {
     return (
       <div className="restaurant-detail-container">
+        <Header
+          isLoggedIn={isLoggedIn}
+          user={user}
+          cartItems={cartItems}
+          onLoginClick={onLoginClick}
+          onSignUpClick={onSignUpClick}
+          onCartClick={() => setShowCart(!showCart)}
+          onLogout={onLogout}
+          showBanner={false}
+        />
         <div className="restaurant-detail-header">
           <button className="back-button" onClick={onBack}>
             ← Back
@@ -99,6 +128,16 @@ const RestaurantDetail = ({ restaurant, onBack, onAddToCart, isLoggedIn }) => {
   if (error) {
     return (
       <div className="restaurant-detail-container">
+        <Header
+          isLoggedIn={isLoggedIn}
+          user={user}
+          cartItems={cartItems}
+          onLoginClick={onLoginClick}
+          onSignUpClick={onSignUpClick}
+          onCartClick={() => setShowCart(!showCart)}
+          onLogout={onLogout}
+          showBanner={false}
+        />
         <div className="restaurant-detail-header">
           <button className="back-button" onClick={onBack}>
             ← Back
@@ -115,7 +154,6 @@ const RestaurantDetail = ({ restaurant, onBack, onAddToCart, isLoggedIn }) => {
     );
   }
 
-  // Use restaurantDetails if available, otherwise fall back to restaurant prop
   const displayRestaurant = restaurantDetails || restaurant;
 
   // Filter menu items based on search and category
@@ -136,54 +174,52 @@ const RestaurantDetail = ({ restaurant, onBack, onAddToCart, isLoggedIn }) => {
     return acc;
   }, {});
 
+  // Get cart items for THIS restaurant only
+  const restaurantCartItems = cartItems.filter(
+    item => item.restaurantId === displayRestaurant.id
+  );
+
+  // Smart Add to Cart - Uses parent's onAddToCart
   const handleAddToCart = (item) => {
     const newItem = {
       id: `${item.food_id}-${Date.now()}`,
+      foodId: item.food_id,
       name: item.name,
       price: item.price,
+      originalPrice: item.original_price,
       restaurant: displayRestaurant.name,
       restaurantId: displayRestaurant.id,
-      image: item.image_url || '🍽️',
+      restaurantImage: displayRestaurant.image_url,
+      image: item.image_url,
       emoji: '🍽️',
       quantity: 1
     };
     
-    // Add to local cart for this restaurant
-    setLocalCartItems([...localCartItems, newItem]);
-    
-    // Also call parent's onAddToCart if provided
     if (onAddToCart) {
       onAddToCart(newItem);
     }
-    
-    // Show cart sidebar
-    setShowCart(true);
-  };
-
-  const handleUpdateQuantity = (itemId, newQuantity) => {
-    if (newQuantity <= 0) {
-      handleRemoveItem(itemId);
-      return;
-    }
-    setLocalCartItems(localCartItems.map(item => 
-      item.id === itemId ? { ...item, quantity: newQuantity } : item
-    ));
-  };
-
-  const handleRemoveItem = (itemId) => {
-    setLocalCartItems(localCartItems.filter(item => item.id !== itemId));
   };
 
   const handleCheckout = () => {
-    // Navigate to checkout page
-    // You'll need to implement this navigation in App.jsx
-    console.log('Navigate to checkout with items:', localCartItems);
+    console.log('Navigate to checkout with items:', restaurantCartItems);
     alert('Checkout functionality - to be implemented');
   };
 
   return (
     <div className="restaurant-detail-container">
       {/* Header */}
+      <Header
+        isLoggedIn={isLoggedIn}
+        user={user}
+        cartItems={cartItems}
+        onLoginClick={onLoginClick}
+        onSignUpClick={onSignUpClick}
+        onCartClick={() => setShowCart(!showCart)}
+        onLogout={onLogout}
+        showBanner={false}
+      />
+
+      {/* Back Button */}
       <div className="restaurant-detail-header">
         <button className="back-button" onClick={onBack}>
           ← Back
@@ -258,51 +294,37 @@ const RestaurantDetail = ({ restaurant, onBack, onAddToCart, isLoggedIn }) => {
         </div>
       )}
 
-      {/* Menu Section */}
-      <div className="menu-section">
-        <h2 className="section-title-detail">Menu</h2>
+      {/* Menu Section with Order Summary */}
+      <div className="menu-with-summary-container">
+        <div className="menu-section">
+          <h2 className="section-title-detail">Menu</h2>
 
-        {/* Menu Controls - Search and Delivery/Pickup */}
-        <div className="menu-controls">
-          <div className="search-in-menu">
-            <span className="search-icon">🔍</span>
-            <input
-              type="text"
-              placeholder="Search in menu"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="menu-search-input"
-            />
+          {/* Menu Controls - Search */}
+          <div className="menu-controls">
+            <div className="search-in-menu">
+              <span className="search-icon">🔍</span>
+              <input
+                type="text"
+                placeholder="Search in menu"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="menu-search-input"
+              />
+            </div>
           </div>
 
-          <div className="delivery-pickup-toggle">
-            <button
-              className={`toggle-btn ${deliveryMode === 'delivery' ? 'active' : ''}`}
-              onClick={() => setDeliveryMode('delivery')}
-            >
-              Delivery
-            </button>
-            <button
-              className={`toggle-btn ${deliveryMode === 'pickup' ? 'active' : ''}`}
-              onClick={() => setDeliveryMode('pickup')}
-            >
-              Pick-up
-            </button>
+          {/* Menu Categories */}
+          <div className="menu-categories-scroll">
+            {categories.map((category) => (
+              <button
+                key={category}
+                className={`menu-category-btn ${selectedCategory === category ? 'active' : ''}`}
+                onClick={() => setSelectedCategory(category)}
+              >
+                {category}
+              </button>
+            ))}
           </div>
-        </div>
-
-        {/* Menu Categories */}
-        <div className="menu-categories-scroll">
-          {categories.map((category) => (
-            <button
-              key={category}
-              className={`menu-category-btn ${selectedCategory === category ? 'active' : ''}`}
-              onClick={() => setSelectedCategory(category)}
-            >
-              {category}
-            </button>
-          ))}
-        </div>
 
         {/* Menu Items */}
         <div className="menu-items-container">
@@ -377,11 +399,20 @@ const RestaurantDetail = ({ restaurant, onBack, onAddToCart, isLoggedIn }) => {
         </div>
       </div>
 
+      {/* Order Summary Sidebar - Shows items from THIS restaurant only */}
+      <OrderSummary 
+        cartItems={restaurantCartItems}
+        onUpdateQuantity={onUpdateQuantity}
+        onRemoveItem={onRemoveItem}
+        onCheckout={handleCheckout}
+        restaurantName={displayRestaurant.name}
+      />
+    </div>
+
       {/* Similar Restaurants */}
       <div className="similar-restaurants-section">
         <h2 className="section-title-detail">Similar restaurants</h2>
         <div className="similar-restaurants-grid">
-          {/* Placeholder for similar restaurants */}
           <div className="similar-restaurant-card">
             <div className="similar-rest-image">
               <div className="similar-rest-emoji">🍕</div>
@@ -454,17 +485,6 @@ const RestaurantDetail = ({ restaurant, onBack, onAddToCart, isLoggedIn }) => {
           <p>Delivery fee may vary</p>
         </div>
       </div>
-
-      {/* Restaurant-Specific Cart Sidebar */}
-      <RestaurantCart 
-        isOpen={showCart}
-        onClose={() => setShowCart(false)}
-        cartItems={localCartItems}
-        onUpdateQuantity={handleUpdateQuantity}
-        onRemoveItem={handleRemoveItem}
-        onCheckout={handleCheckout}
-        restaurantName={displayRestaurant.name}
-      />
     </div>
   );
 };

@@ -60,14 +60,14 @@ const SignUp = ({ onSwitchToSignIn, onSignUpSuccess }) => {
       }
 
       const result = await authService.register(userData);
+      console.log('Registration result:', result);
       
-      if (result.success) {
-        onSignUpSuccess(result.user || result.data);
-      } else {
-        setError(result.error || 'Registration failed. Please try again.');
+      // Registration successful - authService already stores tokens
+      if (onSignUpSuccess) {
+        onSignUpSuccess(authService.getUser());
       }
     } catch (err) {
-      setError('An error occurred. Please try again.');
+      setError(err.message || 'Registration failed. Please try again.');
       console.error('Registration error:', err);
     } finally {
       setLoading(false);
