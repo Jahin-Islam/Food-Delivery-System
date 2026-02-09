@@ -44,18 +44,30 @@
 }
 
 .banner-image {
-  width: 120px;
-  height: 120px;
+  width: 200px;
+  height: 200px;
   background: linear-gradient(135deg, #fce7f3, #fed7aa);
   border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  overflow: hidden;
+  position: relative;
+}
+
+.restaurant-banner-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .banner-emoji {
-  font-size: 64px;
+  font-size: 80px;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
 }
 
 .restaurant-info-banner {
@@ -66,13 +78,17 @@
   font-size: 32px;
   font-weight: bold;
   color: #111827;
-  margin: 0 0 12px 0;
+  margin: 0 0 8px 0;
   font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
 }
 
+.restaurant-subtitle {
+  font-size: 16px;
+  color: #6b7280;
+  margin: 0 0 16px 0;
+}
+
 .restaurant-meta {
-  display: flex;
-  gap: 24px;
   margin-bottom: 12px;
 }
 
@@ -84,19 +100,37 @@
   gap: 6px;
 }
 
-.restaurant-tags {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
+.delivery-icon {
+  font-size: 16px;
 }
 
-.tag {
-  background: #f3f4f6;
-  color: #374151;
-  padding: 6px 12px;
-  border-radius: 6px;
-  font-size: 13px;
+.delivery-info {
+  color: #db2777;
   font-weight: 500;
+}
+
+.restaurant-rating-info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.see-reviews-btn,
+.more-info-btn {
+  background: none;
+  border: none;
+  color: #6b7280;
+  font-size: 14px;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.see-reviews-btn:hover,
+.more-info-btn:hover {
+  color: #db2777;
 }
 
 /* Deals Section */
@@ -126,15 +160,18 @@
   border-radius: 12px;
   color: white;
   transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 16px;
 }
 
-.deal-card-detail:first-child {
-  background: #1f2937;
+.deal-icon {
+  font-size: 40px;
+  flex-shrink: 0;
 }
 
-.deal-card-detail:nth-child(2) {
-  background: #fce7f3;
-  color: #111827;
+.deal-content {
+  flex: 1;
 }
 
 .deal-card-detail:hover {
@@ -143,48 +180,15 @@
 }
 
 .deal-title-detail {
-  font-size: 20px;
+  font-size: 18px;
   font-weight: bold;
-  margin: 0 0 8px 0;
+  margin: 0 0 6px 0;
 }
 
 .deal-description {
   font-size: 14px;
-  margin: 0 0 12px 0;
+  margin: 0;
   opacity: 0.9;
-}
-
-.deal-code-btn {
-  background: rgba(255, 255, 255, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  color: inherit;
-  padding: 8px 16px;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.deal-code-btn:hover {
-  background: rgba(255, 255, 255, 0.3);
-}
-
-.view-all-deals {
-  background: none;
-  border: 2px solid #db2777;
-  color: #db2777;
-  padding: 10px 24px;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-}
-
-.view-all-deals:hover {
-  background: #fce7f3;
 }
 
 /* Menu Section */
@@ -194,17 +198,97 @@
   margin-bottom: 20px;
 }
 
+/* Menu Controls - Search and Delivery/Pickup */
+.menu-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.search-in-menu {
+  flex: 0 0 300px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 0 12px;
+  height: 44px;
+}
+
+.search-icon {
+  font-size: 16px;
+  margin-right: 8px;
+  color: #9ca3af;
+}
+
+.menu-search-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  padding: 10px 4px;
+  font-size: 14px;
+  outline: none;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  color: #111827;
+}
+
+.menu-search-input::placeholder {
+  color: #9ca3af;
+}
+
+/* Delivery/Pickup Toggle */
+.delivery-pickup-toggle {
+  display: flex;
+  gap: 0;
+  background: #f3f4f6;
+  border-radius: 8px;
+  padding: 3px;
+  height: 44px;
+}
+
+.toggle-btn {
+  padding: 0 28px;
+  border: none;
+  background: transparent;
+  color: #6b7280;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+}
+
+.toggle-btn.active {
+  background: white;
+  color: #111827;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.toggle-btn:hover:not(.active) {
+  color: #374151;
+}
+
+/* Menu Categories */
 .menu-categories-scroll {
   display: flex;
   gap: 12px;
   overflow-x: auto;
-  padding-bottom: 16px;
-  margin-bottom: 24px;
-  border-bottom: 2px solid #f3f4f6;
+  padding-bottom: 12px;
+  margin-bottom: 20px;
 }
 
 .menu-categories-scroll::-webkit-scrollbar {
-  height: 6px;
+  height: 4px;
 }
 
 .menu-categories-scroll::-webkit-scrollbar-track {
@@ -213,36 +297,46 @@
 }
 
 .menu-categories-scroll::-webkit-scrollbar-thumb {
-  background: #db2777;
+  background: #d1d5db;
   border-radius: 10px;
 }
 
+.menu-categories-scroll::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
 .menu-category-btn {
-  background: #f9fafb;
-  border: 2px solid transparent;
+  background: white;
+  border: 1px solid #e5e7eb;
   color: #6b7280;
   padding: 10px 20px;
   border-radius: 8px;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 500;
   cursor: pointer;
   white-space: nowrap;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
   font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
 }
 
 .menu-category-btn.active {
-  background: #fce7f3;
-  border-color: #db2777;
-  color: #db2777;
+  background: white;
+  border-color: #111827;
+  color: #111827;
+  font-weight: 600;
 }
 
 .menu-category-btn:hover {
-  background: #fce7f3;
+  border-color: #9ca3af;
+  color: #374151;
 }
 
 .menu-items-container {
   margin-top: 24px;
+}
+
+.menu-category-section {
+  margin-bottom: 40px;
 }
 
 .menu-category-title {
@@ -261,43 +355,31 @@
 /* Menu Items Grid */
 .menu-items-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
   gap: 16px;
 }
 
 .menu-item-card {
-  background: #f9fafb;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
   border-radius: 12px;
   padding: 16px;
   display: flex;
   gap: 16px;
+  justify-content: space-between;
   align-items: center;
   transition: all 0.3s ease;
   position: relative;
 }
 
 .menu-item-card:hover {
-  background: #f3f4f6;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-}
-
-.menu-item-image {
-  width: 80px;
-  height: 80px;
-  background: linear-gradient(135deg, #fce7f3, #fed7aa);
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.menu-item-emoji {
-  font-size: 40px;
+  border-color: #db2777;
 }
 
 .menu-item-info {
   flex: 1;
+  min-width: 0;
 }
 
 .menu-item-name {
@@ -312,12 +394,17 @@
   color: #6b7280;
   margin: 0 0 10px 0;
   line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .menu-item-footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
 }
 
 .menu-item-price {
@@ -331,8 +418,33 @@
   color: #6b7280;
 }
 
+.menu-item-image-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.menu-item-image {
+  width: 100px;
+  height: 100px;
+  background: linear-gradient(135deg, #fce7f3, #fed7aa);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.menu-item-emoji {
+  font-size: 50px;
+}
+
 .add-item-btn {
-  width: 36px;
+  width: 100px;
   height: 36px;
   background: #db2777;
   color: white;
@@ -350,7 +462,24 @@
 
 .add-item-btn:hover {
   background: #be185d;
-  transform: scale(1.1);
+  transform: scale(1.05);
+}
+
+/* No Results */
+.no-menu-results {
+  text-align: center;
+  padding: 60px 20px;
+}
+
+.no-results-icon {
+  font-size: 64px;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.no-menu-results p {
+  font-size: 16px;
+  color: #6b7280;
 }
 
 /* Similar Restaurants */
@@ -372,6 +501,7 @@
   overflow: hidden;
   cursor: pointer;
   transition: all 0.3s ease;
+  border: 1px solid #e5e7eb;
 }
 
 .similar-restaurant-card:hover {
@@ -461,12 +591,40 @@
     text-align: center;
   }
 
+  .banner-image {
+    width: 150px;
+    height: 150px;
+  }
+
+  .banner-emoji {
+    font-size: 64px;
+  }
+
   .restaurant-meta {
     justify-content: center;
   }
 
-  .restaurant-tags {
+  .restaurant-rating-info {
     justify-content: center;
+  }
+
+  .menu-controls {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .search-in-menu {
+    flex: 1;
+    max-width: 100%;
+  }
+
+  .delivery-pickup-toggle {
+    width: 100%;
+  }
+
+  .toggle-btn {
+    flex: 1;
   }
 
   .menu-items-grid {
@@ -489,5 +647,29 @@
 
   .deals-grid-detail {
     grid-template-columns: 1fr;
+  }
+
+  .menu-item-card {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .menu-item-image-container {
+    width: 100%;
+    flex-direction: row;
+    justify-content: space-between;
+  }
+
+  .menu-item-image {
+    width: 80px;
+    height: 80px;
+  }
+
+  .menu-item-emoji {
+    font-size: 40px;
+  }
+
+  .add-item-btn {
+    width: 80px;
   }
 }

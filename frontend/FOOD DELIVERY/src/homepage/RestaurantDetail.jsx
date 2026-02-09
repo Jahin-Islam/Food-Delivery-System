@@ -1,250 +1,189 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import './RestaurantDetail.css';
+import authService from '../Authservice.js';
+import RestaurantCart from './RestaurantCart.jsx';
 
 const RestaurantDetail = ({ restaurant, onBack, onAddToCart, isLoggedIn }) => {
-  const [selectedCategory, setSelectedCategory] = useState('Popular');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [deliveryMode, setDeliveryMode] = useState('delivery');
+  const [menuItems, setMenuItems] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [restaurantDetails, setRestaurantDetails] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [showCart, setShowCart] = useState(false);
-  const [cartItems, setCartItems] = useState([]);
+  const [localCartItems, setLocalCartItems] = useState([]);
 
-  // Dummy data for menu items
-  const menuCategories = [
-    'Popular',
-    'Coffee ☕',
-    'Juice 🍊',
-    'Sandwich & Burger 🍔',
-    'Pastry 🥐',
-    'Dessert 🍰',
-    'Savory 🥗'
-  ];
+  useEffect(() => {
+    const fetchRestaurantDetails = async () => {
+      if (!restaurant || !restaurant.id) {
+        setLoading(false);
+        return;
+      }
 
-  const menuItems = {
-    'Popular': [
-      {
-        id: 1,
-        name: 'Americano',
-        price: 4.99,
-        description: 'Freshly brewed espresso with hot water',
-        image: '☕',
-        rating: 4.5
-      },
-      {
-        id: 2,
-        name: 'Cappuccino',
-        price: 5.49,
-        description: 'Espresso with steamed milk and foam',
-        image: '☕',
-        rating: 4.8
-      },
-      {
-        id: 3,
-        name: 'Latte',
-        price: 5.99,
-        description: 'Smooth espresso with steamed milk',
-        image: '☕',
-        rating: 4.6
-      },
-      {
-        id: 4,
-        name: 'Mocha',
-        price: 6.49,
-        description: 'Espresso with chocolate and steamed milk',
-        image: '☕',
-        rating: 4.7
+      try {
+        setLoading(true);
+        let data;
+        
+        // Fetch detailed restaurant data with menu items
+        if (isLoggedIn) {
+          data = await authService.authenticatedFetch(
+            `http://127.0.0.1:8000/api/v1/restaurants/${restaurant.id}/`
+          );
+        } else {
+          const response = await fetch(
+            `http://127.0.0.1:8000/api/v1/restaurants/${restaurant.id}/`
+          );
+          if (!response.ok) {
+            throw new Error('Failed to fetch restaurant details');
+          }
+          data = await response.json();
+        }
+        
+        setRestaurantDetails(data);
+        
+        // Extract unique categories from menu items
+        if (data.items && data.items.length > 0) {
+          const uniqueCategories = ['All', ...new Set(data.items.map(item => item.category_name))];
+          setCategories(uniqueCategories);
+          setMenuItems(data.items);
+        } else {
+          setCategories(['All']);
+          setMenuItems([]);
+        }
+        
+        setError(null);
+      } catch (err) {
+        console.error("Error fetching restaurant details:", err);
+        setError(err.message);
+      } finally {
+        setLoading(false);
       }
-    ],
-    'Coffee ☕': [
-      {
-        id: 5,
-        name: 'Espresso',
-        price: 3.99,
-        description: 'Strong and rich espresso shot',
-        image: '☕',
-        rating: 4.9
-      },
-      {
-        id: 6,
-        name: 'Caramel Latte',
-        price: 6.99,
-        description: 'Latte with sweet caramel flavor',
-        image: '☕',
-        rating: 4.8
-      },
-      {
-        id: 7,
-        name: 'Vanilla Latte',
-        price: 6.49,
-        description: 'Creamy latte with vanilla syrup',
-        image: '☕',
-        rating: 4.7
-      },
-      {
-        id: 8,
-        name: 'Iced Coffee',
-        price: 5.49,
-        description: 'Cold brewed coffee over ice',
-        image: '🧊',
-        rating: 4.6
-      }
-    ],
-    'Juice 🍊': [
-      {
-        id: 9,
-        name: 'Orange Juice',
-        price: 4.99,
-        description: 'Freshly squeezed orange juice',
-        image: '🍊',
-        rating: 4.7
-      },
-      {
-        id: 10,
-        name: 'Strawberry Juice',
-        price: 5.49,
-        description: 'Sweet strawberry blend',
-        image: '🍓',
-        rating: 4.8
-      },
-      {
-        id: 11,
-        name: 'Watermelon Juice',
-        price: 4.49,
-        description: 'Refreshing watermelon juice',
-        image: '🍉',
-        rating: 4.5
-      }
-    ],
-    'Sandwich & Burger 🍔': [
-      {
-        id: 12,
-        name: 'Wellness Chicken Delight Burger',
-        price: 8.99,
-        description: 'Grilled chicken with fresh vegetables',
-        image: '🍔',
-        rating: 4.6
-      },
-      {
-        id: 13,
-        name: 'Beef Burger',
-        price: 9.99,
-        description: 'Juicy beef patty with cheese',
-        image: '🍔',
-        rating: 4.7
-      },
-      {
-        id: 14,
-        name: 'Club Sandwich',
-        price: 7.99,
-        description: 'Triple layered sandwich with chicken',
-        image: '🥪',
-        rating: 4.5
-      }
-    ],
-    'Pastry 🥐': [
-      {
-        id: 15,
-        name: 'Blueberry Cheese Pastry',
-        price: 4.99,
-        description: 'Sweet blueberry and cream cheese',
-        image: '🥐',
-        rating: 4.8
-      },
-      {
-        id: 16,
-        name: 'Chocolate Fudge Pastry',
-        price: 5.49,
-        description: 'Rich chocolate fudge filling',
-        image: '🥐',
-        rating: 4.9
-      }
-    ],
-    'Dessert 🍰': [
-      {
-        id: 17,
-        name: 'Chocolate Brownie',
-        price: 5.99,
-        description: 'Warm chocolate brownie with nuts',
-        image: '🍰',
-        rating: 4.9
-      },
-      {
-        id: 18,
-        name: 'Chocolate Mousse',
-        price: 6.49,
-        description: 'Light and creamy chocolate mousse',
-        image: '🍰',
-        rating: 4.8
-      },
-      {
-        id: 19,
-        name: 'Red Velvet Cupcake',
-        price: 4.99,
-        description: 'Classic red velvet with cream cheese',
-        image: '🧁',
-        rating: 4.7
-      }
-    ],
-    'Savory 🥗': [
-      {
-        id: 20,
-        name: 'Creazy Chicken Box',
-        price: 12.99,
-        description: 'Crispy chicken pieces with sides',
-        image: '🍗',
-        rating: 4.6
-      },
-      {
-        id: 21,
-        name: 'Thai Veg Puff',
-        price: 6.99,
-        description: 'Vegetable puff with Thai spices',
-        image: '🥟',
-        rating: 4.5
-      }
-    ]
-  };
+    };
 
-  const availableDeals = [
-    {
-      id: 1,
-      title: '৳100 off ৳500',
-      description: 'Min. order ৳500 • Valid for new customers',
-      code: 'NEW100',
-      bgColor: '#1f2937'
-    },
-    {
-      id: 2,
-      title: '20% off',
-      description: 'Up to ৳50 off • Min. order ৳300',
-      code: 'SAVE20',
-      bgColor: '#fce7f3'
+    fetchRestaurantDetails();
+  }, [restaurant, isLoggedIn]);
+
+  if (!restaurant) {
+    return (
+      <div className="restaurant-detail-container">
+        <div className="restaurant-detail-header">
+          <button className="back-button" onClick={onBack}>
+            ← Back
+          </button>
+        </div>
+        <div style={{ padding: '40px', textAlign: 'center' }}>
+          <p>Restaurant not found</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="restaurant-detail-container">
+        <div className="restaurant-detail-header">
+          <button className="back-button" onClick={onBack}>
+            ← Back
+          </button>
+        </div>
+        <div style={{ padding: '40px', textAlign: 'center' }}>
+          <div className="loading-spinner">🔄</div>
+          <p>Loading restaurant details...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="restaurant-detail-container">
+        <div className="restaurant-detail-header">
+          <button className="back-button" onClick={onBack}>
+            ← Back
+          </button>
+        </div>
+        <div style={{ padding: '40px', textAlign: 'center' }}>
+          <div className="error-icon">⚠️</div>
+          <p>Failed to load restaurant details: {error}</p>
+          <button onClick={() => window.location.reload()} className="retry-btn">
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Use restaurantDetails if available, otherwise fall back to restaurant prop
+  const displayRestaurant = restaurantDetails || restaurant;
+
+  // Filter menu items based on search and category
+  const filteredItems = menuItems.filter(item => {
+    const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         item.description?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = selectedCategory === 'All' || item.category_name === selectedCategory;
+    return matchesSearch && matchesCategory;
+  });
+
+  // Group items by category for display
+  const groupedItems = filteredItems.reduce((acc, item) => {
+    const category = item.category_name || 'Other';
+    if (!acc[category]) {
+      acc[category] = [];
     }
-  ];
-
-  const similarRestaurants = [
-    { id: 1, name: 'Coffee World', rating: 4.5, image: '☕', deal: '30% off' },
-    { id: 2, name: 'Cafe Delight', rating: 4.7, image: '🍰', deal: '₹100 off' },
-    { id: 3, name: 'Brew Station', rating: 4.6, image: '☕', deal: 'Free delivery' },
-    { id: 4, name: 'Sweet Treats', rating: 4.8, image: '🧁', deal: '25% off' }
-  ];
+    acc[category].push(item);
+    return acc;
+  }, {});
 
   const handleAddToCart = (item) => {
-    if (!isLoggedIn) {
-      alert('Please login to add items to cart');
-      return;
-    }
-    
-    const cartItem = {
-      ...item,
-      restaurantName: restaurant?.name || 'Wellness Cafe',
+    const newItem = {
+      id: `${item.food_id}-${Date.now()}`,
+      name: item.name,
+      price: item.price,
+      restaurant: displayRestaurant.name,
+      restaurantId: displayRestaurant.id,
+      image: item.image_url || '🍽️',
+      emoji: '🍽️',
       quantity: 1
     };
     
-    onAddToCart(cartItem);
+    // Add to local cart for this restaurant
+    setLocalCartItems([...localCartItems, newItem]);
+    
+    // Also call parent's onAddToCart if provided
+    if (onAddToCart) {
+      onAddToCart(newItem);
+    }
+    
+    // Show cart sidebar
     setShowCart(true);
+  };
+
+  const handleUpdateQuantity = (itemId, newQuantity) => {
+    if (newQuantity <= 0) {
+      handleRemoveItem(itemId);
+      return;
+    }
+    setLocalCartItems(localCartItems.map(item => 
+      item.id === itemId ? { ...item, quantity: newQuantity } : item
+    ));
+  };
+
+  const handleRemoveItem = (itemId) => {
+    setLocalCartItems(localCartItems.filter(item => item.id !== itemId));
+  };
+
+  const handleCheckout = () => {
+    // Navigate to checkout page
+    // You'll need to implement this navigation in App.jsx
+    console.log('Navigate to checkout with items:', localCartItems);
+    alert('Checkout functionality - to be implemented');
   };
 
   return (
     <div className="restaurant-detail-container">
-      {/* Header with back button */}
+      {/* Header */}
       <div className="restaurant-detail-header">
         <button className="back-button" onClick={onBack}>
           ← Back
@@ -254,46 +193,107 @@ const RestaurantDetail = ({ restaurant, onBack, onAddToCart, isLoggedIn }) => {
       {/* Restaurant Banner */}
       <div className="restaurant-banner">
         <div className="banner-image">
-          <div className="banner-emoji">🍽️</div>
-        </div>
-        <div className="restaurant-info-banner">
-          <h1 className="restaurant-name">{restaurant?.name || 'Wellness Cafe - Gulshan 2'}</h1>
-          <div className="restaurant-meta">
-            <span className="meta-item">⭐ {restaurant?.rating || '4.5'}</span>
-            <span className="meta-item">📍 {restaurant?.address || 'Gulshan, Dhaka'}</span>
-            <span className="meta-item">🕐 30-40 min</span>
+          {displayRestaurant.image_url ? (
+            <img 
+              src={displayRestaurant.image_url} 
+              alt={displayRestaurant.name}
+              className="restaurant-banner-img"
+              onError={(e) => {
+                e.target.style.display = 'none';
+                e.target.nextSibling.style.display = 'flex';
+              }}
+            />
+          ) : null}
+          <div className="banner-emoji" style={{ display: displayRestaurant.image_url ? 'none' : 'flex' }}>
+            🍽️
           </div>
-          <div className="restaurant-tags">
-            <span className="tag">Cafe</span>
-            <span className="tag">Coffee</span>
-            <span className="tag">Desserts</span>
+        </div>
+        
+        <div className="restaurant-info-banner">
+          <h1 className="restaurant-name">{displayRestaurant.name}</h1>
+          <p className="restaurant-subtitle">{displayRestaurant.description || 'Restaurant'}</p>
+          
+          <div className="restaurant-meta">
+            <div className="meta-item">
+              <span className="delivery-icon">🚴</span>
+              <span className="delivery-info">Delivery: 30-45 min</span>
+            </div>
+          </div>
+
+          <div className="restaurant-rating-info">
+            <span style={{ color: '#6b7280', fontSize: '14px' }}>
+              ⭐ {displayRestaurant.rating} ({displayRestaurant.total_rated})
+            </span>
+            <button className="see-reviews-btn">See reviews</button>
+            <button className="more-info-btn">More info</button>
           </div>
         </div>
       </div>
 
       {/* Available Deals */}
-      <section className="deals-section-detail">
-        <h2 className="section-title-detail">Available deals</h2>
-        <div className="deals-grid-detail">
-          {availableDeals.map(deal => (
-            <div 
-              key={deal.id} 
-              className="deal-card-detail"
-              style={{ backgroundColor: deal.bgColor }}
-            >
-              <h3 className="deal-title-detail">{deal.title}</h3>
-              <p className="deal-description">{deal.description}</p>
-              <button className="deal-code-btn">Use code: {deal.code}</button>
-            </div>
-          ))}
+      {displayRestaurant.discounts && displayRestaurant.discounts.length > 0 && (
+        <div className="deals-section-detail">
+          <h2 className="section-title-detail">Available deals</h2>
+          <div className="deals-grid-detail">
+            {displayRestaurant.discounts.map((discount, index) => (
+              <div 
+                key={discount.id} 
+                className="deal-card-detail"
+                style={{
+                  background: index === 0 
+                    ? 'linear-gradient(135deg, #1e293b 0%, #334155 100%)'
+                    : 'linear-gradient(135deg, #db2777 0%, #be185d 100%)'
+                }}
+              >
+                <div className="deal-icon">🎉</div>
+                <div className="deal-content">
+                  <h3 className="deal-title-detail">{discount.description}</h3>
+                  <p className="deal-description">
+                    Min. order ৳{discount.min_order} • {discount.percentage}% off
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
-        <button className="view-all-deals">View all 3 offers</button>
-      </section>
+      )}
 
-      {/* Menu Categories */}
-      <section className="menu-section">
+      {/* Menu Section */}
+      <div className="menu-section">
+        <h2 className="section-title-detail">Menu</h2>
+
+        {/* Menu Controls - Search and Delivery/Pickup */}
+        <div className="menu-controls">
+          <div className="search-in-menu">
+            <span className="search-icon">🔍</span>
+            <input
+              type="text"
+              placeholder="Search in menu"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="menu-search-input"
+            />
+          </div>
+
+          <div className="delivery-pickup-toggle">
+            <button
+              className={`toggle-btn ${deliveryMode === 'delivery' ? 'active' : ''}`}
+              onClick={() => setDeliveryMode('delivery')}
+            >
+              Delivery
+            </button>
+            <button
+              className={`toggle-btn ${deliveryMode === 'pickup' ? 'active' : ''}`}
+              onClick={() => setDeliveryMode('pickup')}
+            >
+              Pick-up
+            </button>
+          </div>
+        </div>
+
+        {/* Menu Categories */}
         <div className="menu-categories-scroll">
-          {menuCategories.map(category => (
+          {categories.map((category) => (
             <button
               key={category}
               className={`menu-category-btn ${selectedCategory === category ? 'active' : ''}`}
@@ -306,71 +306,165 @@ const RestaurantDetail = ({ restaurant, onBack, onAddToCart, isLoggedIn }) => {
 
         {/* Menu Items */}
         <div className="menu-items-container">
-          <h2 className="menu-category-title">🔥 {selectedCategory}</h2>
-          <p className="menu-category-subtitle">Most ordered right now</p>
-          
-          <div className="menu-items-grid">
-            {menuItems[selectedCategory]?.map(item => (
-              <div key={item.id} className="menu-item-card">
-                <div className="menu-item-image">
-                  <div className="menu-item-emoji">{item.image}</div>
-                </div>
-                <div className="menu-item-info">
-                  <h3 className="menu-item-name">{item.name}</h3>
-                  <p className="menu-item-description">{item.description}</p>
-                  <div className="menu-item-footer">
-                    <span className="menu-item-price">৳{item.price.toFixed(2)}</span>
-                    <div className="menu-item-rating">
-                      ⭐ {item.rating}
+          {Object.keys(groupedItems).length > 0 ? (
+            Object.entries(groupedItems).map(([category, items]) => (
+              <div key={category} className="menu-category-section">
+                <h3 className="menu-category-title">{category}</h3>
+                <p className="menu-category-subtitle">{items.length} items</p>
+                
+                <div className="menu-items-grid">
+                  {items.map((item) => (
+                    <div key={item.food_id} className="menu-item-card">
+                      <div className="menu-item-info">
+                        <h4 className="menu-item-name">{item.name}</h4>
+                        <p className="menu-item-description">{item.description}</p>
+                        
+                        <div className="menu-item-footer">
+                          <span className="menu-item-price">৳{item.price}</span>
+                          {item.discount_ammount && (
+                            <span className="menu-item-discount">
+                              -{item.discount_ammount}%
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="menu-item-image-container">
+                        <div className="menu-item-image">
+                          {item.image_url ? (
+                            <img 
+                              src={item.image_url} 
+                              alt={item.name}
+                              style={{
+                                width: '100%',
+                                height: '100%',
+                                objectFit: 'cover',
+                                borderRadius: '10px'
+                              }}
+                              onError={(e) => {
+                                e.target.style.display = 'none';
+                                e.target.nextSibling.style.display = 'flex';
+                              }}
+                            />
+                          ) : null}
+                          <div 
+                            className="menu-item-emoji" 
+                            style={{ display: item.image_url ? 'none' : 'flex' }}
+                          >
+                            🍽️
+                          </div>
+                        </div>
+                        
+                        <button
+                          className="add-item-btn"
+                          onClick={() => handleAddToCart(item)}
+                          disabled={!item.is_available}
+                        >
+                          +
+                        </button>
+                      </div>
                     </div>
-                  </div>
+                  ))}
                 </div>
-                <button 
-                  className="add-item-btn"
-                  onClick={() => handleAddToCart(item)}
-                >
-                  +
-                </button>
               </div>
-            ))}
-          </div>
+            ))
+          ) : (
+            <div className="no-menu-results">
+              <div className="no-results-icon">🔍</div>
+              <p>No items found matching "{searchQuery}"</p>
+            </div>
+          )}
         </div>
-      </section>
+      </div>
 
       {/* Similar Restaurants */}
-      <section className="similar-restaurants-section">
+      <div className="similar-restaurants-section">
         <h2 className="section-title-detail">Similar restaurants</h2>
         <div className="similar-restaurants-grid">
-          {similarRestaurants.map(rest => (
-            <div key={rest.id} className="similar-restaurant-card">
-              <div className="similar-rest-image">
-                <div className="similar-rest-emoji">{rest.image}</div>
-                <div className="similar-rest-deal">{rest.deal}</div>
-              </div>
-              <div className="similar-rest-info">
-                <h4>{rest.name}</h4>
-                <div className="similar-rest-rating">⭐ {rest.rating}</div>
-              </div>
+          {/* Placeholder for similar restaurants */}
+          <div className="similar-restaurant-card">
+            <div className="similar-rest-image">
+              <div className="similar-rest-emoji">🍕</div>
+              <div className="similar-rest-deal">20% OFF</div>
             </div>
-          ))}
+            <div className="similar-rest-info">
+              <h4>Pizza Palace</h4>
+              <div className="similar-rest-rating">⭐ 4.5 (200+)</div>
+            </div>
+          </div>
+          
+          <div className="similar-restaurant-card">
+            <div className="similar-rest-image">
+              <div className="similar-rest-emoji">🍔</div>
+              <div className="similar-rest-deal">15% OFF</div>
+            </div>
+            <div className="similar-rest-info">
+              <h4>Burger House</h4>
+              <div className="similar-rest-rating">⭐ 4.3 (150+)</div>
+            </div>
+          </div>
+
+          <div className="similar-restaurant-card">
+            <div className="similar-rest-image">
+              <div className="similar-rest-emoji">🍜</div>
+              <div className="similar-rest-deal">25% OFF</div>
+            </div>
+            <div className="similar-rest-info">
+              <h4>Noodle Bar</h4>
+              <div className="similar-rest-rating">⭐ 4.7 (300+)</div>
+            </div>
+          </div>
+
+          <div className="similar-restaurant-card">
+            <div className="similar-rest-image">
+              <div className="similar-rest-emoji">🍰</div>
+              <div className="similar-rest-deal">10% OFF</div>
+            </div>
+            <div className="similar-rest-info">
+              <h4>Cake Corner</h4>
+              <div className="similar-rest-rating">⭐ 4.6 (180+)</div>
+            </div>
+          </div>
         </div>
-      </section>
+      </div>
 
       {/* Footer Info */}
       <div className="restaurant-footer-info">
         <div className="footer-info-section">
-          <h3>📍 Location</h3>
-          <p>{restaurant?.address || 'Gulshan 2, Dhaka 1212, Bangladesh'}</p>
+          <h3>About</h3>
+          <p>{displayRestaurant.description || 'Quality food delivered to your door.'}</p>
         </div>
+        
         <div className="footer-info-section">
-          <h3>🕐 Opening hours</h3>
-          <p>Monday - Sunday: 8:00 AM - 11:00 PM</p>
+          <h3>Opening Hours</h3>
+          <p>
+            {displayRestaurant.opening_time} - {displayRestaurant.closing_time}
+          </p>
         </div>
+        
         <div className="footer-info-section">
-          <h3>💳 Payment methods</h3>
-          <p>Cash, Card, Mobile Payment</p>
+          <h3>Contact</h3>
+          <p>Phone: {displayRestaurant.phone || 'N/A'}</p>
+          <p>Address: {displayRestaurant.address || 'Dhaka, Bangladesh'}</p>
+        </div>
+        
+        <div className="footer-info-section">
+          <h3>Delivery Info</h3>
+          <p>Minimum order: ৳{displayRestaurant.min_order}</p>
+          <p>Delivery fee may vary</p>
         </div>
       </div>
+
+      {/* Restaurant-Specific Cart Sidebar */}
+      <RestaurantCart 
+        isOpen={showCart}
+        onClose={() => setShowCart(false)}
+        cartItems={localCartItems}
+        onUpdateQuantity={handleUpdateQuantity}
+        onRemoveItem={handleRemoveItem}
+        onCheckout={handleCheckout}
+        restaurantName={displayRestaurant.name}
+      />
     </div>
   );
 };
