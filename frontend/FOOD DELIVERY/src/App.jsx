@@ -1,14 +1,16 @@
 import { useState, useEffect } from 'react';
 import Homepage from './homepage/homepage.jsx';
 import RestaurantDetail from './homepage/RestaurantDetail.jsx';
+import Checkout from './homepage/Checkout.jsx';
 import SignIn from './log in and sign up/log_in_page.jsx';
 import SignUp from './log in and sign up/sign_up_page.jsx';
 import authService from './Authservice.js';
 import cartService from './Cartservice.js';
 
 function App() {
-  const [currentPage, setCurrentPage] = useState('home'); // 'home', 'restaurant', 'login', 'signup'
+  const [currentPage, setCurrentPage] = useState('home'); // 'home', 'restaurant', 'checkout', 'login', 'signup'
   const [selectedRestaurant, setSelectedRestaurant] = useState(null);
+  const [checkoutRestaurantId, setCheckoutRestaurantId] = useState(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [user, setUser] = useState(null);
   const [cartItems, setCartItems] = useState([]);
@@ -122,6 +124,19 @@ function App() {
   const handleBackToHome = () => {
     setCurrentPage('home');
     setSelectedRestaurant(null);
+    setCheckoutRestaurantId(null);
+  };
+
+  const handleBackToRestaurant = () => {
+    setCurrentPage('restaurant');
+    setCheckoutRestaurantId(null);
+  };
+
+  // Handle checkout navigation - FIXED to pass restaurant ID
+  const handleCheckout = (restaurantId) => {
+    console.log('Navigating to checkout for restaurant:', restaurantId);
+    setCheckoutRestaurantId(restaurantId);
+    setCurrentPage('checkout');
   };
 
   // ============================================
@@ -178,6 +193,25 @@ function App() {
 
   const handleSwitchToSignUp = () => {
     setCurrentPage('signup');
+  };
+
+  // Handle Place Order
+  const handlePlaceOrder = (orderData) => {
+    console.log('Order placed:', orderData);
+    
+    // Clear cart items for this restaurant
+    const updatedCart = cartItems.filter(
+      item => item.restaurantId !== checkoutRestaurantId
+    );
+    setCartItems(updatedCart);
+    
+    // Show success message
+    alert('Order placed successfully! 🎉');
+    
+    // Go back to home
+    setCurrentPage('home');
+    setCheckoutRestaurantId(null);
+    setSelectedRestaurant(null);
   };
 
   // ============================================
@@ -237,6 +271,7 @@ function App() {
           onRestaurantSignUpClick={handleRestaurantSignUpClick}
           onLogout={handleLogout}
           onRestaurantClick={handleRestaurantClick}
+          onCheckout={handleCheckout}
         />
       )}
 
@@ -249,11 +284,37 @@ function App() {
           cartItems={cartItems}
           onUpdateQuantity={handleUpdateQuantity}
           onRemoveItem={handleRemoveItem}
+          onCheckout={handleCheckout}
           isLoggedIn={isLoggedIn}
           user={user}
           onLoginClick={handleLoginClick}
           onSignUpClick={handleSignUpClick}
           onLogout={handleLogout}
+        />
+      )}
+
+      {/* CHECKOUT PAGE */}
+      {currentPage === 'checkout' && checkoutRestaurantId && (
+        <Checkout
+          restaurant={
+            // Find restaurant data from selectedRestaurant or cart items
+            selectedRestaurant || 
+            (cartItems.find(item => item.restaurantId === checkoutRestaurantId) && {
+              id: checkoutRestaurantId,
+              name: cartItems.find(item => item.restaurantId === checkoutRestaurantId).restaurant,
+              image_url: cartItems.find(item => item.restaurantId === checkoutRestaurantId).restaurantImage
+            })
+          }
+          cartItems={cartItems.filter(item => item.restaurantId === checkoutRestaurantId)}
+          allCartItems={cartItems}
+          onBack={selectedRestaurant ? handleBackToRestaurant : handleBackToHome}
+          isLoggedIn={isLoggedIn}
+          user={user}
+          onLoginClick={handleLoginClick}
+          onSignUpClick={handleSignUpClick}
+          onLogout={handleLogout}
+          onPlaceOrder={handlePlaceOrder}
+          onCheckout={handleCheckout}
         />
       )}
     </div>

@@ -18,6 +18,7 @@ const Homepage = ({
   onRestaurantSignUpClick,
   onLogout,
   onRestaurantClick,
+  onCheckout,
 }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [showMobileMenu, setShowMobileMenu] = useState(false);
@@ -89,7 +90,9 @@ const Homepage = ({
 
   const handleCheckout = (restaurantId) => {
     console.log("Checkout for restaurant:", restaurantId);
-    // TODO: Navigate to checkout page
+    if (onCheckout) {
+      onCheckout(restaurantId);
+    }
   };
 
   const handleNavigateToRestaurant = (restaurantId) => {

@@ -1,13 +1,24 @@
-/* Order Summary Container - Fixed Right Sidebar */
+/* Order Summary - STICKY RIGHT SIDEBAR */
 .order-summary-container {
   position: sticky;
   top: 20px;
+  right: 0;
+  /* CRITICAL: Fixed width prevents collision */
   width: 400px;
+  min-width: 400px;
+  max-width: 400px;
   background: white;
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   overflow: hidden;
   align-self: flex-start;
+  /* CRITICAL: Never shrink */
+  flex-shrink: 0;
+  max-height: calc(100vh - 40px);
+  display: flex;
+  flex-direction: column;
+  /* CRITICAL: Ensure it stays in place */
+  z-index: 10;
 }
 
 /* Delivery Mode Tabs */
@@ -15,6 +26,7 @@
   display: flex;
   border-bottom: 1px solid #e5e7eb;
   background: white;
+  flex-shrink: 0;
 }
 
 .mode-tab {
@@ -52,8 +64,9 @@
 /* Order Summary Content */
 .order-summary-content {
   padding: 20px;
-  max-height: calc(100vh - 200px);
   overflow-y: auto;
+  overflow-x: hidden;
+  flex: 1;
 }
 
 .summary-section-title {
@@ -101,6 +114,7 @@
   display: flex;
   gap: 12px;
   flex: 1;
+  min-width: 0;
 }
 
 .order-item-image {
@@ -127,6 +141,8 @@
 
 .order-item-details {
   flex: 1;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .order-item-name {
@@ -134,6 +150,9 @@
   font-weight: 600;
   color: #111827;
   margin: 0 0 8px 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .order-item-price-row {
@@ -159,6 +178,7 @@
   flex-direction: column;
   align-items: flex-end;
   gap: 12px;
+  flex-shrink: 0;
 }
 
 .remove-btn {
@@ -226,6 +246,7 @@
   border: 1px solid #e5e7eb;
   width: 32px;
   height: 32px;
+  min-width: 32px;
   border-radius: 50%;
   cursor: pointer;
   display: flex;
@@ -247,9 +268,11 @@
   display: flex;
   gap: 12px;
   overflow-x: auto;
+  overflow-y: hidden;
   scrollbar-width: none;
   -ms-overflow-style: none;
   flex: 1;
+  min-width: 0;
 }
 
 .popular-items-container::-webkit-scrollbar {
@@ -262,6 +285,7 @@
   border-radius: 8px;
   overflow: hidden;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  flex-shrink: 0;
 }
 
 .popular-item-image {
@@ -320,6 +344,9 @@
 .popular-item-name {
   font-size: 12px;
   color: #6b7280;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Order Summary Breakdown */
@@ -354,10 +381,12 @@
   gap: 12px;
   align-items: flex-start;
   flex: 1;
+  min-width: 0;
 }
 
 .cutlery-icon {
   font-size: 20px;
+  flex-shrink: 0;
 }
 
 .cutlery-title {
@@ -378,6 +407,7 @@
   display: inline-block;
   width: 44px;
   height: 24px;
+  flex-shrink: 0;
 }
 
 .toggle-switch input {
@@ -511,18 +541,24 @@
   border-radius: 10px;
 }
 
-/* Responsive */
-@media (max-width: 1200px) {
+/* ==========================================
+   RESPONSIVE DESIGN
+   ========================================== */
+
+@media (max-width: 1400px) {
   .order-summary-container {
-    width: 350px;
+    position: relative;
+    top: 0;
+    width: 100%;
+    max-width: 100%;
+    min-width: 100%;
+    margin-top: 20px;
+    max-height: none;
   }
 }
 
 @media (max-width: 968px) {
   .order-summary-container {
-    position: relative;
-    top: 0;
-    width: 100%;
-    margin-top: 20px;
+    border-radius: 12px;
   }
 }
