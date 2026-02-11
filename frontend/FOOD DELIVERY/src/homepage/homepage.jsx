@@ -27,6 +27,8 @@ const Homepage = ({
   const [restaurants, setRestaurants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showLeftArrow, setShowLeftArrow] = useState(false);
+  const [showRightArrow, setShowRightArrow] = useState(true);
 
   // Fetch restaurants from API (with or without authentication)
   useEffect(() => {
@@ -103,6 +105,42 @@ const Homepage = ({
     }
   };
 
+  // Cuisine scroll handlers
+  const scrollCuisines = (direction) => {
+    const container = document.querySelector('.cuisines-grid');
+    if (container) {
+      const scrollAmount = 300;
+      const newScrollLeft = direction === 'left' 
+        ? container.scrollLeft - scrollAmount 
+        : container.scrollLeft + scrollAmount;
+      
+      container.scrollTo({
+        left: newScrollLeft,
+        behavior: 'smooth'
+      });
+      
+      // Update arrow visibility after scroll
+      setTimeout(() => updateArrowVisibility(), 300);
+    }
+  };
+
+  const updateArrowVisibility = () => {
+    const container = document.querySelector('.cuisines-grid');
+    if (container) {
+      setShowLeftArrow(container.scrollLeft > 0);
+      setShowRightArrow(
+        container.scrollLeft < container.scrollWidth - container.clientWidth - 10
+      );
+    }
+  };
+
+  // Check arrow visibility on mount and resize
+  useEffect(() => {
+    updateArrowVisibility();
+    window.addEventListener('resize', updateArrowVisibility);
+    return () => window.removeEventListener('resize', updateArrowVisibility);
+  }, []);
+
   // Filter restaurants based on search query
   const filteredRestaurants = restaurants.filter(
     (restaurant) =>
@@ -111,14 +149,21 @@ const Homepage = ({
   );
 
   const cuisines = [
-    { id: 1, name: "Pizza", emoji: "🍕" },
-    { id: 2, name: "Biryani", emoji: "🍛" },
-    { id: 3, name: "Burgers", emoji: "🍔" },
-    { id: 4, name: "Cakes", emoji: "🍰" },
-    { id: 5, name: "Bangladeshi", emoji: "🍱" },
-    { id: 6, name: "Snacks", emoji: "🍟" },
-    { id: 7, name: "Cafe", emoji: "☕" },
-    { id: 8, name: "Fast Food", emoji: "🌭" },
+    { id: 1, name: "Pizza", image: "Pizza.png" },
+    { id: 2, name: "Biryani", image: "Biryani.png" },
+    { id: 3, name: "Burgers", image: "Burgers.png" },
+    { id: 4, name: "Cakes", image: "Cakes.png" },
+    { id: 5, name: "Bangladeshi", image: "Bangladeshi.png" },
+    { id: 6, name: "Snacks", image: "Snacks.png" },
+    { id: 7, name: "Cafe", image: "Cafe.png" },
+    { id: 8, name: "Fast Food", image: "Fast%20Food.png" }, // URL encoded space
+    { id: 9, name: "Breakfast", image: "Breakfast.png" },
+    { id: 10, name: "Chicken", image: "Chicken.png" },
+    { id: 11, name: "Kebab", image: "Kebab.png" },
+    { id: 12, name: "Pasta", image: "pasta.png" },
+    { id: 13, name: "Rice Dishes", image: "Rice%20Dishes.png" }, // URL encoded space
+    { id: 14, name: "Soups", image: "Soups.png" },
+    { id: 15, name: "Tehari", image: "Tehari.png" },
   ];
 
   return (
@@ -180,7 +225,7 @@ const Homepage = ({
 
                 <span>
                   <img
-                    src="../../public/images/accessories/glass.png"
+                    src="/images/accessories/glass.png"
                     className="glass-image"
                     alt="Search"
                   />
@@ -214,14 +259,42 @@ const Homepage = ({
 
             {/* Cuisines Section */}
             <section className="cuisines-section">
-              <h2 className="section-title">Cuisines</h2>
-              <div className="cuisines-grid">
-                {cuisines.map((cuisine) => (
-                  <button key={cuisine.id} className="cuisine-card">
-                    <div className="cuisine-icon">{cuisine.emoji}</div>
-                    <span className="cuisine-name">{cuisine.name}</span>
+              <div className="cuisines-header">
+                <h2 className="section-title">Cuisines</h2>
+                <div className="cuisines-nav">
+                  <button
+                    className={`cuisine-nav-btn ${!showLeftArrow ? 'disabled' : ''}`}
+                    onClick={() => scrollCuisines('left')}
+                    disabled={!showLeftArrow}
+                    aria-label="Scroll left"
+                  >
+                    ←
                   </button>
-                ))}
+                  <button
+                    className={`cuisine-nav-btn ${!showRightArrow ? 'disabled' : ''}`}
+                    onClick={() => scrollCuisines('right')}
+                    disabled={!showRightArrow}
+                    aria-label="Scroll right"
+                  >
+                    →
+                  </button>
+                </div>
+              </div>
+              <div className="cuisines-grid-wrapper">
+                <div className="cuisines-grid" onScroll={updateArrowVisibility}>
+                  {cuisines.map((cuisine) => (
+                    <button key={cuisine.id} className="cuisine-card">
+                      <div className="cuisine-icon">
+                        <img 
+                          src={`/images/cusines/${cuisine.image}`}
+                          alt={cuisine.name}
+                          className="cuisine-image"
+                        />
+                      </div>
+                      <span className="cuisine-name">{cuisine.name}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
             </section>
 

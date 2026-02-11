@@ -4,11 +4,15 @@ import RestaurantDetail from './homepage/RestaurantDetail.jsx';
 import Checkout from './homepage/Checkout.jsx';
 import SignIn from './log in and sign up/log_in_page.jsx';
 import SignUp from './log in and sign up/sign_up_page.jsx';
+import RestaurantLogin from './homepage/RestaurantLogIn.jsx';
+import RestaurantSignUp from './homepage/RestaurantSignUp.jsx';
+import RiderSignUp from './homepage/RiderSignUp.jsx';
+import RiderOnBoarding from './homepage/RiderOnBoarding.jsx';
 import authService from './Authservice.js';
 import cartService from './Cartservice.js';
 
 function App() {
-  const [currentPage, setCurrentPage] = useState('home'); // 'home', 'restaurant', 'checkout', 'login', 'signup'
+  const [currentPage, setCurrentPage] = useState('home'); // 'home', 'restaurant', 'checkout', 'login', 'signup', 'restaurant-login', 'restaurant-signup', 'rider-signup', 'rider-onboarding'
   const [selectedRestaurant, setSelectedRestaurant] = useState(null);
   const [checkoutRestaurantId, setCheckoutRestaurantId] = useState(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -155,8 +159,7 @@ function App() {
 
   const handleRestaurantSignUpClick = () => {
     console.log('Restaurant sign up clicked');
-    // Navigate to restaurant signup page (you can implement this later)
-    alert('Restaurant signup - to be implemented');
+    setCurrentPage('restaurant-signup');
   };
 
   const handleLoginSuccess = async (userData) => {
@@ -193,6 +196,34 @@ function App() {
 
   const handleSwitchToSignUp = () => {
     setCurrentPage('signup');
+  };
+
+  // Restaurant handlers
+  const handleRestaurantLoginClick = () => {
+    setCurrentPage('restaurant-login');
+  };
+
+  const handleSwitchToRestaurantSignUp = () => {
+    setCurrentPage('restaurant-signup');
+  };
+
+  const handleSwitchToRestaurantLogin = () => {
+    setCurrentPage('restaurant-login');
+  };
+
+  // Rider handlers
+  const handleRiderSignUpClick = () => {
+    setCurrentPage('rider-signup');
+  };
+
+  const handleRiderOnBoardingClick = () => {
+    setCurrentPage('rider-onboarding');
+  };
+
+  const handleRiderOnBoardingCompletion = () => {
+    console.log('Rider onboarding completed');
+    alert('Onboarding completed! Welcome to foodpanda! 🎉');
+    setCurrentPage('home');
   };
 
   // Handle Place Order
@@ -315,6 +346,38 @@ function App() {
           onLogout={handleLogout}
           onPlaceOrder={handlePlaceOrder}
           onCheckout={handleCheckout}
+        />
+      )}
+
+      {/* RESTAURANT LOGIN PAGE */}
+      {currentPage === 'restaurant-login' && (
+        <RestaurantLogin
+          onSwitchToSignUp={handleSwitchToRestaurantSignUp}
+          onLoginSuccess={handleLoginSuccess}
+        />
+      )}
+
+      {/* RESTAURANT SIGNUP PAGE */}
+      {currentPage === 'restaurant-signup' && (
+        <RestaurantSignUp
+          onSwitchToLogin={handleSwitchToRestaurantLogin}
+          onRiderSignUp={handleRiderSignUpClick}
+          onSignUpSuccess={handleLoginSuccess}
+        />
+      )}
+
+      {/* RIDER SIGNUP PAGE */}
+      {currentPage === 'rider-signup' && (
+        <RiderSignUp
+          onSignUpSuccess={handleLoginSuccess}
+          onRiderOnBoarding={handleRiderOnBoardingClick}
+        />
+      )}
+
+      {/* RIDER ONBOARDING PAGE */}
+      {currentPage === 'rider-onboarding' && (
+        <RiderOnBoarding
+          onCompletion={handleRiderOnBoardingCompletion}
         />
       )}
     </div>

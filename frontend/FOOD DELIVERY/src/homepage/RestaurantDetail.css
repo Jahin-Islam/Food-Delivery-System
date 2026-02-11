@@ -101,7 +101,11 @@
 }
 
 .delivery-icon {
-  font-size: 16px;
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+  display: inline-block;
+  vertical-align: middle;
 }
 
 .delivery-info {
@@ -114,6 +118,13 @@
   align-items: center;
   gap: 16px;
   margin-top: 12px;
+}
+
+.restaurant-rating-info > span {
+  display: flex;
+  align-items: center;
+  font-size: 14px;
+  color: #6b7280;
 }
 
 .see-reviews-btn,
@@ -150,24 +161,35 @@
 
 .deals-grid-detail {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(245px, 1fr));
+  gap: 12px;
   margin-bottom: 16px;
 }
 
 .deal-card-detail {
-  padding: 20px;
+  padding: 16px;
   border-radius: 12px;
   color: white;
   transition: all 0.3s ease;
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
 }
 
 .deal-icon {
-  font-size: 40px;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+}
+
+.discount-icon {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  filter: brightness(0) invert(1);
 }
 
 .deal-content {
@@ -180,13 +202,13 @@
 }
 
 .deal-title-detail {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: bold;
-  margin: 0 0 6px 0;
+  margin: 0 0 4px 0;
 }
 
 .deal-description {
-  font-size: 14px;
+  font-size: 13px;
   margin: 0;
   opacity: 0.9;
 }
@@ -605,7 +627,7 @@
   .menu-with-summary-container {
     flex-direction: column;
   }
-  
+
   .menu-section {
     max-height: none; /* Remove max-height constraint on mobile */
   }
@@ -659,7 +681,7 @@
   .category-scroll-btn {
     display: none; /* Hide scroll arrows on mobile, touch scroll works */
   }
-  
+
   .menu-categories-container {
     padding: 0;
   }
@@ -709,4 +731,24 @@
   .add-item-btn {
     width: 80px;
   }
+}
+.load-icon {
+  height: 22px;
+  width: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 16px;
+  opacity: 0.7;
+  transition: all 0.3s ease;
+  flex-shrink: 0;
+  color: #9ca3af;
+}
+.star-icon {
+  height: 15px;
+  width: 15px;
+  object-fit: contain;
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 4px;
 }

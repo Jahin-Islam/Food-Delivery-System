@@ -129,7 +129,7 @@ const RestaurantDetail = ({
           </button>
         </div>
         <div style={{ padding: '40px', textAlign: 'center' }}>
-          <div className="loading-spinner">🔄</div>
+          <div className="loading-spinner"><img className="load-icon" src="/images/accessories/load.gif" alt="Loading..." /></div>
           <p>Loading restaurant details...</p>
         </div>
       </div>
@@ -336,7 +336,7 @@ const RestaurantDetail = ({
           
           <div className="restaurant-meta">
             <div className="meta-item">
-              <span className="delivery-icon">🚴</span>
+              <img className="delivery-icon" src="/images/accessories/cyclist.png" alt="Delivery" />
               <span className="delivery-info">
                 Delivery: {displayRestaurant.delivery_time || '20-30 min'}
               </span>
@@ -344,7 +344,7 @@ const RestaurantDetail = ({
           </div>
 
           <div className="restaurant-rating-info">
-            <span>⭐ {displayRestaurant.rating} ({displayRestaurant.total_rated || 0})</span>
+            <span><img className="star-icon" src="/images/accessories/star.png" alt="Rating" /> {displayRestaurant.rating} ({displayRestaurant.total_rated || 0})</span>
             <button className="see-reviews-btn">See reviews</button>
             <button className="more-info-btn">More info</button>
           </div>
@@ -366,7 +366,9 @@ const RestaurantDetail = ({
                     : 'linear-gradient(135deg, #db2777 0%, #be185d 100%)'
                 }}
               >
-                <div className="deal-icon">🎉</div>
+                <div className="deal-icon">
+                  <img className="discount-icon" src="/images/accessories/discount.png" alt="Discount" />
+                </div>
                 <div className="deal-content">
                   <h3 className="deal-title-detail">{discount.description}</h3>
                   <p className="deal-description">
@@ -388,7 +390,7 @@ const RestaurantDetail = ({
           {/* Menu Controls - Search */}
           <div className="menu-controls">
             <div className="search-in-menu">
-              <span className="search-icon">🔍</span>
+              <span className="search-icon"></span>
               <input
                 type="text"
                 placeholder="Search in menu"
