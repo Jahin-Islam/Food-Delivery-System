@@ -912,9 +912,10 @@ body {
 
 .deals-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(280px, 320px));
   gap: 24px;
   width: 100%;
+  justify-content: start;
 }
 
 .deal-card {
@@ -1159,7 +1160,7 @@ body {
   }
   
   .deals-grid {
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(250px, 300px));
   }
 }
 
@@ -1216,7 +1217,7 @@ body {
   }
 
   .deals-grid {
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(240px, 280px));
   }
 }
 
@@ -1290,7 +1291,7 @@ body {
   }
 
   .deals-grid {
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(280px, 320px));
   }
 
   .section-title {

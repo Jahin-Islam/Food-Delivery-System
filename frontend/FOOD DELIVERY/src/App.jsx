@@ -1,7 +1,43 @@
+// import React, { useState } from 'react';
+// import RiderDashboard from './riderpage/Riderdashboard.jsx';
+// import './App.css';
+
+// function App() {
+//   const [isLoggedIn, setIsLoggedIn] = useState(true);
+  
+//   const mockRider = {
+//     name: 'Piyush Agarwal',
+//     id: 'RD-9577690140',
+//     vehicle: 'Car',
+//     phone: '9577690140',
+//     email: 'agarwal.piyush123@outlook.com',
+//     rating: 4.8,
+//     totalReviews: 156
+//   };
+
+//   const handleLogout = () => {
+//     setIsLoggedIn(false);
+//     console.log('Rider logged out');
+//   };
+
+//   return (
+//     <div className="App">
+//       <RiderDashboard 
+//         rider={mockRider}
+//         onLogout={handleLogout}
+//       />
+//     </div>
+//   );
+// }
+
+// export default App;
+
+
 import { useState, useEffect } from 'react';
 import Homepage from './homepage/homepage.jsx';
 import RestaurantDetail from './homepage/RestaurantDetail.jsx';
 import Checkout from './homepage/Checkout.jsx';
+import Profile from './homepage/Profile.jsx';
 import SignIn from './log in and sign up/log_in_page.jsx';
 import SignUp from './log in and sign up/sign_up_page.jsx';
 import RestaurantLogin from './homepage/RestaurantLogIn.jsx';
@@ -12,7 +48,7 @@ import authService from './Authservice.js';
 import cartService from './Cartservice.js';
 
 function App() {
-  const [currentPage, setCurrentPage] = useState('home'); // 'home', 'restaurant', 'checkout', 'login', 'signup', 'restaurant-login', 'restaurant-signup', 'rider-signup', 'rider-onboarding'
+  const [currentPage, setCurrentPage] = useState('home'); // 'home', 'restaurant', 'checkout', 'profile', 'login', 'signup', 'restaurant-login', 'restaurant-signup', 'rider-signup', 'rider-onboarding'
   const [selectedRestaurant, setSelectedRestaurant] = useState(null);
   const [checkoutRestaurantId, setCheckoutRestaurantId] = useState(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -155,6 +191,17 @@ function App() {
   const handleSignUpClick = () => {
     console.log('Navigating to signup page');
     setCurrentPage('signup');
+  };
+
+  const handleProfileClick = () => {
+    console.log('Navigating to profile page');
+    setCurrentPage('profile');
+  };
+
+  const handleOrdersClick = () => {
+    console.log('Navigating to orders page');
+    // TODO: Implement orders page
+    alert('Orders page coming soon!');
   };
 
   const handleRestaurantSignUpClick = () => {
@@ -303,6 +350,21 @@ function App() {
           onLogout={handleLogout}
           onRestaurantClick={handleRestaurantClick}
           onCheckout={handleCheckout}
+          onProfileClick={handleProfileClick}
+          onOrdersClick={handleOrdersClick}
+        />
+      )}
+
+      {/* PROFILE PAGE */}
+      {currentPage === 'profile' && (
+        <Profile
+          isLoggedIn={isLoggedIn}
+          user={user}
+          cartItems={cartItems}
+          onBack={handleBackToHome}
+          onLoginClick={handleLoginClick}
+          onSignUpClick={handleSignUpClick}
+          onLogout={handleLogout}
         />
       )}
 

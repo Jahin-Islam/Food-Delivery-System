@@ -167,13 +167,14 @@
 }
 
 .deal-card-detail {
-  padding: 16px;
-  border-radius: 12px;
+  padding: 18px;
+  border-radius: 16px;
   color: white;
   transition: all 0.3s ease;
   display: flex;
   align-items: center;
   gap: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .deal-icon {
@@ -181,13 +182,13 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
 }
 
 .discount-icon {
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
   object-fit: contain;
   filter: brightness(0) invert(1);
 }
@@ -198,7 +199,7 @@
 
 .deal-card-detail:hover {
   transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
 }
 
 .deal-title-detail {
@@ -277,11 +278,18 @@
   position: relative;
   display: flex;
   align-items: center;
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  padding: 0 12px;
-  height: 44px;
+  background: white;
+  border: 2px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 0 16px;
+  height: 48px;
+  transition: all 0.2s ease;
+}
+
+.search-in-menu:focus-within {
+  border-color: #db2777;
+  background: #fef3f8;
+  box-shadow: 0 0 0 3px rgba(219, 39, 119, 0.1);
 }
 
 .search-icon {
@@ -317,9 +325,9 @@
 
 .category-scroll-btn {
   background: white;
-  border: 1px solid #e5e7eb;
-  width: 32px;
-  height: 32px;
+  border: 2px solid #e5e7eb;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   cursor: pointer;
   display: flex;
@@ -330,12 +338,15 @@
   transition: all 0.2s;
   flex-shrink: 0;
   z-index: 10;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .category-scroll-btn:hover {
-  background: #f3f4f6;
+  background: #db2777;
   border-color: #db2777;
-  color: #db2777;
+  color: white;
+  transform: scale(1.05);
+  box-shadow: 0 2px 8px rgba(219, 39, 119, 0.3);
 }
 
 .menu-categories-scroll {
@@ -356,28 +367,33 @@
 
 .menu-category-btn {
   background: white;
-  border: 1px solid #e5e7eb;
+  border: 2px solid #e5e7eb;
   color: #6b7280;
   padding: 10px 20px;
-  border-radius: 8px;
+  border-radius: 20px;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
   transition: all 0.2s ease;
   font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  min-width: fit-content;
+  flex-shrink: 0;
 }
 
 .menu-category-btn.active {
-  background: white;
-  border-color: #111827;
-  color: #111827;
+  background: #db2777;
+  border-color: #db2777;
+  color: white;
   font-weight: 600;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(219, 39, 119, 0.25);
 }
 
 .menu-category-btn:hover {
-  border-color: #9ca3af;
-  color: #374151;
+  border-color: #db2777;
+  color: #db2777;
+  background: #fce7f3;
 }
 
 .menu-category-section {
@@ -410,8 +426,8 @@
 
 .menu-item-card {
   background: #ffffff;
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
+  border: 2px solid #e5e7eb;
+  border-radius: 16px;
   padding: 16px;
   display: flex;
   gap: 16px;
@@ -422,8 +438,9 @@
 }
 
 .menu-item-card:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
   border-color: #db2777;
+  transform: translateY(-2px);
 }
 
 .menu-item-info {
@@ -494,11 +511,11 @@
 
 .add-item-btn {
   width: 100px;
-  height: 36px;
-  background: #db2777;
+  height: 38px;
+  background: linear-gradient(135deg, #db2777 0%, #be185d 100%);
   color: white;
   border: none;
-  border-radius: 8px;
+  border-radius: 10px;
   font-size: 24px;
   font-weight: bold;
   cursor: pointer;
@@ -507,11 +524,16 @@
   justify-content: center;
   transition: all 0.3s ease;
   flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(219, 39, 119, 0.3);
 }
 
 .add-item-btn:hover {
-  background: #be185d;
-  transform: scale(1.05);
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: 0 4px 12px rgba(219, 39, 119, 0.4);
+}
+
+.add-item-btn:active {
+  transform: translateY(0) scale(1);
 }
 
 /* No Results */

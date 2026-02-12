@@ -29,7 +29,7 @@ const SignUp = ({ onSwitchToSignIn, onSignUpSuccess }) => {
     setError('');
 
     if (!formData.email || !formData.password || !formData.password2 || 
-        !formData.first_name || !formData.last_name) {
+        !formData.first_name || !formData.last_name || !formData.phone) {
       setError('Please fill in all required fields');
       return;
     }
@@ -53,11 +53,8 @@ const SignUp = ({ onSwitchToSignIn, onSignUpSuccess }) => {
         password2: formData.password2,
         first_name: formData.first_name,
         last_name: formData.last_name,
+        phone: formData.phone
       };
-
-      if (formData.phone) {
-        userData.phone = formData.phone;
-      }
 
       const result = await authService.register(userData);
       console.log('Registration result:', result);
@@ -143,7 +140,7 @@ const SignUp = ({ onSwitchToSignIn, onSignUpSuccess }) => {
             </div>
 
             <div className="signup-form-group">
-              <label htmlFor="phone">Phone Number (Optional)</label>
+              <label htmlFor="phone">Phone Number *</label>
               <input
                 type="tel"
                 id="phone"
@@ -152,6 +149,7 @@ const SignUp = ({ onSwitchToSignIn, onSignUpSuccess }) => {
                 value={formData.phone}
                 onChange={handleChange}
                 disabled={loading}
+                required
               />
             </div>
 

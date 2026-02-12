@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-export const CuisineFilter = () => {
+export const CuisineFilter = ({ selectedCuisines = [], onCuisineToggle }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -18,6 +18,12 @@ export const CuisineFilter = () => {
 
   const displayedCuisines = isExpanded ? cuisines : cuisines.slice(0, 10);
 
+  const handleCheckboxChange = (cuisine) => {
+    if (onCuisineToggle) {
+      onCuisineToggle(cuisine);
+    }
+  };
+
   return (
     <div className="filter-section">
       <p className="filter-label">Cuisines</p>
@@ -28,6 +34,7 @@ export const CuisineFilter = () => {
           type="text" 
           placeholder="Search for cuisines" 
           className="filter-search-input"
+          value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
       </div>
@@ -38,7 +45,13 @@ export const CuisineFilter = () => {
           .filter(item => item.toLowerCase().includes(searchTerm.toLowerCase()))
           .map((cuisine) => (
             <label key={cuisine} className="filter-option">
-              <input type="checkbox" name="cuisine" value={cuisine.toLowerCase()} />
+              <input 
+                type="checkbox" 
+                name="cuisine" 
+                value={cuisine.toLowerCase()}
+                checked={selectedCuisines.includes(cuisine)}
+                onChange={() => handleCheckboxChange(cuisine)}
+              />
               <span>{cuisine}</span>
             </label>
           ))}

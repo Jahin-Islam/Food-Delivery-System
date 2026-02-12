@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import './Header.css';
+import ProfileDropdown from './ProfileDropdown.jsx';
 
 const Header = ({ 
   isLoggedIn, 
@@ -10,8 +11,16 @@ const Header = ({
   onCartClick, 
   onLogout,
   showBanner = false,
-  onRestaurantSignUpClick
+  onRestaurantSignUpClick,
+  onProfileClick,
+  onOrdersClick
 }) => {
+  const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+
+  const handleProfileClick = () => {
+    setShowProfileDropdown(!showProfileDropdown);
+  };
+
   return (
     <>
       {/* Top Pink Banner */}
@@ -81,12 +90,22 @@ const Header = ({
                   </span>
                   <span>FAVOURITES</span>
                 </button>
-                <button className="header-btn profile-btn" onClick={onLogout}>
+                <button className="header-btn profile-btn" onClick={handleProfileClick}>
                   <span className="logo-image">
                     <img src="../../public/images/accessories/profile.png" alt="Profile" />
                   </span>
                   <span>{user?.first_name || "PROFILE"}</span>
                 </button>
+                
+                {/* Profile Dropdown */}
+                <ProfileDropdown
+                  isOpen={showProfileDropdown}
+                  onClose={() => setShowProfileDropdown(false)}
+                  user={user}
+                  onProfileClick={onProfileClick}
+                  onOrdersClick={onOrdersClick}
+                  onLogout={onLogout}
+                />
               </>
             )}
           </div>

@@ -29,6 +29,7 @@ const Homepage = ({
   const [error, setError] = useState(null);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(true);
+  const [selectedCuisines, setSelectedCuisines] = useState([]);
 
   // Fetch restaurants from API (with or without authentication)
   useEffect(() => {
@@ -53,7 +54,33 @@ const Homepage = ({
           data = await response.json();
         }
 
-        setRestaurants(data);
+        // Fetch full details for each restaurant to get menu items
+        // This is needed for cuisine filtering
+        const detailedRestaurants = await Promise.all(
+          data.map(async (restaurant) => {
+            try {
+              let details;
+              if (isLoggedIn) {
+                details = await authService.authenticatedFetch(
+                  `http://127.0.0.1:8000/api/v1/restaurants/${restaurant.id}/`
+                );
+              } else {
+                const detailResponse = await fetch(
+                  `http://127.0.0.1:8000/api/v1/restaurants/${restaurant.id}/`
+                );
+                if (detailResponse.ok) {
+                  details = await detailResponse.json();
+                }
+              }
+              return details || restaurant;
+            } catch (err) {
+              console.error(`Error fetching details for restaurant ${restaurant.id}:`, err);
+              return restaurant; // Return basic data if detail fetch fails
+            }
+          })
+        );
+
+        setRestaurants(detailedRestaurants);
         setError(null);
       } catch (err) {
         console.error("Error fetching restaurants:", err);
@@ -148,6 +175,43 @@ const Homepage = ({
       restaurant.description?.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
+  // Handle cuisine card click from homepage
+  const handleCuisineClick = (cuisineName) => {
+    setSelectedCuisines([cuisineName]);
+    setSearchQuery(""); // Clear search when cuisine is selected
+  };
+
+  // Handle cuisine checkbox toggle from sidebar
+  const handleCuisineToggle = (cuisineName) => {
+    setSelectedCuisines(prev => {
+      if (prev.includes(cuisineName)) {
+        // Remove cuisine if already selected
+        return prev.filter(c => c !== cuisineName);
+      } else {
+        // Add cuisine to selection
+        return [...prev, cuisineName];
+      }
+    });
+  };
+
+  // Filter restaurants by selected cuisines (OR operation)
+  const getCuisineFilteredRestaurants = () => {
+    if (selectedCuisines.length === 0) {
+      return filteredRestaurants;
+    }
+
+    return filteredRestaurants.filter(restaurant => {
+      // Check if ANY of the restaurant's menu items match ANY selected cuisine
+      return restaurant.items?.some(item => 
+        selectedCuisines.some(selectedCuisine => 
+          item.category_name?.toLowerCase() === selectedCuisine.toLowerCase()
+        )
+      );
+    });
+  };
+
+  const displayedRestaurants = getCuisineFilteredRestaurants();
+
   const cuisines = [
     { id: 1, name: "Pizza", image: "Pizza.png" },
     { id: 2, name: "Biryani", image: "Biryani.png" },
@@ -156,12 +220,12 @@ const Homepage = ({
     { id: 5, name: "Bangladeshi", image: "Bangladeshi.png" },
     { id: 6, name: "Snacks", image: "Snacks.png" },
     { id: 7, name: "Cafe", image: "Cafe.png" },
-    { id: 8, name: "Fast Food", image: "Fast%20Food.png" }, // URL encoded space
+    { id: 8, name: "Fast Food", image: "Fast%20Food.png" },
     { id: 9, name: "Breakfast", image: "Breakfast.png" },
     { id: 10, name: "Chicken", image: "Chicken.png" },
     { id: 11, name: "Kebab", image: "Kebab.png" },
     { id: 12, name: "Pasta", image: "pasta.png" },
-    { id: 13, name: "Rice Dishes", image: "Rice%20Dishes.png" }, // URL encoded space
+    { id: 13, name: "Rice Dishes", image: "Rice%20Dishes.png" },
     { id: 14, name: "Soups", image: "Soups.png" },
     { id: 15, name: "Tehari", image: "Tehari.png" },
   ];
@@ -201,7 +265,10 @@ const Homepage = ({
 
             <SortOption />
             <OfferOption />
-            <CuisineFilter />
+            <CuisineFilter 
+              selectedCuisines={selectedCuisines}
+              onCuisineToggle={handleCuisineToggle}
+            />
             <PriceOption />
           </aside>
 
@@ -283,7 +350,11 @@ const Homepage = ({
               <div className="cuisines-grid-wrapper">
                 <div className="cuisines-grid" onScroll={updateArrowVisibility}>
                   {cuisines.map((cuisine) => (
-                    <button key={cuisine.id} className="cuisine-card">
+                    <button 
+                      key={cuisine.id} 
+                      className="cuisine-card"
+                      onClick={() => handleCuisineClick(cuisine.name)}
+                    >
                       <div className="cuisine-icon">
                         <img 
                           src={`/images/cusines/${cuisine.image}`}
@@ -301,10 +372,14 @@ const Homepage = ({
             {/* Restaurants Section */}
             <section className="deals-section">
               <h2 className="section-title">
-                {searchQuery
+                {selectedCuisines.length > 0
+                  ? `${displayedRestaurants.length} Restaurant${displayedRestaurants.length !== 1 ? 's' : ''} found`
+                  : searchQuery
                   ? `Search results for "${searchQuery}"`
                   : "Featured Restaurants"}
               </h2>
+              <br/>
+              <br/>
 
               {/* Loading State */}
               {loading && (
@@ -331,8 +406,8 @@ const Homepage = ({
               {/* Restaurants Grid */}
               {!loading && !error && (
                 <div className="deals-grid">
-                  {filteredRestaurants.length > 0 ? (
-                    filteredRestaurants.map((restaurant) => (
+                  {displayedRestaurants.length > 0 ? (
+                    displayedRestaurants.map((restaurant) => (
                       <div
                         key={restaurant.id}
                         className="deal-card"
@@ -388,7 +463,11 @@ const Homepage = ({
                   ) : (
                     <div className="no-results">
                       <div className="no-results-icon">🔍</div>
-                      <p>No restaurants found matching "{searchQuery}"</p>
+                      <p>
+                        {selectedCuisines.length > 0
+                          ? `No restaurants found serving ${selectedCuisines.join(', ')}`
+                          : `No restaurants found matching "${searchQuery}"`}
+                      </p>
                     </div>
                   )}
                 </div>

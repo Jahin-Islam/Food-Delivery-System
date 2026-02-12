@@ -1,0 +1,719 @@
+/* Rider Dashboard Container */
+.rider-dashboard-container {
+  min-height: 100vh;
+  background: #f9fafb;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* Header */
+.rider-dashboard-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 24px 40px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.rider-dashboard-header-content {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.rider-info-section {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.rider-avatar {
+  width: 64px;
+  height: 64px;
+  background: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.avatar-text {
+  font-size: 24px;
+  font-weight: bold;
+  color: #667eea;
+}
+
+.rider-details {
+  color: white;
+}
+
+.rider-name {
+  font-size: 24px;
+  font-weight: bold;
+  margin: 0 0 4px 0;
+}
+
+.rider-meta {
+  font-size: 14px;
+  opacity: 0.9;
+  margin: 0;
+}
+
+/* Status Toggle */
+.status-toggle-section {
+  display: flex;
+  align-items: center;
+}
+
+.status-toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  padding: 12px 24px;
+  border-radius: 30px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+}
+
+.status-toggle-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.status-text {
+  font-size: 16px;
+  font-weight: 600;
+  color: white;
+}
+
+.toggle-switch {
+  width: 52px;
+  height: 28px;
+  background: #d1d5db;
+  border-radius: 14px;
+  position: relative;
+  transition: background 0.3s ease;
+}
+
+.toggle-switch.active {
+  background: #10b981;
+}
+
+.toggle-slider {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 22px;
+  height: 22px;
+  background: white;
+  border-radius: 50%;
+  transition: transform 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.toggle-switch.active .toggle-slider {
+  transform: translateX(24px);
+}
+
+/* Stats Grid */
+.rider-stats-grid {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 32px 40px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+}
+
+.rider-stat-card {
+  background: white;
+  padding: 28px;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+  transition: all 0.3s ease;
+}
+
+.rider-stat-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+}
+
+.stat-label {
+  font-size: 14px;
+  color: #6b7280;
+  margin: 0 0 12px 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+}
+
+.stat-value {
+  font-size: 36px;
+  font-weight: bold;
+  margin: 0 0 8px 0;
+}
+
+.rider-stat-card.earnings .stat-value {
+  color: #10b981;
+}
+
+.rider-stat-card.orders .stat-value {
+  color: #667eea;
+}
+
+.rider-stat-card.rating .stat-value {
+  color: #f59e0b;
+}
+
+.rider-stat-card.acceptance .stat-value {
+  color: #ef4444;
+}
+
+.stat-change {
+  font-size: 13px;
+  color: #10b981;
+  font-weight: 500;
+}
+
+/* Main Content */
+.rider-main-content {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 40px 32px 40px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+/* Map Section */
+.rider-map-section {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.section-title {
+  font-size: 20px;
+  font-weight: bold;
+  color: #111827;
+  margin: 0;
+}
+
+.order-badge {
+  display: inline-block;
+  background: #ef4444;
+  color: white;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  font-size: 12px;
+  font-weight: bold;
+  line-height: 24px;
+  text-align: center;
+  margin-left: 8px;
+}
+
+.map-center-btn {
+  padding: 10px 20px;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.map-center-btn:hover {
+  background: #5568d3;
+  transform: translateY(-2px);
+}
+
+.rider-map-container {
+  width: 100%;
+  height: 400px;
+  background: linear-gradient(135deg, #e0e7ff 0%, #fae8ff 100%);
+  border-radius: 10px;
+  position: relative;
+  overflow: hidden;
+}
+
+.map-placeholder {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  color: #6b7280;
+}
+
+.map-icon {
+  font-size: 64px;
+  margin-bottom: 12px;
+}
+
+.map-text {
+  font-size: 16px;
+  font-weight: 600;
+  color: #374151;
+  margin: 0 0 4px 0;
+}
+
+.map-subtext {
+  font-size: 13px;
+  color: #6b7280;
+  margin: 0;
+}
+
+/* Orders Section */
+.rider-orders-section {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+  max-height: 600px;
+  display: flex;
+  flex-direction: column;
+}
+
+.rider-order-tabs {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+  border-bottom: 2px solid #f0f0f0;
+  padding-bottom: 4px;
+}
+
+.rider-tab {
+  padding: 12px 24px;
+  background: none;
+  border: none;
+  border-bottom: 3px solid transparent;
+  color: #6b7280;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-family: inherit;
+}
+
+.rider-tab:hover {
+  color: #667eea;
+}
+
+.rider-tab.active {
+  color: #667eea;
+  border-bottom-color: #667eea;
+}
+
+.rider-orders-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.rider-orders-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.rider-orders-content::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+
+.rider-orders-content::-webkit-scrollbar-thumb {
+  background: #667eea;
+  border-radius: 10px;
+}
+
+/* Orders List */
+.orders-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Order Card */
+.rider-order-card {
+  background: #f8f9fa;
+  border-radius: 12px;
+  padding: 20px;
+  border-left: 4px solid #667eea;
+  transition: all 0.3s ease;
+}
+
+.rider-order-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transform: translateX(4px);
+}
+
+.new-order-animation {
+  border-left-color: #10b981;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.9; }
+}
+
+.order-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.order-id {
+  font-size: 16px;
+  font-weight: bold;
+  color: #111827;
+  margin-bottom: 4px;
+}
+
+.customer-name {
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.order-amount {
+  font-size: 22px;
+  font-weight: bold;
+  color: #10b981;
+}
+
+/* Order Locations */
+.order-locations {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.location-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.location-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.location-details {
+  flex: 1;
+}
+
+.location-label {
+  display: block;
+  font-size: 14px;
+  color: #111827;
+  margin-bottom: 4px;
+}
+
+.location-address {
+  font-size: 13px;
+  color: #374151;
+  margin: 0 0 2px 0;
+}
+
+.location-subaddress {
+  font-size: 12px;
+  color: #6b7280;
+  margin: 0;
+}
+
+/* Order Items */
+.order-items-section {
+  background: white;
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+
+.order-item-row {
+  padding: 6px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.order-item-row:last-child {
+  border-bottom: none;
+}
+
+/* Order Payment Info */
+.order-payment-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  font-size: 13px;
+}
+
+.payment-method {
+  color: #6b7280;
+}
+
+.order-timer {
+  background: #fee2e2;
+  color: #dc2626;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-weight: 600;
+}
+
+/* Order Status Banner */
+.order-status-banner {
+  background: #dbeafe;
+  color: #1e40af;
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+/* Order Actions */
+.order-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.order-btn {
+  flex: 1;
+  padding: 14px;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-family: inherit;
+}
+
+.accept-btn {
+  background: #10b981;
+  color: white;
+}
+
+.accept-btn:hover {
+  background: #059669;
+  transform: translateY(-2px);
+}
+
+.decline-btn {
+  background: #ef4444;
+  color: white;
+}
+
+.decline-btn:hover {
+  background: #dc2626;
+  transform: translateY(-2px);
+}
+
+.picked-btn {
+  background: #667eea;
+  color: white;
+}
+
+.picked-btn:hover {
+  background: #5568d3;
+  transform: translateY(-2px);
+}
+
+.delivered-btn {
+  background: #f59e0b;
+  color: white;
+}
+
+.delivered-btn:hover {
+  background: #d97706;
+  transform: translateY(-2px);
+}
+
+/* Completed Card */
+.completed-card {
+  opacity: 0.8;
+  border-left-color: #10b981;
+}
+
+.completed-time {
+  font-size: 12px;
+  color: #10b981;
+  font-weight: 600;
+}
+
+/* Empty Orders State */
+.empty-orders {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+  color: #6b7280;
+}
+
+.empty-icon {
+  font-size: 80px;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.empty-orders p {
+  font-size: 16px;
+  font-weight: 600;
+  color: #374151;
+  margin: 0 0 4px 0;
+}
+
+.empty-subtext {
+  font-size: 13px;
+  color: #9ca3af;
+  font-weight: 400;
+}
+
+/* Earnings Section */
+.rider-earnings-section {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 40px 40px 40px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+  margin-left: 40px;
+  margin-right: 40px;
+  margin-bottom: 40px;
+}
+
+.earnings-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 28px 28px 20px 28px;
+}
+
+.cash-return-badge {
+  background: #fee2e2;
+  color: #dc2626;
+  padding: 12px 20px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.earnings-grid {
+  padding: 0 28px 28px 28px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+}
+
+.earning-card {
+  padding: 24px;
+  border-radius: 12px;
+  text-align: center;
+}
+
+.earning-card.received {
+  background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+}
+
+.earning-card.pending {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+}
+
+.earning-card.lifetime {
+  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+}
+
+.earning-label {
+  font-size: 14px;
+  color: #6b7280;
+  margin: 0 0 12px 0;
+  font-weight: 600;
+}
+
+.earning-amount {
+  font-size: 32px;
+  font-weight: bold;
+  color: #111827;
+  margin: 0;
+}
+
+.earning-subtext {
+  font-size: 13px;
+  color: #6b7280;
+  margin: 8px 0 0 0;
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+  .rider-main-content {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .rider-dashboard-header {
+    padding: 20px;
+  }
+
+  .rider-dashboard-header-content {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .rider-stats-grid {
+    padding: 20px;
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .rider-main-content {
+    padding: 0 20px 20px 20px;
+  }
+
+  .rider-earnings-section {
+    margin: 0 20px 20px 20px;
+    padding: 0;
+  }
+
+  .earnings-header {
+    flex-direction: column;
+    gap: 16px;
+    align-items: flex-start;
+  }
+
+  .order-actions {
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 480px) {
+  .rider-stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .rider-name {
+    font-size: 20px;
+  }
+
+  .stat-value {
+    font-size: 28px;
+  }
+}
