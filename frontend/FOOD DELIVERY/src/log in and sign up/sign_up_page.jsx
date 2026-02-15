@@ -9,7 +9,7 @@ const SignUp = ({ onSwitchToSignIn, onSignUpSuccess }) => {
     password2: '',
     first_name: '',
     last_name: '',
-    phone: ''
+    phone_number: ''
   });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -29,7 +29,7 @@ const SignUp = ({ onSwitchToSignIn, onSignUpSuccess }) => {
     setError('');
 
     if (!formData.email || !formData.password || !formData.password2 || 
-        !formData.first_name || !formData.last_name || !formData.phone) {
+        !formData.first_name || !formData.last_name || !formData.phone_number) {
       setError('Please fill in all required fields');
       return;
     }
@@ -53,7 +53,7 @@ const SignUp = ({ onSwitchToSignIn, onSignUpSuccess }) => {
         password2: formData.password2,
         first_name: formData.first_name,
         last_name: formData.last_name,
-        phone: formData.phone
+        phone_number: formData.phone_number
       };
 
       const result = await authService.register(userData);
@@ -140,13 +140,13 @@ const SignUp = ({ onSwitchToSignIn, onSignUpSuccess }) => {
             </div>
 
             <div className="signup-form-group">
-              <label htmlFor="phone">Phone Number *</label>
+              <label htmlFor="phone_number">Phone Number *</label>
               <input
                 type="tel"
-                id="phone"
-                name="phone"
+                id="phone_number"
+                name="phone_number"
                 placeholder="+880 1712345678"
-                value={formData.phone}
+                value={formData.phone_number}
                 onChange={handleChange}
                 disabled={loading}
                 required

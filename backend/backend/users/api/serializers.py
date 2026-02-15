@@ -8,7 +8,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['email', 'password', 'phone_number', 'role']
+        fields = ['email', 'password', 'phone_number', 'role', 'first_name', 'last_name']
 
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
     @classmethod
