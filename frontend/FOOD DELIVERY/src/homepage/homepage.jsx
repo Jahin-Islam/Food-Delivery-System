@@ -19,6 +19,8 @@ const Homepage = ({
   onLogout,
   onRestaurantClick,
   onCheckout,
+  onProfileClick,
+  onOrdersClick,
 }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [showMobileMenu, setShowMobileMenu] = useState(false);
@@ -242,6 +244,8 @@ const Homepage = ({
         onRestaurantSignUpClick={onRestaurantSignUpClick}
         onCartClick={() => setShowCart(!showCart)}
         onLogout={onLogout}
+        onProfileClick={onProfileClick}
+        onOrdersClick={onOrdersClick}
         showBanner={true}
       />
 
@@ -378,8 +382,6 @@ const Homepage = ({
                   ? `Search results for "${searchQuery}"`
                   : "Featured Restaurants"}
               </h2>
-              <br/>
-              <br/>
 
               {/* Loading State */}
               {loading && (

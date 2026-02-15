@@ -14,31 +14,64 @@ const Profile = ({
 }) => {
   const [showCart, setShowCart] = useState(false);
   const [formData, setFormData] = useState({
-    first_name: user?.first_name || '',
-    last_name: user?.last_name || '',
-    phone: user?.phone || '',
-    email: user?.email || ''
+    first_name: '',
+    last_name: '',
+    phone: '',
+    email: ''
   });
   const [passwordData, setPasswordData] = useState({
     current_password: '',
     new_password: ''
   });
   const [isEditing, setIsEditing] = useState(false);
+  const [isEditingEmail, setIsEditingEmail] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
 
+  // Debug and load user data on component mount
   useEffect(() => {
-    // Update form data when user prop changes
-    if (user) {
+    console.log('=== PROFILE COMPONENT DEBUG ===');
+    console.log('User prop:', user);
+    console.log('User from localStorage:', authService.getUser());
+    
+    // Try to get the most recent user data
+    const currentUser = user || authService.getUser();
+    console.log('Current user being used:', currentUser);
+    
+    if (currentUser) {
       setFormData({
-        first_name: user.first_name || '',
-        last_name: user.last_name || '',
-        phone: user.phone || '',
-        email: user.email || ''
+        first_name: currentUser.first_name || currentUser.firstName || '',
+        last_name: currentUser.last_name || currentUser.lastName || '',
+        phone: currentUser.phone || currentUser.phoneNumber || currentUser.phone_number || '',
+        email: currentUser.email || ''
       });
     }
   }, [user]);
+
+  // Fetch fresh user data when component mounts
+  useEffect(() => {
+    const fetchUserData = async () => {
+      if (isLoggedIn) {
+        try {
+          const userData = await authService.fetchUserDetails();
+          console.log('Fetched fresh user data:', userData);
+          if (userData) {
+            setFormData({
+              first_name: userData.first_name || userData.firstName || '',
+              last_name: userData.last_name || userData.lastName || '',
+              phone: userData.phone || userData.phoneNumber || userData.phone_number || '',
+              email: userData.email || ''
+            });
+          }
+        } catch (error) {
+          console.error('Error fetching user data:', error);
+        }
+      }
+    };
+    
+    fetchUserData();
+  }, [isLoggedIn]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -137,6 +170,45 @@ const Profile = ({
       email: user?.email || ''
     });
     setIsEditing(false);
+    setMessage({ type: '', text: '' });
+  };
+
+  const handleSaveEmail = async () => {
+    setLoading(true);
+    setMessage({ type: '', text: '' });
+
+    try {
+      // Call API to update email
+      const response = await authService.authenticatedFetch(
+        'http://127.0.0.1:8000/api/auth/user/',
+        {
+          method: 'PATCH',
+          body: JSON.stringify({ email: formData.email })
+        }
+      );
+
+      // Update user in authService
+      authService.setUser(response);
+      
+      setMessage({ type: 'success', text: 'Email updated successfully!' });
+      setIsEditingEmail(false);
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => setMessage({ type: '', text: '' }), 3000);
+    } catch (error) {
+      console.error('Error updating email:', error);
+      setMessage({ type: 'error', text: error.message || 'Failed to update email' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCancelEmailEdit = () => {
+    setFormData(prev => ({
+      ...prev,
+      email: user?.email || ''
+    }));
+    setIsEditingEmail(false);
     setMessage({ type: '', text: '' });
   };
 
@@ -247,20 +319,57 @@ const Profile = ({
 
           {/* Email Section */}
           <div className="profile-section">
-            <h2 className="profile-section-title">Email</h2>
+            <div className="profile-section-header">
+              <h2 className="profile-section-title">Email</h2>
+              {!isEditingEmail ? (
+                <button 
+                  className="profile-edit-btn"
+                  onClick={() => setIsEditingEmail(true)}
+                >
+                  Edit
+                </button>
+              ) : (
+                <button 
+                  className="profile-cancel-btn"
+                  onClick={handleCancelEmailEdit}
+                >
+                  Cancel
+                </button>
+              )}
+            </div>
             
             <div className="profile-input-group">
               <label>Email</label>
-              <div className="email-with-badge">
+              {!isEditingEmail ? (
+                <div className="email-with-badge">
+                  <input
+                    type="email"
+                    value={formData.email}
+                    disabled
+                    className="email-input-disabled"
+                  />
+                  <span className="verified-badge">✓ Verified</span>
+                </div>
+              ) : (
                 <input
                   type="email"
+                  name="email"
                   value={formData.email}
-                  disabled
-                  className="email-input-disabled"
+                  onChange={handleInputChange}
+                  placeholder="Enter your email"
                 />
-                <span className="verified-badge">✓ Verified</span>
-              </div>
+              )}
             </div>
+
+            {isEditingEmail && (
+              <button 
+                className="profile-save-btn"
+                onClick={handleSaveEmail}
+                disabled={loading}
+              >
+                {loading ? 'Saving...' : 'Save'}
+              </button>
+            )}
           </div>
 
           {/* Password Section */}

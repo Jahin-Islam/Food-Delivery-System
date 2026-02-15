@@ -33,9 +33,116 @@
 // export default App;
 
 
+// import React, { useState } from 'react';
+// import RiderDashboard from './riderpage/Riderdashboard.jsx';
+// import './App.css';
+
+// function App() {
+//   const [isLoggedIn, setIsLoggedIn] = useState(true);
+  
+//   const mockRider = {
+//     name: 'Piyush Agarwal',
+//     id: 'RD-9577690140',
+//     vehicle: 'Car',
+//     phone: '9577690140',
+//     email: 'agarwal.piyush123@outlook.com',
+//     rating: 4.8,
+//     totalReviews: 156
+//   };
+
+//   const handleLogout = () => {
+//     setIsLoggedIn(false);
+//     console.log('Rider logged out');
+//   };
+
+//   return (
+//     <div className="App">
+//       <RiderDashboard 
+//         rider={mockRider}
+//         onLogout={handleLogout}
+//       />
+//     </div>
+//   );
+// }
+
+// export default App;
+
+// import React, { useState } from 'react';
+// import RiderDashboard from './riderpage/Riderdashboard.jsx';
+// import './App.css';
+
+// function App() {
+//   const [isLoggedIn, setIsLoggedIn] = useState(true);
+  
+//   const mockRider = {
+//     name: 'Piyush Agarwal',
+//     id: 'RD-9577690140',
+//     vehicle: 'Car',
+//     phone: '9577690140',
+//     email: 'agarwal.piyush123@outlook.com',
+//     rating: 4.8,
+//     totalReviews: 156
+//   };
+
+//   const handleLogout = () => {
+//     setIsLoggedIn(false);
+//     console.log('Rider logged out');
+//   };
+
+//   return (
+//     <div className="App">
+//       <RiderDashboard 
+//         rider={mockRider}
+//         onLogout={handleLogout}
+//       />
+//     </div>
+//   );
+// }
+
+// export default App;
+
+
+// import React, { useState } from 'react';
+// import RiderDashboard from './riderpage/Riderdashboard.jsx';
+// import './App.css';
+
+// function App() {
+//   const [isLoggedIn, setIsLoggedIn] = useState(true);
+  
+//   const mockRider = {
+//     name: 'Piyush Agarwal',
+//     id: 'RD-9577690140',
+//     vehicle: 'Car',
+//     phone: '9577690140',
+//     email: 'agarwal.piyush123@outlook.com',
+//     rating: 4.8,
+//     totalReviews: 156
+//   };
+
+//   const handleLogout = () => {
+//     setIsLoggedIn(false);
+//     console.log('Rider logged out');
+//   };
+
+//   return (
+//     <div className="App">
+//       <RiderDashboard 
+//         rider={mockRider}
+//         onLogout={handleLogout}
+//       />
+//     </div>
+//   );
+// }
+
+// export default App;
+
+
 import { useState, useEffect } from 'react';
 import Homepage from './homepage/homepage.jsx';
 import RestaurantDetail from './homepage/RestaurantDetail.jsx';
+import BusinessDashboard from './business onwer page/Businessdashboard.jsx';
+import Orders from './business onwer page/Orders.jsx';
+import OrderHistory from './business onwer page/Orderhistory.jsx';
 import Checkout from './homepage/Checkout.jsx';
 import Profile from './homepage/Profile.jsx';
 import SignIn from './log in and sign up/log_in_page.jsx';
@@ -48,7 +155,7 @@ import authService from './Authservice.js';
 import cartService from './Cartservice.js';
 
 function App() {
-  const [currentPage, setCurrentPage] = useState('home'); // 'home', 'restaurant', 'checkout', 'profile', 'login', 'signup', 'restaurant-login', 'restaurant-signup', 'rider-signup', 'rider-onboarding'
+  const [currentPage, setCurrentPage] = useState('home'); // 'home', 'restaurant', 'business-dashboard', 'orders', 'order-history', 'checkout', 'profile', 'login', 'signup', 'restaurant-login', 'restaurant-signup', 'rider-signup', 'rider-onboarding'
   const [selectedRestaurant, setSelectedRestaurant] = useState(null);
   const [checkoutRestaurantId, setCheckoutRestaurantId] = useState(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -161,6 +268,23 @@ function App() {
     setCurrentPage('restaurant');
   };
 
+  const handleBusinessDashboardClick = (restaurant) => {
+    setSelectedRestaurant(restaurant);
+    setCurrentPage('business-dashboard');
+  };
+
+  const handleNavigateToOrders = () => {
+    setCurrentPage('orders');
+  };
+
+  const handleNavigateToMenu = () => {
+    setCurrentPage('business-dashboard');
+  };
+
+  const handleNavigateToOrderHistory = () => {
+    setCurrentPage('order-history');
+  };
+
   const handleBackToHome = () => {
     setCurrentPage('home');
     setSelectedRestaurant(null);
@@ -221,6 +345,57 @@ function App() {
     setIsLoggedIn(true);
     setUser(authService.getUser());
     setCurrentPage('home'); // Go back to home page after signup
+  };
+
+  // Restaurant Partner Authentication Handlers
+  const handleRestaurantLoginSuccess = async (userData) => {
+    console.log('Restaurant partner login successful:', userData);
+    setIsLoggedIn(true);
+    setUser(authService.getUser());
+    
+    // Set a mock restaurant for the dashboard
+    setSelectedRestaurant({
+      id: 1,
+      name: userData.businessName || "Rice & Beyond",
+      description: "Food • Restaurant",
+      address: "Dhaka, Bangladesh",
+      rating: 4.8,
+      total_rated: 1732,
+      total_reviews: 1732,
+      min_order: 50,
+      image_url: null,
+      percentage: 10,
+      opening_time: "10:00 AM",
+      closing_time: "11:00 PM",
+      phone: "+880123456789"
+    });
+    
+    setCurrentPage('business-dashboard'); // Redirect to business dashboard
+  };
+
+  const handleRestaurantSignUpSuccess = async (userData) => {
+    console.log('Restaurant partner signup successful:', userData);
+    setIsLoggedIn(true);
+    setUser(authService.getUser());
+    
+    // Set a mock restaurant for the dashboard  
+    setSelectedRestaurant({
+      id: 1,
+      name: userData.businessName || "Rice & Beyond",
+      description: "Food • Restaurant",
+      address: "Dhaka, Bangladesh",
+      rating: 4.8,
+      total_rated: 1732,
+      total_reviews: 1732,
+      min_order: 50,
+      image_url: null,
+      percentage: 10,
+      opening_time: "10:00 AM",
+      closing_time: "11:00 PM",
+      phone: "+880123456789"
+    });
+    
+    setCurrentPage('business-dashboard'); // Redirect to business dashboard
   };
 
   const handleLogout = async () => {
@@ -349,6 +524,7 @@ function App() {
           onRestaurantSignUpClick={handleRestaurantSignUpClick}
           onLogout={handleLogout}
           onRestaurantClick={handleRestaurantClick}
+          onBusinessDashboardClick={handleBusinessDashboardClick}
           onCheckout={handleCheckout}
           onProfileClick={handleProfileClick}
           onOrdersClick={handleOrdersClick}
@@ -386,6 +562,42 @@ function App() {
         />
       )}
 
+      {/* BUSINESS DASHBOARD PAGE */}
+      {currentPage === 'business-dashboard' && selectedRestaurant && (
+        <BusinessDashboard
+          restaurant={selectedRestaurant}
+          onBack={handleBackToHome}
+          isLoggedIn={isLoggedIn}
+          user={user}
+          onLoginClick={handleLoginClick}
+          onSignUpClick={handleSignUpClick}
+          onLogout={handleLogout}
+          onNavigateToOrders={handleNavigateToOrders}
+        />
+      )}
+
+      {/* ORDERS PAGE */}
+      {currentPage === 'orders' && (
+        <Orders
+          isLoggedIn={isLoggedIn}
+          user={user}
+          onLogout={handleLogout}
+          onNavigateToMenu={handleNavigateToMenu}
+          onNavigateToOrderHistory={handleNavigateToOrderHistory}
+        />
+      )}
+
+      {/* ORDER HISTORY PAGE */}
+      {currentPage === 'order-history' && (
+        <OrderHistory
+          isLoggedIn={isLoggedIn}
+          user={user}
+          onLogout={handleLogout}
+          onNavigateToMenu={handleNavigateToMenu}
+          onNavigateToOrders={handleNavigateToOrders}
+        />
+      )}
+
       {/* CHECKOUT PAGE */}
       {currentPage === 'checkout' && checkoutRestaurantId && (
         <Checkout
@@ -415,7 +627,7 @@ function App() {
       {currentPage === 'restaurant-login' && (
         <RestaurantLogin
           onSwitchToSignUp={handleSwitchToRestaurantSignUp}
-          onLoginSuccess={handleLoginSuccess}
+          onLoginSuccess={handleRestaurantLoginSuccess}
         />
       )}
 
@@ -424,7 +636,7 @@ function App() {
         <RestaurantSignUp
           onSwitchToLogin={handleSwitchToRestaurantLogin}
           onRiderSignUp={handleRiderSignUpClick}
-          onSignUpSuccess={handleLoginSuccess}
+          onSignUpSuccess={handleRestaurantSignUpSuccess}
         />
       )}
 
