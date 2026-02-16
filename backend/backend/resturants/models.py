@@ -6,6 +6,15 @@ from django.conf import settings
 
 
 class Restaurant(models.Model):
+    class RestaurantCategoryType(models.TextChoices):
+        RESTAURANT = "RESTAURANT", "Restaurant"
+        CAFE = "CAFE", "Cafe"
+        FAST = "FAST FOOD", "Fast Food"
+        BAKERY = "BAKERY", "Bakery"
+        DESERT = "DESERT", "Desert"
+        CLOUD = "CLOUD", "Cloud"
+        TRUCK = "FOOD TRUCK", "Food Truck",
+        CATERING = "CATERING", "Catering"
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="restaurant_profiles")
     address = models.OneToOneField(Address, on_delete=models.SET_NULL, null=True)
@@ -20,8 +29,9 @@ class Restaurant(models.Model):
     total_rated = models.IntegerField(
         default=0,
     )
-    opening_time = models.TimeField()
-    closing_time = models.TimeField()
+    restaurant_category = models.CharField(max_length=50, choices=RestaurantCategoryType.choices, default=RestaurantCategoryType.RESTAURANT, null=True, blank=True)
+    opening_time = models.TimeField(null=True)
+    closing_time = models.TimeField(null=True)
     phone = models.CharField(max_length=15, null=True)
     ##We will image_url later##
     image_url = models.CharField(max_length=500, null=True)

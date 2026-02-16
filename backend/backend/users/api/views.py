@@ -32,19 +32,33 @@ class RegisterView(APIView):
         is_active = 1
         date_joined = datetime.now()
 
-        # Extract Rider specific data if applicable
+        # Extract Rider specific data
         vehicle = request.data.get('vehicle', None)
         license_plate = request.data.get('license_plate', None)
 
-        # specific validation for Rider
+        # Extract Restaurant specific data
+        # Note: 'restaurant_name' usually maps to "Business Name" from the frontend form
+        restaurant_name = request.data.get('restaurant_name', None) 
+        restaurant_category = request.data.get('restaurant_category', 'RESTAURANT')
+
+        # --- Validation ---
+        
+        # Validation for Rider
         if role == 'RIDER' and (not vehicle or not license_plate):
             return Response(
                 {"error": "Vehicle type and License plate are required for Riders."}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+        # Validation for Restaurant
+        if role == 'RESTAURANT' and not restaurant_name:
+            return Response(
+                {"error": "Business Name (restaurant_name) is required for Restaurant registration."}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         try:
-            # Use atomic transaction to ensure both User and Profile are created, or neither.
+            # Use atomic transaction to ensure integrity
             with transaction.atomic():
                 with connection.cursor() as cursor:
                     # 1. Insert into Users Table
@@ -58,7 +72,6 @@ class RegisterView(APIView):
                     ])
 
                     # 2. Retrieve the ID of the newly created user
-                    # We use the email to fetch the ID because it is unique
                     cursor.execute("SELECT id FROM users_User WHERE email = %s", [email])
                     row = cursor.fetchone()
                     if not row:
@@ -67,8 +80,6 @@ class RegisterView(APIView):
 
                     # 3. Insert into Profile Table based on Role
                     if role == 'CUSTOMER':
-                        # Insert into customers_customer table
-                        # Assuming table name follows Django convention: appname_modelname
                         sql_customer = """
                         INSERT INTO customers_customer (user_id, wallet_balance)
                         VALUES (%s, %s)
@@ -76,8 +87,6 @@ class RegisterView(APIView):
                         cursor.execute(sql_customer, [new_user_id, 0.00])
 
                     elif role == 'RIDER':
-                        # Insert into riders_rider table
-                        # Default is_available to False (0), lat/long to NULL
                         sql_rider = """
                         INSERT INTO riders_rider 
                         (user_id, is_available, vehicle, license_plate, current_latitude, current_longitude)
@@ -86,12 +95,41 @@ class RegisterView(APIView):
                         cursor.execute(sql_rider, [
                             new_user_id, 0, vehicle, license_plate, None, None
                         ])
+                    
+                    elif role == 'RESTAURANT':
+                        # Validating DB Constraints from models.py:
+                        # min_order: Required (Decimal) -> Defaulting to 0.00
+                        # rating: Default 0.00
+                        # total_rated: Default 0
+                        # address_id: Nullable -> Defaulting to NULL
+                        
+                        sql_restaurant = """
+                        INSERT INTO resturants_restaurant 
+                        (user_id, name, restaurant_category, phone, min_order, rating, total_rated, image_url, opening_time, closing_time)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        """
+                        
+                        # We use the user's phone number as the default contact phone for the restaurant entry
+                        # We set opening/closing times to NULL initially
+                        cursor.execute(sql_restaurant, [
+                            new_user_id, 
+                            restaurant_name, 
+                            restaurant_category, 
+                            phone_number, 
+                            0.00,  # min_order default
+                            0.00,  # rating default
+                            0,     # total_rated default
+                            '',    # image_url default
+                            None,  # opening_time
+                            None   # closing_time
+                        ])
 
             return Response({"message": f"{role.capitalize()} registered successfully"}, status=status.HTTP_201_CREATED)
 
         except IntegrityError as e:
             return Response({"error": "User with this email or phone number already exists."}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
+            # It's often good to log 'e' here for debugging
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
