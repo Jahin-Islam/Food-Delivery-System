@@ -6,6 +6,7 @@ from cuisines.models import Cuisine
 class Category(models.Model):
     category_id = models.AutoField(primary_key=True)
     category_name = models.CharField(max_length=100)
+    restaurant = models.ForeignKey(Restaurant, on_delete=models.CASCADE, related_name="categories", null=True) 
 
     def __str__(self):
         return self.category_name
@@ -23,7 +24,7 @@ class MenuItem(models.Model):
     ##We will Delete Image_URL later##
     image_url = models.CharField(max_length=500, null=True, blank=True)
     image = models.ImageField(upload_to=f"menu_items/", blank=True, null=True)
-    category = models.ForeignKey(Category, on_delete=models.SET_NULL, related_name="items", null=True, blank=True)    
+    category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name="items", null=True, blank=True)    
 
 
 

@@ -286,3 +286,303 @@ class RestaurantDiscountDetailedView(APIView):
 
         # 2. Return the updated object
         return self.get(request, pk)
+
+class CategoryView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get_restaurant_id(self, user_id):
+        """Helper to get restaurant ID from user ID"""
+        with connection.cursor() as cursor:
+            # Assuming table is restaurants_restaurant
+            cursor.execute("SELECT id FROM resturants_restaurant WHERE user_id = %s LIMIT 1", [user_id])
+            row = cursor.fetchone()
+            return row[0] if row else None
+
+    def get(self, request):
+        """
+        List all categories created by THIS specific restaurant.
+        """
+        restaurant_id = self.get_restaurant_id(request.user.id)
+        if not restaurant_id:
+            return Response({"detail": "Restaurant profile not found."}, status=status.HTTP_401_UNAUTHORIZED)
+
+        with connection.cursor() as cursor:
+            # RAW SQL: Select categories belonging to this restaurant
+            # CHANGE 'menus_category' to your actual table name (e.g., appname_category)
+            sql = "SELECT category_id, category_name FROM items_category WHERE restaurant_id = %s"
+            cursor.execute(sql, [restaurant_id])
+            
+            # Convert rows to list of dicts
+            columns = [col[0] for col in cursor.description]
+            categories = [dict(zip(columns, row)) for row in cursor.fetchall()]
+
+        return Response(categories, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        """
+        Create a new category for this restaurant.
+        """
+        restaurant_id = self.get_restaurant_id(request.user.id)
+        if not restaurant_id:
+            return Response({"detail": "Restaurant profile not found."}, status=status.HTTP_401_UNAUTHORIZED)
+
+        category_name = request.data.get('category_name')
+        if not category_name:
+            return Response({"detail": "Category name is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        with connection.cursor() as cursor:
+            # RAW SQL: Insert new category linked to this restaurant
+            sql = """
+                INSERT INTO items_category (category_name, restaurant_id)
+                VALUES (%s, %s)
+            """
+            cursor.execute(sql, [category_name, restaurant_id])
+            
+            # Get the ID of the item we just created
+            # (Note: specific syntax depends on DB, usually last_insert_id works)
+            new_id = cursor.lastrowid
+
+        return Response({
+            "message": "Category created successfully",
+            "category_id": new_id, 
+            "category_name": category_name
+        }, status=status.HTTP_201_CREATED)
+
+
+class CategoryDetailedView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get_restaurant_id(self, user_id):
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT id FROM resturants_restaurant WHERE user_id = %s LIMIT 1", [user_id])
+            row = cursor.fetchone()
+            return row[0] if row else None
+
+    def put(self, request, pk):
+        """
+        Update the name of a category.
+        Strictly checks that the category belongs to the logged-in restaurant.
+        """
+        restaurant_id = self.get_restaurant_id(request.user.id)
+        if not restaurant_id:
+            return Response({"detail": "Restaurant profile not found."}, status=status.HTTP_401_UNAUTHORIZED)
+
+        new_name = request.data.get('category_name')
+        if not new_name:
+            return Response({"detail": "New category name is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        with connection.cursor() as cursor:
+            # RAW SQL: Update ONLY if category_id matches AND restaurant_id matches
+            sql = """
+                UPDATE items_category 
+                SET category_name = %s 
+                WHERE category_id = %s AND restaurant_id = %s
+            """
+            cursor.execute(sql, [new_name, pk, restaurant_id])
+
+            if cursor.rowcount == 0:
+                return Response(
+                    {"detail": "Category not found or you do not have permission to edit it."}, 
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+        return Response({"message": "Category updated", "category_name": new_name}, status=status.HTTP_200_OK)
+
+    def delete(self, request, pk):
+        """
+        Delete a category.
+        """
+        restaurant_id = self.get_restaurant_id(request.user.id)
+        if not restaurant_id:
+            return Response({"detail": "Restaurant profile not found."}, status=status.HTTP_401_UNAUTHORIZED)
+        
+        with connection.cursor() as cursor:
+            # RAW SQL: Delete with ownership check
+            sql = "DELETE FROM items_category WHERE category_id = %s AND restaurant_id = %s"
+            cursor.execute(sql, [pk, restaurant_id])
+
+            if cursor.rowcount == 0:
+                return Response({"detail": "Category not found."}, status=404)
+
+        return Response({"detail": "Category deleted."}, status=204)
+
+class MenuItemView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get_restaurant_id(self, user_id):
+        """Helper to find the restaurant ID for the logged-in user."""
+        with connection.cursor() as cursor:
+            # Table: restaurants_restaurant
+            cursor.execute("SELECT id FROM resturants_restaurant WHERE user_id = %s LIMIT 1", [user_id])
+            row = cursor.fetchone()
+            return row[0] if row else None
+
+    def dictfetchall(self, cursor):
+        """Helper to return list of dictionaries."""
+        columns = [col[0] for col in cursor.description]
+        return [dict(zip(columns, row)) for row in cursor.fetchall()]
+
+    def get(self, request):
+        """
+        Show all items of the logged-in restaurant owner.
+        """
+        restaurant_id = self.get_restaurant_id(request.user.id)
+        if not restaurant_id:
+            return Response({"detail": "Restaurant profile not found."}, status=status.HTTP_401_UNAUTHORIZED)
+
+        with connection.cursor() as cursor:
+            # RAW SQL: Select all items belonging to this restaurant
+            # We also join with Category to get the category name for frontend convenience
+            sql = """
+                SELECT 
+                    m.food_id, m.name, m.price, m.description, 
+                    m.is_available, m.image_url, m.category_id,
+                    c.category_name
+                FROM items_menuitem m
+                LEFT JOIN items_category c ON m.category_id = c.category_id
+                WHERE m.restaurant_id = %s
+                ORDER BY m.food_id DESC
+            """
+            cursor.execute(sql, [restaurant_id])
+            items = self.dictfetchall(cursor)
+
+        return Response(items, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        """
+        Add an item to a certain category for the restaurant.
+        """
+        restaurant_id = self.get_restaurant_id(request.user.id)
+        if not restaurant_id:
+            return Response({"detail": "Restaurant profile not found."}, status=status.HTTP_401_UNAUTHORIZED)
+
+        data = request.data
+        
+        # 1. Basic Validation
+        name = data.get('name')
+        price = data.get('price')
+        category_id = data.get('category_id') # Essential per your request
+
+        
+        if not name or not price or not category_id:
+            return Response({"detail": "Name, Price, and Category ID are required."}, status=400)
+
+        with connection.cursor() as cursor:
+            # 2. SECURITY CHECK: Ensure the Category belongs to THIS restaurant
+            # We don't want Vendor A adding items to Vendor B's category.
+            check_cat_sql = "SELECT category_id FROM items_category WHERE category_id = %s AND restaurant_id = %s"
+            cursor.execute(check_cat_sql, [category_id, restaurant_id])
+            if not cursor.fetchone():
+                return Response({"detail": "Invalid Category. It may not belong to your restaurant."}, status=status.HTTP_400_BAD_REQUEST)
+
+            # 3. RAW SQL: Insert the Item
+            insert_sql = """
+                INSERT INTO items_menuitem 
+                (restaurant_id, category_id, name, price, description, is_available, image_url, discount_ammount, discount_description, image)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """
+            
+            # Handling optional fields
+            description = data.get('description', '')
+            is_available = data.get('is_available', 1) # Default true
+            image_url = data.get('image_url', '')
+            discount_ammount = data.get('discount_ammount', None)
+            discount_description = data.get('discount_description', None)
+            image = data.get('image', '')
+
+            cursor.execute(insert_sql, [
+                restaurant_id, category_id, name, price, 
+                description, is_available, image_url, 
+                discount_ammount, discount_description, image
+            ])
+            
+            # 4. Get the new ID (MySQL specific)
+            new_id = cursor.lastrowid
+
+        return Response({
+            "message": "Item created successfully",
+            "food_id": new_id,
+            "name": name,
+            "category_id": category_id
+        }, status=status.HTTP_201_CREATED)
+
+
+class VendorMenuItemDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get_restaurant_id(self, user_id):
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT id FROM restaurants_restaurant WHERE user_id = %s LIMIT 1", [user_id])
+            row = cursor.fetchone()
+            return row[0] if row else None
+
+    def put(self, request, pk):
+        """
+        Update item price and all its attributes.
+        """
+        restaurant_id = self.get_restaurant_id(request.user.id)
+        if not restaurant_id:
+            return Response({"detail": "Restaurant not found."}, status=404)
+
+        data = request.data
+        
+        # Build Dynamic SQL for updates
+        update_fields = []
+        params = []
+
+        # List of allowed fields to update
+        field_map = {
+            'name': 'name',
+            'price': 'price',
+            'description': 'description',
+            'is_available': 'is_available',
+            'image_url': 'image_url',
+            'category_id': 'category_id',
+            'discount_ammount': 'discount_ammount',
+            'discount_description': 'discount_description'
+        }
+
+        for key, db_col in field_map.items():
+            if key in data:
+                update_fields.append(f"{db_col} = %s")
+                params.append(data[key])
+
+        if not update_fields:
+            return Response({"detail": "No valid fields provided for update."}, status=400)
+
+        # Append params for WHERE clause
+        params.append(pk)
+        params.append(restaurant_id)
+
+        with connection.cursor() as cursor:
+            # 1. Optional: If updating category, verify ownership again
+            if 'category_id' in data:
+                cursor.execute("SELECT category_id FROM menus_category WHERE category_id = %s AND restaurant_id = %s", 
+                               [data['category_id'], restaurant_id])
+                if not cursor.fetchone():
+                    return Response({"detail": "Cannot move item to a category that doesn't belong to you."}, status=400)
+
+            # 2. RAW SQL: Update
+            sql = f"UPDATE menus_menuitem SET {', '.join(update_fields)} WHERE food_id = %s AND restaurant_id = %s"
+            cursor.execute(sql, params)
+
+            if cursor.rowcount == 0:
+                return Response({"detail": "Item not found or permission denied."}, status=404)
+
+        return Response({"message": "Item updated successfully"}, status=status.HTTP_200_OK)
+
+    def delete(self, request, pk):
+        """
+        Delete the item.
+        """
+        restaurant_id = self.get_restaurant_id(request.user.id)
+        
+        with connection.cursor() as cursor:
+            # RAW SQL: Delete with strict ownership check
+            sql = "DELETE FROM menus_menuitem WHERE food_id = %s AND restaurant_id = %s"
+            cursor.execute(sql, [pk, restaurant_id])
+
+            if cursor.rowcount == 0:
+                return Response({"detail": "Item not found or permission denied."}, status=404)
+
+        return Response({"detail": "Item deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
