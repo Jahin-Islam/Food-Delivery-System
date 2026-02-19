@@ -437,7 +437,11 @@ class MenuItemView(APIView):
                 SELECT 
                     m.food_id, m.name, m.price, m.description, 
                     m.is_available, m.image_url, m.category_id,
-                    c.category_name
+                    m.image,
+                    c.category_id,
+                    c.category_name,
+                    m.discount_amount,
+                    m.discount_description
                 FROM items_menuitem m
                 LEFT JOIN items_category c ON m.category_id = c.category_id
                 WHERE m.restaurant_id = %s
@@ -459,7 +463,7 @@ class MenuItemView(APIView):
         data = request.data
         
         # 1. Basic Validation
-        name = data.get('name')
+        name = data.get('item_name')
         price = data.get('price')
         category_id = data.get('category_id') # Essential per your request
 
@@ -478,7 +482,7 @@ class MenuItemView(APIView):
             # 3. RAW SQL: Insert the Item
             insert_sql = """
                 INSERT INTO items_menuitem 
-                (restaurant_id, category_id, name, price, description, is_available, image_url, discount_ammount, discount_description, image)
+                (restaurant_id, category_id, name, price, description, is_available, image_url, discount_amount, discount_description, image)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """
             
@@ -486,14 +490,14 @@ class MenuItemView(APIView):
             description = data.get('description', '')
             is_available = data.get('is_available', 1) # Default true
             image_url = data.get('image_url', '')
-            discount_ammount = data.get('discount_ammount', None)
+            discount_amount = data.get('discount_amount', None)
             discount_description = data.get('discount_description', None)
             image = data.get('image', '')
 
             cursor.execute(insert_sql, [
                 restaurant_id, category_id, name, price, 
                 description, is_available, image_url, 
-                discount_ammount, discount_description, image
+                discount_amount, discount_description, image
             ])
             
             # 4. Get the new ID (MySQL specific)
@@ -507,69 +511,126 @@ class MenuItemView(APIView):
         }, status=status.HTTP_201_CREATED)
 
 
-class VendorMenuItemDetailView(APIView):
+class MenuItemDetailedView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get_restaurant_id(self, user_id):
         with connection.cursor() as cursor:
-            cursor.execute("SELECT id FROM restaurants_restaurant WHERE user_id = %s LIMIT 1", [user_id])
+            cursor.execute("SELECT id FROM resturants_restaurant WHERE user_id = %s LIMIT 1", [user_id])
             row = cursor.fetchone()
             return row[0] if row else None
+    
+    def get(self, request, pk):
+        restaurant_id = self.get_restaurant_id(request.user.id)
+        if not restaurant_id:
+            return Response({"detail": "Restaurant not found."}, status=status.HTTP_401_UNAUTHORIZED)
+            
+        with connection.cursor() as cursor:
+            # RAW SQL: Select specific item fields where food_id AND restaurant_id match
+            sql = """
+                SELECT 
+                    food_id, name, price, description, is_available,image, 
+                    image_url, discount_amount, discount_description, category_id
+                FROM items_menuitem
+                WHERE food_id = %s AND restaurant_id = %s
+            """
+            cursor.execute(sql, [pk, restaurant_id])
+            row = cursor.fetchone()
 
+            # If no row is returned, the item doesn't exist or doesn't belong to this user
+            if not row:
+                return Response({"detail": "Item not found."}, status=status.HTTP_404_NOT_FOUND)
+
+            # Convert the raw SQL tuple (e.g., (1, "Burger"...)) into a Dictionary
+            columns = [col[0] for col in cursor.description]
+            item_data = dict(zip(columns, row))
+
+        return Response(item_data, status=status.HTTP_200_OK)
+        
     def put(self, request, pk):
         """
-        Update item price and all its attributes.
+        Update item. 
+        Flow: 
+        1. Check if Restaurant exists.
+        2. Check if Food Item belongs to Restaurant (Security Check).
+        3. Check if new Category belongs to Restaurant (Logic Check).
+        4. Update Data.
         """
         restaurant_id = self.get_restaurant_id(request.user.id)
         if not restaurant_id:
-            return Response({"detail": "Restaurant not found."}, status=404)
-
-        data = request.data
-        
-        # Build Dynamic SQL for updates
-        update_fields = []
-        params = []
-
-        # List of allowed fields to update
-        field_map = {
-            'name': 'name',
-            'price': 'price',
-            'description': 'description',
-            'is_available': 'is_available',
-            'image_url': 'image_url',
-            'category_id': 'category_id',
-            'discount_ammount': 'discount_ammount',
-            'discount_description': 'discount_description'
-        }
-
-        for key, db_col in field_map.items():
-            if key in data:
-                update_fields.append(f"{db_col} = %s")
-                params.append(data[key])
-
-        if not update_fields:
-            return Response({"detail": "No valid fields provided for update."}, status=400)
-
-        # Append params for WHERE clause
-        params.append(pk)
-        params.append(restaurant_id)
+            return Response({"detail": "Restaurant profile not found."}, status=status.HTTP_401_UNAUTHORIZED)
 
         with connection.cursor() as cursor:
-            # 1. Optional: If updating category, verify ownership again
+            # ---------------------------------------------------------
+            # 1. SECURITY CHECK: Verify Food ID and Restaurant ID match
+            # ---------------------------------------------------------
+            # We select 1 just to see if a row exists. Efficient and fast.
+            check_item_sql = "SELECT 1 FROM items_menuitem WHERE food_id = %s AND restaurant_id = %s"
+            cursor.execute(check_item_sql, [pk, restaurant_id])
+            
+            if not cursor.fetchone():
+                return Response(
+                    {"detail": "This item does not exist or does not belong to your restaurant."}, 
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            data = request.data
+
+            # ---------------------------------------------------------
+            # 2. CATEGORY CHECK: If moving to a new category, verify it
+            # ---------------------------------------------------------
             if 'category_id' in data:
-                cursor.execute("SELECT category_id FROM menus_category WHERE category_id = %s AND restaurant_id = %s", 
-                               [data['category_id'], restaurant_id])
+                check_cat_sql = "SELECT 1 FROM items_category WHERE category_id = %s AND restaurant_id = %s"
+                cursor.execute(check_cat_sql, [data['category_id'], restaurant_id])
+                
                 if not cursor.fetchone():
-                    return Response({"detail": "Cannot move item to a category that doesn't belong to you."}, status=400)
+                    return Response(
+                        {"detail": "Invalid Category. You cannot move an item to a category that is not yours."}, 
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
 
-            # 2. RAW SQL: Update
-            sql = f"UPDATE menus_menuitem SET {', '.join(update_fields)} WHERE food_id = %s AND restaurant_id = %s"
-            cursor.execute(sql, params)
+            # ---------------------------------------------------------
+            # 3. BUILD UPDATE QUERY
+            # ---------------------------------------------------------
+            update_fields = []
+            params = []
 
-            if cursor.rowcount == 0:
-                return Response({"detail": "Item not found or permission denied."}, status=404)
+            # Mapping: JSON Key -> DB Column Name
+            field_map = {
+                'name': 'name',
+                'price': 'price',
+                'description': 'description',
+                'is_available': 'is_available',
+                'image_url': 'image_url',
+                'discount_amount': 'discount_amount', # Corrected spelling
+                'discount_description': 'discount_description',
+                'category_id': 'category_id'
+            }
 
-        return Response({"message": "Item updated successfully"}, status=status.HTTP_200_OK)
+            for json_key, db_col in field_map.items():
+                if json_key in data:
+                    update_fields.append(f"{db_col} = %s")
+                    params.append(data[json_key])
+
+            if not update_fields:
+                return Response({"detail": "No valid fields provided for update."}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Add WHERE clause parameters
+            params.append(pk)
+            params.append(restaurant_id)
+
+            # ---------------------------------------------------------
+            # 4. EXECUTE UPDATE
+            # ---------------------------------------------------------
+            # We already verified ownership in Step 1, so this is safe.
+            sql = f"UPDATE items_menuitem SET {', '.join(update_fields)} WHERE food_id = %s AND restaurant_id = %s"
+            
+            try:
+                cursor.execute(sql, params)
+            except Exception as e:
+                return Response({"detail": f"Database Error: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+            return Response({"message": "Item updated successfully"}, status=status.HTTP_200_OK)
 
     def delete(self, request, pk):
         """
@@ -579,10 +640,10 @@ class VendorMenuItemDetailView(APIView):
         
         with connection.cursor() as cursor:
             # RAW SQL: Delete with strict ownership check
-            sql = "DELETE FROM menus_menuitem WHERE food_id = %s AND restaurant_id = %s"
+            sql = "DELETE FROM items_menuitem WHERE food_id = %s AND restaurant_id = %s"
             cursor.execute(sql, [pk, restaurant_id])
 
             if cursor.rowcount == 0:
-                return Response({"detail": "Item not found or permission denied."}, status=404)
+                return Response({"detail": "Item not found or permission denied."}, status=status.HTTP_401_UNAUTHORIZED)
 
         return Response({"detail": "Item deleted successfully."}, status=status.HTTP_204_NO_CONTENT)

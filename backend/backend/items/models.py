@@ -17,7 +17,7 @@ class MenuItem(models.Model):
     food_id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=100)
     price = models.DecimalField(max_digits=10, decimal_places=2)
-    discount_ammount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    discount_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     discount_description = models.CharField(max_length=100, null=True)
     description = models.TextField(null=True, blank=True)
     is_available = models.BooleanField(default=True)
