@@ -46,7 +46,8 @@ INSTALLED_APPS = [
     'addresses', 
     'reviews',
     'payments',
-    'carts',   
+    'carts',
+    'businessowners',   
     
     'rest_framework',
     'corsheaders',
