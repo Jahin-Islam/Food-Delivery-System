@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import './RestaurantDetail.css';
+import { COLORS, SHADOWS } from '../constants.js';
 import Header from './Header.jsx';
 import authService from '../Authservice.js';
 import OrderSummary from './OrderSummary.jsx';
@@ -363,7 +364,7 @@ const RestaurantDetail = ({
                 style={{
                   background: index === 0 
                     ? 'linear-gradient(135deg, #1e293b 0%, #334155 100%)'
-                    : 'linear-gradient(135deg, #db2777 0%, #be185d 100%)'
+                    : COLORS.gradientPrimary
                 }}
               >
                 <div className="deal-icon">

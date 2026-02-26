@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './BusinessDashboard.css';
+import { COLORS, SHADOWS } from '../constants.js';
 import authService from '../Authservice.js';
 
 const BusinessDashboard = ({
@@ -10,7 +11,7 @@ const BusinessDashboard = ({
   onLoginClick,
   onSignUpClick,
   onLogout,
-  onNavigateToOrders
+  onNavigateToOrders,
 }) => {
   const [activeTab, setActiveTab] = useState('menu');
   const [searchQuery, setSearchQuery] = useState('');
@@ -20,12 +21,12 @@ const BusinessDashboard = ({
   const [restaurantDetails, setRestaurantDetails] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
-  
+
   // Local state for dynamically added items
   const [localCategories, setLocalCategories] = useState([]);
   const [localDeals, setLocalDeals] = useState([]);
   const [localMenuItems, setLocalMenuItems] = useState([]);
-  
+
   // Add Item Modal States
   const [showAddItemModal, setShowAddItemModal] = useState(false);
   const [selectedCategoryForAdd, setSelectedCategoryForAdd] = useState('');
@@ -37,7 +38,7 @@ const BusinessDashboard = ({
     discount_description: '',
     is_available: true,
     image_file: null,
-    image_preview: null
+    image_preview: null,
   });
 
   // Add Category Modal States
@@ -49,7 +50,7 @@ const BusinessDashboard = ({
   const [newDealData, setNewDealData] = useState({
     description: '',
     min_order: '',
-    percentage: ''
+    percentage: '',
   });
 
   useEffect(() => {
@@ -62,7 +63,7 @@ const BusinessDashboard = ({
       try {
         setLoading(true);
         let data;
-        
+
         if (isLoggedIn) {
           data = await authService.authenticatedFetch(
             `http://127.0.0.1:8000/api/v1/restaurants/${restaurant.id}/`
@@ -76,20 +77,19 @@ const BusinessDashboard = ({
           }
           data = await response.json();
         }
-        
+
         setRestaurantDetails(data);
-        
+
         if (data.items && data.items.length > 0) {
-          const uniqueCategories = ['All', ...new Set(data.items.map(item => item.category_name))];
+          const uniqueCategories = ['All', ...new Set(data.items.map((item) => item.category_name))];
           setCategories(uniqueCategories);
           setMenuItems(data.items);
         } else {
           setCategories(['All']);
           setMenuItems([]);
         }
-        
       } catch (err) {
-        console.error("Error fetching restaurant details:", err);
+        console.error('Error fetching restaurant details:', err);
       } finally {
         setLoading(false);
       }
@@ -100,41 +100,34 @@ const BusinessDashboard = ({
 
   const displayRestaurant = restaurantDetails || restaurant;
 
-  // Merge backend data with local additions
   const allCategories = [...categories, ...localCategories];
   const allDeals = [...(displayRestaurant?.discounts || []), ...localDeals];
   const allMenuItems = [...menuItems, ...localMenuItems];
 
-  // Filter menu items based on search and category
-  const filteredItems = allMenuItems.filter(item => {
-    const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         item.description?.toLowerCase().includes(searchQuery.toLowerCase());
+  const filteredItems = allMenuItems.filter((item) => {
+    const matchesSearch =
+      item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.description?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = selectedCategory === 'All' || item.category_name === selectedCategory;
     return matchesSearch && matchesCategory;
   });
 
-  // Group items by category for display
   const groupedItems = filteredItems.reduce((acc, item) => {
     const category = item.category_name || 'Other';
-    if (!acc[category]) {
-      acc[category] = [];
-    }
+    if (!acc[category]) acc[category] = [];
     acc[category].push(item);
     return acc;
   }, {});
 
   const handleItemAvailabilityToggle = (itemId) => {
-    // TODO: Implement availability toggle
     console.log('Toggle availability for item:', itemId);
   };
 
   const handleItemEdit = (item) => {
-    // TODO: Implement edit item
     console.log('Edit item:', item);
   };
 
   const handleQuantityChange = (itemId, quantity) => {
-    // TODO: Implement quantity update
     console.log('Update quantity for item:', itemId, 'to:', quantity);
   };
 
@@ -154,33 +147,32 @@ const BusinessDashboard = ({
       discount_description: '',
       is_available: true,
       image_file: null,
-      image_preview: null
+      image_preview: null,
     });
   };
 
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
-      setNewItemData(prev => ({
+      setNewItemData((prev) => ({
         ...prev,
         image_file: file,
-        image_preview: URL.createObjectURL(file)
+        image_preview: URL.createObjectURL(file),
       }));
     }
   };
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setNewItemData(prev => ({
+    setNewItemData((prev) => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value
+      [name]: type === 'checkbox' ? checked : value,
     }));
   };
 
   const handleSubmitNewItem = async () => {
-    // TODO: Implement backend submission
     const newItem = {
-      food_id: Date.now(), // Temporary ID
+      food_id: Date.now(),
       name: newItemData.name,
       description: newItemData.description,
       price: parseFloat(newItemData.price),
@@ -189,22 +181,17 @@ const BusinessDashboard = ({
       is_available: newItemData.is_available ? 1 : 0,
       image_url: newItemData.image_preview,
       category_name: selectedCategoryForAdd,
-      restaurant_id: displayRestaurant.id
+      restaurant_id: displayRestaurant.id,
     };
 
     console.log('Submitting new item:', newItem);
-    
-    // Add to local state
-    setLocalMenuItems(prev => [...prev, newItem]);
-    
+    setLocalMenuItems((prev) => [...prev, newItem]);
     alert('Item added successfully! (Visible on page, backend integration pending)');
     handleCloseAddItemModal();
   };
 
   // Category Modal Handlers
-  const handleAddCategoryClick = () => {
-    setShowAddCategoryModal(true);
-  };
+  const handleAddCategoryClick = () => setShowAddCategoryModal(true);
 
   const handleCloseAddCategoryModal = () => {
     setShowAddCategoryModal(false);
@@ -216,36 +203,22 @@ const BusinessDashboard = ({
       alert('Please enter a category name');
       return;
     }
-
-    console.log('Adding new category:', newCategoryName);
-    
-    // Add to local categories
-    setLocalCategories(prev => [...prev, newCategoryName]);
-    
+    setLocalCategories((prev) => [...prev, newCategoryName]);
     alert('Category added successfully! (Visible on page, backend integration pending)');
     handleCloseAddCategoryModal();
   };
 
   // Deal Modal Handlers
-  const handleAddDealClick = () => {
-    setShowAddDealModal(true);
-  };
+  const handleAddDealClick = () => setShowAddDealModal(true);
 
   const handleCloseAddDealModal = () => {
     setShowAddDealModal(false);
-    setNewDealData({
-      description: '',
-      min_order: '',
-      percentage: ''
-    });
+    setNewDealData({ description: '', min_order: '', percentage: '' });
   };
 
   const handleDealInputChange = (e) => {
     const { name, value } = e.target;
-    setNewDealData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    setNewDealData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSubmitNewDeal = () => {
@@ -253,20 +226,14 @@ const BusinessDashboard = ({
       alert('Please fill in all fields');
       return;
     }
-
     const newDeal = {
-      id: Date.now(), // Temporary ID
+      id: Date.now(),
       description: newDealData.description,
       min_order: parseFloat(newDealData.min_order),
       percentage: parseFloat(newDealData.percentage),
-      resturant_id: displayRestaurant.id
+      resturant_id: displayRestaurant.id,
     };
-
-    console.log('Adding new deal:', newDeal);
-    
-    // Add to local deals
-    setLocalDeals(prev => [...prev, newDeal]);
-    
+    setLocalDeals((prev) => [...prev, newDeal]);
     alert('Deal added successfully! (Visible on page, backend integration pending)');
     handleCloseAddDealModal();
   };
@@ -286,17 +253,33 @@ const BusinessDashboard = ({
 
   return (
     <div className="business-dashboard">
-      {/* Business Header */}
+
+      {/* ── Business Header ──────────────────────────────────── */}
       <header className="business-header">
         <div className="business-header-content">
+
+          {/* LEFT — wider CSS padding pushes this further left */}
           <div className="business-header-left">
             <div className="business-logo-section">
-              <button className="logo-icon"></button>
+              {/* Panda image in the pink logo square */}
+              <button className="logo-icon" aria-label="foodpanda business">
+                <img
+                  src="/images/accessories/panda.png"
+                  alt="panda"
+                  onError={(e) => {
+                    // graceful fallback if panda.png not found
+                    e.currentTarget.style.display = 'none';
+                    e.currentTarget.parentNode.style.fontSize = '22px';
+                    e.currentTarget.parentNode.textContent = '🐼';
+                  }}
+                />
+              </button>
               <div className="business-logo-text">
                 <span className="logo-main">foodpanda</span>
                 <span className="logo-sub">business</span>
               </div>
             </div>
+
             <button className="business-address-button">
               <span className="logo-image">
                 <img src="/images/accessories/gps.png" alt="GPS" />
@@ -308,6 +291,7 @@ const BusinessDashboard = ({
             </button>
           </div>
 
+          {/* RIGHT — wider CSS padding pushes this further right */}
           <div className="business-header-right">
             <button className="business-header-btn language-btn">
               <span className="logo-image">
@@ -315,11 +299,14 @@ const BusinessDashboard = ({
               </span>
               <span>EN</span>
             </button>
-            <button className="business-header-btn profile-btn" onClick={() => setShowProfileDropdown(!showProfileDropdown)}>
+            <button
+              className="business-header-btn profile-btn"
+              onClick={() => setShowProfileDropdown(!showProfileDropdown)}
+            >
               <span className="logo-image">
                 <img src="/images/accessories/profile.png" alt="Profile" />
               </span>
-              <span>{user?.first_name || "PROFILE"}</span>
+              <span>{user?.first_name || 'PROFILE'}</span>
             </button>
           </div>
         </div>
@@ -327,7 +314,7 @@ const BusinessDashboard = ({
         {/* Navigation Tabs */}
         <div className="business-nav-tabs">
           <div className="business-nav-tabs-content">
-            <button 
+            <button
               className={`business-nav-tab ${activeTab === 'menu' ? 'active' : ''}`}
               onClick={() => setActiveTab('menu')}
             >
@@ -336,7 +323,7 @@ const BusinessDashboard = ({
               </span>
               Menu
             </button>
-            <button 
+            <button
               className={`business-nav-tab ${activeTab === 'orders' ? 'active' : ''}`}
               onClick={() => onNavigateToOrders && onNavigateToOrders()}
             >
@@ -345,7 +332,7 @@ const BusinessDashboard = ({
               </span>
               Orders
             </button>
-            <button 
+            <button
               className={`business-nav-tab ${activeTab === 'order-history' ? 'active' : ''}`}
               onClick={() => setActiveTab('order-history')}
             >
@@ -358,7 +345,7 @@ const BusinessDashboard = ({
         </div>
       </header>
 
-      {/* Restaurant Banner */}
+      {/* ── Restaurant Banner ────────────────────────────────── */}
       <div className="business-restaurant-banner">
         <button className="business-back-button" onClick={onBack}>
           ← Back to restaurants
@@ -367,8 +354,8 @@ const BusinessDashboard = ({
         <div className="business-banner-content">
           <div className="business-banner-image">
             {displayRestaurant.image_url ? (
-              <img 
-                src={displayRestaurant.image_url} 
+              <img
+                src={displayRestaurant.image_url}
                 alt={displayRestaurant.name}
                 className="restaurant-banner-img"
               />
@@ -380,7 +367,7 @@ const BusinessDashboard = ({
           <div className="business-restaurant-info">
             <h1 className="business-restaurant-name">{displayRestaurant.name}</h1>
             <p className="business-restaurant-subtitle">Restaurant</p>
-            
+
             <div className="business-restaurant-meta">
               <p className="meta-item">
                 <span className="meta-icon">🚴</span>
@@ -399,7 +386,7 @@ const BusinessDashboard = ({
         </div>
       </div>
 
-      {/* Available Deals Section */}
+      {/* ── Available Deals ──────────────────────────────────── */}
       <div className="business-deals-section">
         <h2 className="business-section-title">Available deals</h2>
         <div className="business-deals-grid">
@@ -408,9 +395,10 @@ const BusinessDashboard = ({
               key={discount.id || index}
               className="business-deal-card"
               style={{
-                background: index % 2 === 0 
-                  ? 'linear-gradient(135deg, #1e293b 0%, #334155 100%)'
-                  : 'linear-gradient(135deg, #db2777 0%, #be185d 100%)'
+                background:
+                  index % 2 === 0
+                    ? 'linear-gradient(135deg, #1e293b 0%, #334155 100%)'
+                    : COLORS.gradientPrimary,
               }}
             >
               <div className="deal-icon">
@@ -424,8 +412,7 @@ const BusinessDashboard = ({
               </div>
             </div>
           ))}
-          
-          {/* Add New Deal Button */}
+
           <button className="business-add-card" onClick={handleAddDealClick}>
             <div className="add-card-icon">+</div>
             <div className="add-card-text">Add New Deal</div>
@@ -433,11 +420,10 @@ const BusinessDashboard = ({
         </div>
       </div>
 
-      {/* Menu Section */}
+      {/* ── Menu Section ─────────────────────────────────────── */}
       <div className="business-menu-section">
         <h2 className="business-section-title">Menu</h2>
 
-        {/* Search in Menu */}
         <div className="business-menu-controls">
           <div className="business-search-in-menu">
             <span className="search-icon">🔍</span>
@@ -451,7 +437,6 @@ const BusinessDashboard = ({
           </div>
         </div>
 
-        {/* Menu Categories */}
         <div className="business-menu-categories">
           <div className="business-categories-scroll">
             {allCategories.map((category) => (
@@ -463,29 +448,25 @@ const BusinessDashboard = ({
                 {category}
               </button>
             ))}
-            
-            {/* Add Category Button */}
             <button className="business-add-category-btn" onClick={handleAddCategoryClick}>
               + Add Category
             </button>
           </div>
         </div>
 
-        {/* Menu Items by Category */}
         <div className="business-menu-items-container">
-          {/* Show categories from grouped items */}
           {Object.entries(groupedItems).map(([category, items]) => (
             <div key={category} className="business-category-section">
               <h3 className="business-category-title">{category}</h3>
               <p className="business-category-subtitle">{items.length} items</p>
-              
+
               <div className="business-items-grid">
                 {items.map((item) => (
                   <div key={item.food_id} className="business-item-card">
                     <div className="business-item-info">
                       <h4 className="business-item-name">{item.name}</h4>
                       <p className="business-item-description">{item.description}</p>
-                      
+
                       <div className="business-item-footer">
                         <span className="business-item-price">৳{item.price}</span>
                         {item.discount_ammount && (
@@ -495,9 +476,8 @@ const BusinessDashboard = ({
                         )}
                       </div>
 
-                      {/* Item Controls */}
                       <div className="business-item-controls">
-                        <button 
+                        <button
                           className="business-item-edit-btn"
                           onClick={() => handleItemEdit(item)}
                         >
@@ -506,8 +486,8 @@ const BusinessDashboard = ({
 
                         <div className="business-item-availability">
                           <label className="availability-switch">
-                            <input 
-                              type="checkbox" 
+                            <input
+                              type="checkbox"
                               defaultChecked={item.is_available}
                               onChange={() => handleItemAvailabilityToggle(item.food_id)}
                             />
@@ -520,9 +500,9 @@ const BusinessDashboard = ({
 
                         <div className="business-item-quantity">
                           <label>Stock:</label>
-                          <input 
-                            type="number" 
-                            min="0" 
+                          <input
+                            type="number"
+                            min="0"
                             defaultValue="50"
                             className="quantity-input"
                             onChange={(e) => handleQuantityChange(item.food_id, e.target.value)}
@@ -534,15 +514,10 @@ const BusinessDashboard = ({
                     <div className="business-item-image-container">
                       <div className="business-item-image">
                         {item.image_url ? (
-                          <img 
-                            src={item.image_url} 
+                          <img
+                            src={item.image_url}
                             alt={item.name}
-                            style={{
-                              width: '100%',
-                              height: '100%',
-                              objectFit: 'cover',
-                              borderRadius: '10px'
-                            }}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '10px' }}
                           />
                         ) : (
                           <div className="menu-item-emoji">🍽️</div>
@@ -552,8 +527,7 @@ const BusinessDashboard = ({
                   </div>
                 ))}
 
-                {/* Add Item Button */}
-                <button 
+                <button
                   className="business-add-item-card"
                   onClick={() => handleAddItemClick(category)}
                 >
@@ -564,17 +538,14 @@ const BusinessDashboard = ({
             </div>
           ))}
 
-          {/* Show newly created empty categories */}
           {localCategories
-            .filter(cat => !Object.keys(groupedItems).includes(cat))
-            .map(category => (
+            .filter((cat) => !Object.keys(groupedItems).includes(cat))
+            .map((category) => (
               <div key={category} className="business-category-section">
                 <h3 className="business-category-title">{category}</h3>
                 <p className="business-category-subtitle">0 items</p>
-                
                 <div className="business-items-grid">
-                  {/* Add Item Button for empty category */}
-                  <button 
+                  <button
                     className="business-add-item-card"
                     onClick={() => handleAddItemClick(category)}
                   >
@@ -585,7 +556,6 @@ const BusinessDashboard = ({
               </div>
             ))}
 
-          {/* No results message */}
           {Object.keys(groupedItems).length === 0 && localCategories.length === 0 && (
             <div className="business-no-results">
               <div className="no-results-icon">🔍</div>
@@ -595,7 +565,7 @@ const BusinessDashboard = ({
         </div>
       </div>
 
-      {/* Add Item Modal */}
+      {/* ── Add Item Modal ───────────────────────────────────── */}
       {showAddItemModal && (
         <div className="modal-overlay" onClick={handleCloseAddItemModal}>
           <div className="add-item-modal" onClick={(e) => e.stopPropagation()}>
@@ -605,28 +575,22 @@ const BusinessDashboard = ({
             </div>
 
             <div className="modal-body">
-              {/* Image Upload */}
               <div className="form-group">
                 <label className="form-label">Item Photo</label>
                 <div className="image-upload-area">
                   {newItemData.image_preview ? (
                     <div className="image-preview-container">
                       <img src={newItemData.image_preview} alt="Preview" className="image-preview" />
-                      <button 
+                      <button
                         className="remove-image-btn"
-                        onClick={() => setNewItemData(prev => ({ ...prev, image_file: null, image_preview: null }))}
+                        onClick={() => setNewItemData((prev) => ({ ...prev, image_file: null, image_preview: null }))}
                       >
                         Remove
                       </button>
                     </div>
                   ) : (
                     <label className="upload-label">
-                      <input 
-                        type="file" 
-                        accept="image/*" 
-                        onChange={handleImageUpload}
-                        className="file-input"
-                      />
+                      <input type="file" accept="image/*" onChange={handleImageUpload} className="file-input" />
                       <div className="upload-placeholder">
                         <div className="upload-icon">📷</div>
                         <div className="upload-text">Click to upload photo</div>
@@ -637,7 +601,6 @@ const BusinessDashboard = ({
                 </div>
               </div>
 
-              {/* Item Name */}
               <div className="form-group">
                 <label className="form-label">Item Name *</label>
                 <input
@@ -651,7 +614,6 @@ const BusinessDashboard = ({
                 />
               </div>
 
-              {/* Description */}
               <div className="form-group">
                 <label className="form-label">Description</label>
                 <textarea
@@ -664,7 +626,6 @@ const BusinessDashboard = ({
                 />
               </div>
 
-              {/* Price */}
               <div className="form-group">
                 <label className="form-label">Price (৳) *</label>
                 <input
@@ -680,7 +641,6 @@ const BusinessDashboard = ({
                 />
               </div>
 
-              {/* Discount Section */}
               <div className="form-row">
                 <div className="form-group">
                   <label className="form-label">Discount (%)</label>
@@ -695,7 +655,6 @@ const BusinessDashboard = ({
                     max="100"
                   />
                 </div>
-
                 <div className="form-group">
                   <label className="form-label">Discount Description</label>
                   <input
@@ -709,13 +668,12 @@ const BusinessDashboard = ({
                 </div>
               </div>
 
-              {/* Availability Toggle */}
               <div className="form-group">
                 <label className="form-label">Availability</label>
                 <div className="availability-toggle-group">
                   <label className="availability-switch">
-                    <input 
-                      type="checkbox" 
+                    <input
+                      type="checkbox"
                       name="is_available"
                       checked={newItemData.is_available}
                       onChange={handleInputChange}
@@ -730,11 +688,9 @@ const BusinessDashboard = ({
             </div>
 
             <div className="modal-footer">
-              <button className="modal-cancel-btn" onClick={handleCloseAddItemModal}>
-                Cancel
-              </button>
-              <button 
-                className="modal-submit-btn" 
+              <button className="modal-cancel-btn" onClick={handleCloseAddItemModal}>Cancel</button>
+              <button
+                className="modal-submit-btn"
                 onClick={handleSubmitNewItem}
                 disabled={!newItemData.name || !newItemData.price}
               >
@@ -745,7 +701,7 @@ const BusinessDashboard = ({
         </div>
       )}
 
-      {/* Add Category Modal */}
+      {/* ── Add Category Modal ───────────────────────────────── */}
       {showAddCategoryModal && (
         <div className="modal-overlay" onClick={handleCloseAddCategoryModal}>
           <div className="add-category-modal" onClick={(e) => e.stopPropagation()}>
@@ -753,7 +709,6 @@ const BusinessDashboard = ({
               <h2 className="modal-title">Add New Category</h2>
               <button className="modal-close-btn" onClick={handleCloseAddCategoryModal}>×</button>
             </div>
-
             <div className="modal-body">
               <div className="form-group">
                 <label className="form-label">Category Name *</label>
@@ -767,13 +722,10 @@ const BusinessDashboard = ({
                 />
               </div>
             </div>
-
             <div className="modal-footer">
-              <button className="modal-cancel-btn" onClick={handleCloseAddCategoryModal}>
-                Cancel
-              </button>
-              <button 
-                className="modal-submit-btn" 
+              <button className="modal-cancel-btn" onClick={handleCloseAddCategoryModal}>Cancel</button>
+              <button
+                className="modal-submit-btn"
                 onClick={handleSubmitNewCategory}
                 disabled={!newCategoryName.trim()}
               >
@@ -784,7 +736,7 @@ const BusinessDashboard = ({
         </div>
       )}
 
-      {/* Add Deal Modal */}
+      {/* ── Add Deal Modal ───────────────────────────────────── */}
       {showAddDealModal && (
         <div className="modal-overlay" onClick={handleCloseAddDealModal}>
           <div className="add-deal-modal" onClick={(e) => e.stopPropagation()}>
@@ -792,7 +744,6 @@ const BusinessDashboard = ({
               <h2 className="modal-title">Add New Deal</h2>
               <button className="modal-close-btn" onClick={handleCloseAddDealModal}>×</button>
             </div>
-
             <div className="modal-body">
               <div className="form-group">
                 <label className="form-label">Deal Name *</label>
@@ -806,7 +757,6 @@ const BusinessDashboard = ({
                   required
                 />
               </div>
-
               <div className="form-row">
                 <div className="form-group">
                   <label className="form-label">Minimum Order (৳) *</label>
@@ -822,7 +772,6 @@ const BusinessDashboard = ({
                     required
                   />
                 </div>
-
                 <div className="form-group">
                   <label className="form-label">Discount (%) *</label>
                   <input
@@ -839,13 +788,10 @@ const BusinessDashboard = ({
                 </div>
               </div>
             </div>
-
             <div className="modal-footer">
-              <button className="modal-cancel-btn" onClick={handleCloseAddDealModal}>
-                Cancel
-              </button>
-              <button 
-                className="modal-submit-btn" 
+              <button className="modal-cancel-btn" onClick={handleCloseAddDealModal}>Cancel</button>
+              <button
+                className="modal-submit-btn"
                 onClick={handleSubmitNewDeal}
                 disabled={!newDealData.description || !newDealData.min_order || !newDealData.percentage}
               >

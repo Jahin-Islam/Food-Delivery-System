@@ -31,7 +31,7 @@
 .logo-text {
   font-size: 26px;
   font-weight: bold;
-  color: #d70f64;
+  color: var(--primary);
 }
 
 /* Main Content */
@@ -75,7 +75,7 @@
 
 .phase-counter {
   font-size: 12px;
-  color: #d70f64;
+  color: var(--primary);
   font-weight: 600;
 }
 
@@ -94,7 +94,7 @@
 
 .check-mark {
   font-size: 24px;
-  color: #d70f64;
+  color: var(--primary);
   font-weight: bold;
 }
 
@@ -196,7 +196,7 @@
 }
 
 .inline-form::-webkit-scrollbar-thumb {
-  background: #d70f64;
+  background: var(--primary);
   border-radius: 10px;
 }
 
@@ -216,7 +216,7 @@
 
 .form-field:focus {
   outline: none;
-  border-color: #d70f64;
+  border-color: var(--primary);
 }
 
 .textarea-field {
@@ -243,13 +243,13 @@
 }
 
 .gender-btn:hover {
-  border-color: #d70f64;
+  border-color: var(--primary);
 }
 
 .gender-btn.selected {
-  background: #fce7f3;
-  border-color: #d70f64;
-  color: #d70f64;
+  background: var(--primary-light);
+  border-color: var(--primary);
+  color: var(--primary);
 }
 
 .field-label {
@@ -277,13 +277,13 @@
 }
 
 .option-btn:hover {
-  border-color: #d70f64;
+  border-color: var(--primary);
 }
 
 .option-btn.selected {
-  background: #fce7f3;
-  border-color: #d70f64;
-  color: #d70f64;
+  background: var(--primary-light);
+  border-color: var(--primary);
+  color: var(--primary);
   font-weight: 600;
 }
 
@@ -301,22 +301,22 @@
 }
 
 .upload-area {
-  border: 2px dashed #d70f64;
+  border: 2px dashed var(--primary);
   border-radius: 10px;
   padding: 20px;
   text-align: center;
-  background: #fef3f8;
+  background: var(--primary-bg);
 }
 
 .upload-arrow {
   font-size: 36px;
-  color: #d70f64;
+  color: var(--primary);
   margin-bottom: 10px;
 }
 
 .upload-btn {
   padding: 8px 24px;
-  background: #d70f64;
+  background: var(--primary);
   color: white;
   border: none;
   border-radius: 8px;
@@ -346,7 +346,7 @@
 .form-submit-btn {
   width: 100%;
   padding: 12px;
-  background: linear-gradient(135deg, #d70f64 0%, #c20d5f 100%);
+  background: linear-gradient(135deg, var(--primary) 0%, #c20d5f 100%);
   color: white;
   border: none;
   border-radius: 8px;
@@ -404,7 +404,7 @@
   background: none;
   border: none;
   font-size: 24px;
-  color: #d70f64;
+  color: var(--primary);
   cursor: pointer;
   transform: rotate(180deg);
   padding: 4px;
@@ -432,7 +432,7 @@
   background: #f9fafb;
   padding: 16px;
   border-radius: 8px;
-  border-left: 4px solid #d70f64;
+  border-left: 4px solid var(--primary);
   margin-bottom: 12px;
 }
 
@@ -466,7 +466,7 @@
 .popup-ok-btn {
   width: 100%;
   padding: 14px;
-  background: #d70f64;
+  background: var(--primary);
   color: white;
   border: none;
   border-radius: 10px;

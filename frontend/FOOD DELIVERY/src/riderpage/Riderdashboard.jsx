@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import './RiderDashboard.css';
+import './Riderdashboard.css';
 
 const RiderDashboard = ({ 
   rider = {
@@ -186,12 +186,12 @@ const RiderDashboard = ({
         {/* Map Section */}
         <div className="rider-map-section">
           <div className="section-header">
-            <h3 className="section-title">📍 Live Location</h3>
+            <h3 className="section-title"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;margin-right:6px"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg> Live Location</h3>
             <button className="map-center-btn">Center Map</button>
           </div>
           <div className="rider-map-container">
             <div className="map-placeholder">
-              <div className="map-icon">📍</div>
+              <div className="map-icon"><svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#db2777" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg></div>
               <p className="map-text">Map will load here when online</p>
               <p className="map-subtext">Toggle status to start receiving orders</p>
             </div>
@@ -202,7 +202,7 @@ const RiderDashboard = ({
         <div className="rider-orders-section">
           <div className="section-header">
             <h3 className="section-title">
-              📦 Orders 
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;margin-right:6px"><path d="M16.5 9.4 7.55 4.24"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.29 7 12 12 20.71 7"/><line x1="12" x2="12" y1="22" y2="12"/></svg> Orders 
               {newOrders.length > 0 && (
                 <span className="order-badge">{newOrders.length}</span>
               )}
@@ -237,7 +237,7 @@ const RiderDashboard = ({
               <div className="orders-list">
                 {newOrders.length === 0 ? (
                   <div className="empty-orders">
-                    <div className="empty-icon">📦</div>
+                    <div className="empty-icon"><svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" opacity="0.5"><path d="M16.5 9.4 7.55 4.24"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.29 7 12 12 20.71 7"/><line x1="12" x2="12" y1="22" y2="12"/></svg></div>
                     <p>No new orders</p>
                     <p className="empty-subtext">New orders will appear here</p>
                   </div>
@@ -278,7 +278,7 @@ const RiderDashboard = ({
               <div className="orders-list">
                 {completedOrders.length === 0 ? (
                   <div className="empty-orders">
-                    <div className="empty-icon">✅</div>
+                    <div className="empty-icon"><svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" opacity="0.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
                     <p>No completed orders today</p>
                   </div>
                 ) : (
@@ -298,7 +298,7 @@ const RiderDashboard = ({
       {/* Earnings Section */}
       <div className="rider-earnings-section">
         <div className="earnings-header">
-          <h3 className="section-title">💰 Earnings Overview</h3>
+          <h3 className="section-title"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;margin-right:6px"><line x1="12" x2="12" y1="1" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg> Earnings Overview</h3>
           <div className="cash-return-badge">
             Cash to Return: ₹{todayStats.cashToReturn.toFixed(2)}
           </div>
@@ -349,7 +349,7 @@ const NewOrderCard = ({ order, onAccept, onDecline }) => {
         </div>
 
         <div className="location-row">
-          <span className="location-icon">📍</span>
+          <span className="location-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg></span>
           <div className="location-details">
             <strong className="location-label">Drop-off ({order.deliveryTime})</strong>
             <p className="location-address">{order.delivery.address}</p>
@@ -367,7 +367,7 @@ const NewOrderCard = ({ order, onAccept, onDecline }) => {
       </div>
 
       <div className="order-payment-info">
-        <span className="payment-method">💰 {order.paymentMethod}</span>
+        <span className="payment-method"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;margin-right:4px"><line x1="12" x2="12" y1="1" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>{order.paymentMethod}</span>
         <span className="order-timer">⏱️ Accept in 01:45</span>
       </div>
 

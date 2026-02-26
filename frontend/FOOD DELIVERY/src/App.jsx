@@ -141,6 +141,7 @@ import { useState, useEffect } from 'react';
 import Homepage from './homepage/homepage.jsx';
 import RestaurantDetail from './homepage/RestaurantDetail.jsx';
 import BusinessDashboard from './business onwer page/Businessdashboard.jsx';
+import BusinessWelcome from './business onwer page/BusinessWelcome.jsx'; // ← ADDED
 import Orders from './business onwer page/Orders.jsx';
 import OrderHistory from './business onwer page/Orderhistory.jsx';
 import Checkout from './homepage/Checkout.jsx';
@@ -153,9 +154,10 @@ import RiderSignUp from './homepage/RiderSignUp.jsx';
 import RiderOnBoarding from './homepage/RiderOnBoarding.jsx';
 import authService from './Authservice.js';
 import cartService from './Cartservice.js';
+import cartApiService from './Cartapiservice.js';
 
 function App() {
-  const [currentPage, setCurrentPage] = useState('home'); // 'home', 'restaurant', 'business-dashboard', 'orders', 'order-history', 'checkout', 'profile', 'login', 'signup', 'restaurant-login', 'restaurant-signup', 'rider-signup', 'rider-onboarding'
+  const [currentPage, setCurrentPage] = useState('home'); // 'home', 'restaurant', 'business-welcome', 'business-dashboard', 'orders', 'order-history', 'checkout', 'profile', 'login', 'signup', 'restaurant-login', 'restaurant-signup', 'rider-signup', 'rider-onboarding'
   const [selectedRestaurant, setSelectedRestaurant] = useState(null);
   const [checkoutRestaurantId, setCheckoutRestaurantId] = useState(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -328,11 +330,6 @@ function App() {
     alert('Orders page coming soon!');
   };
 
-  const handleRestaurantSignUpClick = () => {
-    console.log('Restaurant sign up clicked');
-    setCurrentPage('restaurant-signup');
-  };
-
   const handleLoginSuccess = async (userData) => {
     console.log('Login successful:', userData);
     setIsLoggedIn(true);
@@ -353,24 +350,38 @@ function App() {
     setIsLoggedIn(true);
     setUser(authService.getUser());
     
-    // Set a mock restaurant for the dashboard
-    setSelectedRestaurant({
-      id: 1,
-      name: userData.businessName || "Rice & Beyond",
-      description: "Food • Restaurant",
-      address: "Dhaka, Bangladesh",
-      rating: 4.8,
-      total_rated: 1732,
-      total_reviews: 1732,
-      min_order: 50,
-      image_url: null,
-      percentage: 10,
-      opening_time: "10:00 AM",
-      closing_time: "11:00 PM",
-      phone: "+880123456789"
-    });
+    // Get restaurant data from authService or use provided data
+    const restaurantData = authService.getRestaurantData() || userData.restaurant;
     
-    setCurrentPage('business-dashboard'); // Redirect to business dashboard
+    if (restaurantData) {
+      setSelectedRestaurant(restaurantData);
+    } else {
+      // Fallback to mock data if backend doesn't return restaurant yet
+      setSelectedRestaurant({
+        id: 1,
+        name: userData.businessName || "Rice & Beyond",
+        description: "Food • Restaurant",
+        address: "Dhaka, Bangladesh",
+        rating: 4.8,
+        total_rated: 1732,
+        total_reviews: 1732,
+        min_order: 50,
+        image_url: null,
+        percentage: 10,
+        opening_time: "10:00 AM",
+        closing_time: "11:00 PM",
+        phone: "+880123456789"
+      });
+    }
+    
+    // Sync any local cart items to backend
+    try {
+      await cartApiService.syncCartAfterLogin();
+    } catch (error) {
+      console.error('Cart sync error:', error);
+    }
+    
+    setCurrentPage('business-welcome'); // ← CHANGED: was 'business-dashboard'
   };
 
   const handleRestaurantSignUpSuccess = async (userData) => {
@@ -378,24 +389,38 @@ function App() {
     setIsLoggedIn(true);
     setUser(authService.getUser());
     
-    // Set a mock restaurant for the dashboard  
-    setSelectedRestaurant({
-      id: 1,
-      name: userData.businessName || "Rice & Beyond",
-      description: "Food • Restaurant",
-      address: "Dhaka, Bangladesh",
-      rating: 4.8,
-      total_rated: 1732,
-      total_reviews: 1732,
-      min_order: 50,
-      image_url: null,
-      percentage: 10,
-      opening_time: "10:00 AM",
-      closing_time: "11:00 PM",
-      phone: "+880123456789"
-    });
+    // Get restaurant data from authService or use provided data
+    const restaurantData = authService.getRestaurantData() || userData.restaurant;
     
-    setCurrentPage('business-dashboard'); // Redirect to business dashboard
+    if (restaurantData) {
+      setSelectedRestaurant(restaurantData);
+    } else {
+      // Fallback to mock data if backend doesn't return restaurant yet
+      setSelectedRestaurant({
+        id: 1,
+        name: userData.businessName || "Rice & Beyond",
+        description: "Food • Restaurant",
+        address: "Dhaka, Bangladesh",
+        rating: 4.8,
+        total_rated: 1732,
+        total_reviews: 1732,
+        min_order: 50,
+        image_url: null,
+        percentage: 10,
+        opening_time: "10:00 AM",
+        closing_time: "11:00 PM",
+        phone: "+880123456789"
+      });
+    }
+    
+    // Sync any local cart items to backend
+    try {
+      await cartApiService.syncCartAfterLogin();
+    } catch (error) {
+      console.error('Cart sync error:', error);
+    }
+    
+    setCurrentPage('business-welcome'); // ← CHANGED: was 'business-dashboard'
   };
 
   const handleLogout = async () => {
@@ -403,12 +428,20 @@ function App() {
       await authService.logout();
       setIsLoggedIn(false);
       setUser(null);
+      setSelectedRestaurant(null); // Clear restaurant data
       setCartItems([]);
       cartService.clearCart();
       setCurrentPage('home');
       console.log('Logged out successfully');
     } catch (error) {
       console.error('Logout error:', error);
+      // Force logout even if API call fails
+      setIsLoggedIn(false);
+      setUser(null);
+      setSelectedRestaurant(null);
+      setCartItems([]);
+      cartService.clearCart();
+      setCurrentPage('home');
     }
   };
 
@@ -521,7 +554,7 @@ function App() {
           onRemoveItem={handleRemoveItem}
           onLoginClick={handleLoginClick}
           onSignUpClick={handleSignUpClick}
-          onRestaurantSignUpClick={handleRestaurantSignUpClick}
+          onRestaurantSignUpClick={handleSwitchToRestaurantSignUp}
           onLogout={handleLogout}
           onRestaurantClick={handleRestaurantClick}
           onBusinessDashboardClick={handleBusinessDashboardClick}
@@ -562,11 +595,21 @@ function App() {
         />
       )}
 
+      {/* BUSINESS WELCOME PAGE */}
+      {currentPage === 'business-welcome' && selectedRestaurant && (
+        <BusinessWelcome
+          user={user}
+          restaurant={selectedRestaurant}
+          onEnterDashboard={() => setCurrentPage('business-dashboard')}
+          onLogout={handleLogout}
+        />
+      )}
+
       {/* BUSINESS DASHBOARD PAGE */}
       {currentPage === 'business-dashboard' && selectedRestaurant && (
         <BusinessDashboard
           restaurant={selectedRestaurant}
-          onBack={handleBackToHome}
+          onBack={() => setCurrentPage('business-welcome')}
           isLoggedIn={isLoggedIn}
           user={user}
           onLoginClick={handleLoginClick}

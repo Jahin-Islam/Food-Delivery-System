@@ -1,7 +1,11 @@
-/* Top Banner */
+/* ============================================================
+   HEADER  —  CSS variables + polish, all original classes kept
+   ============================================================ */
+
+/* ── Top Banner ─────────────────────────────────────────────── */
 .top-banner {
-  background: linear-gradient(135deg, #d70f64 0%, #ff1493 100%);
-  padding: 12px 40px;
+  background: linear-gradient(135deg, var(--c-primary) 0%, #4357b847 100%);
+  padding: 11px 40px;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -9,48 +13,52 @@
   color: white;
   font-weight: 600;
   font-size: 13px;
+  letter-spacing: 0.3px;
 }
 
 .banner-icon::before {
-  content: "🎉";
+  content: "";
   font-size: 20px;
   margin-right: 8px;
 }
 
 .banner-btn {
   background: white;
-  color: #d70f64;
+  color: var(--c-primary);
   border: none;
-  padding: 8px 16px;
-  border-radius: 4px;
+  padding: 7px 16px;
+  border-radius: 6px;
   cursor: pointer;
-  font-weight: 600;
+  font-weight: 700;
   font-size: 12px;
-  transition: all 0.3s ease;
+  letter-spacing: 0.4px;
+  transition: all var(--t);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.12);
 }
 
 .banner-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 5px 14px rgba(0,0,0,0.2);
 }
 
-/* Header */
+/* ── Header Shell ───────────────────────────────────────────── */
 .header {
   background: white;
   position: sticky;
   top: 0;
   z-index: 1000;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-md);
 }
 
 .header-content {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 40px;
+  padding: 14px 40px;
   border-bottom: 1px solid #ebebeb;
 }
 
+/* ── Left ───────────────────────────────────────────────────── */
 .header-left {
   display: flex;
   align-items: center;
@@ -61,43 +69,63 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  cursor: pointer;
 }
 
+/* panda emoji lives inside this button via JSX */
 .logo-icon {
   width: 36px;
   height: 36px;
-  background: linear-gradient(135deg, #d70f64 0%, #ff1493 100%);
+  background: linear-gradient(135deg, var(--c-primary) 0%, #ff1493 100%);
   border: none;
-  border-radius: 8px;
+  border-radius: 10px;
   cursor: pointer;
-  transition: transform 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  overflow: hidden;
+  padding: 0;
+  transition: transform var(--t), box-shadow var(--t);
+  box-shadow: 0 2px 8px var(--shadow-primary-subtle);
+}
+
+.logo-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  border-radius: 10px;
 }
 
 .logo-icon:hover {
-  transform: scale(1.05);
+  transform: scale(1.08) rotate(-4deg);
+  box-shadow: var(--shadow-primary);
 }
 
 .logo-text {
   font-size: 22px;
-  font-weight: bold;
-  color: #d70f64;
+  font-weight: 800;
+  color: var(--c-primary);
+  letter-spacing: -0.5px;
 }
 
 .address-button {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 16px;
-  border: 1px solid #ebebeb;
-  background: white;
-  border-radius: 8px;
+  padding: 9px 14px;
+  border: 1.5px solid var(--c-gray-200);
+  background: var(--c-gray-50);
+  border-radius: 10px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all var(--t);
 }
 
 .address-button:hover {
-  border-color: #d70f64;
-  box-shadow: 0 2px 8px rgba(215, 15, 100, 0.1);
+  border-color: var(--c-primary);
+  background: var(--c-primary-bg);
+  box-shadow: 0 0 0 3px var(--shadow-primary-ring);
 }
 
 .logo-image {
@@ -106,6 +134,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 
 .logo-image img {
@@ -119,20 +148,23 @@
 }
 
 .address-label {
-  font-size: 11px;
-  color: #888;
+  font-size: 10px;
+  color: var(--c-gray-400);
   font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .address-full {
   font-size: 13px;
   font-weight: 600;
-  color: #333;
+  color: var(--c-gray-800);
 }
 
+/* ── Right ──────────────────────────────────────────────────── */
 .header-right {
   display: flex;
-  gap: 12px;
+  gap: 8px;
   align-items: center;
   position: relative;
 }
@@ -140,34 +172,41 @@
 .header-btn {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 16px;
-  border: 1px solid #ebebeb;
+  gap: 7px;
+  padding: 9px 15px;
+  border: 1.5px solid var(--c-gray-200);
   background: white;
-  border-radius: 8px;
+  border-radius: 10px;
   font-size: 13px;
   font-weight: 600;
-  color: #333;
+  color: var(--c-gray-700);
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all var(--t);
   white-space: nowrap;
+  font-family: var(--font);
 }
 
 .header-btn:hover {
-  border-color: #d70f64;
-  color: #d70f64;
-  box-shadow: 0 2px 8px rgba(215, 15, 100, 0.1);
+  border-color: var(--c-primary);
+  color: var(--c-primary);
+  background: var(--c-primary-bg);
+  box-shadow: 0 0 0 3px var(--shadow-primary-ring);
 }
 
 .signup-btn {
-  background: linear-gradient(135deg, #d70f64 0%, #ff1493 100%);
+  background: linear-gradient(135deg, var(--c-primary) 0%, #14a9ff 100%);
   color: white;
   border: none;
+  box-shadow: var(--shadow-primary);
+  font-weight: 700;
 }
 
 .signup-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(215, 15, 100, 0.3);
+  box-shadow: 0 6px 20px var(--shadow-primary-hover-color);
+  background: linear-gradient(135deg, var(--c-primary) 0%, #ff1493 100%);
+  color: white;
+  border: none;
 }
 
 .cart-button {
@@ -176,19 +215,28 @@
 
 .cart-badge {
   position: absolute;
-  top: 4px;
-  right: 4px;
-  background: #d70f64;
+  top: 2px;
+  right: 2px;
+  background: var(--c-primary);
   color: white;
   font-size: 10px;
-  font-weight: bold;
-  padding: 2px 6px;
+  font-weight: 700;
+  padding: 2px 5px;
   border-radius: 10px;
   min-width: 18px;
   text-align: center;
+  line-height: 1.4;
+  border: 2px solid white;
+  animation: badgePop 0.2s ease;
 }
 
-/* Navigation Tabs */
+@keyframes badgePop {
+  0%   { transform: scale(0.5); }
+  70%  { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
+/* ── Nav Tabs ───────────────────────────────────────────────── */
 .nav-tabs {
   background: white;
   border-bottom: 1px solid #ebebeb;
@@ -196,36 +244,37 @@
 
 .nav-tabs-content {
   display: flex;
-  gap: 8px;
+  gap: 4px;
   padding: 0 40px;
 }
 
 .nav-tab {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 14px 20px;
+  gap: 7px;
+  padding: 13px 18px;
   background: white;
   border: none;
   border-bottom: 3px solid transparent;
   font-size: 14px;
   font-weight: 600;
-  color: #666;
+  color: var(--c-gray-500);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all var(--t);
+  font-family: var(--font);
 }
 
 .nav-tab:hover {
-  color: #d70f64;
-  background: #fef3f8;
+  color: var(--c-primary);
+  background: var(--c-primary-bg);
 }
 
 .nav-tab.active {
-  color: #d70f64;
-  border-bottom-color: #d70f64;
+  color: var(--c-primary);
+  border-bottom-color: var(--c-primary);
 }
 
-/* Responsive */
+/* ── Responsive ─────────────────────────────────────────────── */
 @media (max-width: 968px) {
   .top-banner {
     padding: 10px 20px;
@@ -239,17 +288,11 @@
     gap: 12px;
   }
 
-  .header-left {
-    gap: 12px;
-  }
+  .header-left  { gap: 12px; }
 
-  .address-button {
-    padding: 8px 12px;
-  }
+  .address-button { padding: 8px 12px; }
 
-  .address-full {
-    font-size: 12px;
-  }
+  .address-full { font-size: 12px; }
 
   .header-right {
     flex-wrap: wrap;
@@ -261,9 +304,7 @@
     font-size: 12px;
   }
 
-  .nav-tabs-content {
-    padding: 0 20px;
-  }
+  .nav-tabs-content { padding: 0 20px; }
 
   .nav-tab {
     padding: 12px 16px;
@@ -272,32 +313,20 @@
 }
 
 @media (max-width: 480px) {
-  .top-banner {
-    font-size: 10px;
-  }
+  .top-banner   { font-size: 10px; }
 
   .banner-btn {
     padding: 6px 12px;
     font-size: 11px;
   }
 
-  .logo-text {
-    font-size: 18px;
-  }
+  .logo-text { font-size: 18px; }
 
-  .header-btn span:not(.cart-badge):not(.logo-image) {
-    display: none;
-  }
+  .header-btn span:not(.cart-badge):not(.logo-image) { display: none; }
 
-  .header-btn .logo-image {
-    display: flex;
-  }
+  .header-btn .logo-image { display: flex; }
 
-  .nav-tab span:not(.logo-image) {
-    display: none;
-  }
+  .nav-tab span:not(.logo-image) { display: none; }
 
-  .nav-tab {
-    padding: 12px;
-  }
+  .nav-tab { padding: 12px; }
 }

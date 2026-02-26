@@ -1,13 +1,18 @@
 import { useState } from 'react';
-import './RestaurantLogin.css';
+import './RestaurantLogIn.css';
+import authService from '../Authservice.js';
 
 const RestaurantLogin = ({ onSwitchToSignUp, onLoginSuccess }) => {
+  const [loginMode, setLoginMode] = useState('email'); // 'email' | 'phone'
   const [formData, setFormData] = useState({
     email: '',
-    password: ''
+    password: '',
+    phone: '',
+    phonePassword: ''
   });
   const [showPassword, setShowPassword] = useState(false);
-  const [loginMethod, setLoginMethod] = useState('email'); // 'email' or 'phone'
+  const [showPhonePassword, setShowPhonePassword] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -17,23 +22,76 @@ const RestaurantLogin = ({ onSwitchToSignUp, onLoginSuccess }) => {
     }));
   };
 
-  const handleSubmit = () => {
-    if (formData.email && formData.password) {
-      onLoginSuccess({
-        email: formData.email,
-        type: 'restaurant_partner'
-      });
-    } else {
+  const handleSubmit = async () => {
+    const isPhone = loginMode === 'phone';
+    const identifier = isPhone ? formData.phone : formData.email;
+    const password = isPhone ? formData.phonePassword : formData.password;
+
+    if (!identifier || !password) {
       alert('Please fill in all fields');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await authService.login(identifier, password, isPhone ? 'phone' : 'email');
+      
+      console.log('Login response:', response);
+
+      // Check role from every possible field the backend might return
+      const role = (
+        response.role ||
+        response.user?.role ||
+        response.user?.user_type ||
+        ''
+      ).toString().toUpperCase();
+
+      const hasRestaurantData = !!(response.restaurant || authService.getRestaurantData());
+      const isVendor = role === 'RESTAURANT' || role === 'VENDOR' || hasRestaurantData;
+
+      console.log('Role check:', { role, hasRestaurantData, isVendor });
+
+      if (!isVendor) {
+        // Don't block login — maybe backend just doesn't return role in login response
+        // Try fetching user details to get role
+        const userDetails = await authService.fetchUserDetails();
+        const detailedRole = (
+          userDetails?.role ||
+          userDetails?.user_type ||
+          authService.getUser()?.role ||
+          authService.getUser()?.user_type ||
+          ''
+        ).toString().toUpperCase();
+
+        console.log('Detailed role from user endpoint:', detailedRole);
+
+        const isVendorFromDetails = detailedRole === 'RESTAURANT' || detailedRole === 'VENDOR' || !!authService.getRestaurantData();
+
+        if (!isVendorFromDetails) {
+          alert('This account is not a restaurant partner account. Please check your credentials or sign up.');
+          await authService.logout();
+          setLoading(false);
+          return;
+        }
+      }
+
+      // Success
+      onLoginSuccess({
+        type: 'restaurant_partner',
+        user: authService.getUser(),
+        restaurant: response.restaurant || authService.getRestaurantData()
+      });
+    } catch (error) {
+      console.error('Login error:', error);
+      alert(`Login failed: ${error.message}`);
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleGoogleSignIn = () => {
-    onLoginSuccess({
-      email: 'tkossboss@gmail.com',
-      provider: 'google',
-      type: 'restaurant_partner'
-    });
+    // TODO: Implement Google OAuth
+    alert('Google Sign-In not yet implemented. Please use email/password login.');
   };
 
   const handleForgotPassword = () => {
@@ -51,15 +109,15 @@ const RestaurantLogin = ({ onSwitchToSignUp, onLoginSuccess }) => {
               <div className="computer-screen">
                 <div className="awning"></div>
                 <div className="screen-content">
-                  <div className="menu-item">🥤</div>
-                  <div className="menu-item">🍔</div>
-                  <div className="menu-item">🍦</div>
+                  
+                  
+                  
                 </div>
                 <div className="computer-stand"></div>
               </div>
               <div className="utensils">
-                <div className="fork-left">🍴</div>
-                <div className="fork-right">🍴</div>
+                
+                
               </div>
             </div>
           </div>
@@ -70,21 +128,21 @@ const RestaurantLogin = ({ onSwitchToSignUp, onLoginSuccess }) => {
             
             <div className="hero-features">
               <div className="feature-item">
-                <div className="feature-icon">📊</div>
+                <div className="feature-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" x2="18" y1="20" y2="10"/><line x1="12" x2="12" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="14"/></svg></div>
                 <p className="feature-text">
                   Track performance and get invaluable insights to improve customer loyalty and sales.
                 </p>
               </div>
               
               <div className="feature-item">
-                <div className="feature-icon">📢</div>
+                <div className="feature-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg></div>
                 <p className="feature-text">
                   Offer discounts and launch ad campaigns to attract new customers.
                 </p>
               </div>
               
               <div className="feature-item">
-                <div className="feature-icon">⚙️</div>
+                <div className="feature-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></div>
                 <p className="feature-text">
                   Manage your menu and opening times more easily, so they're always up to date.
                 </p>
@@ -102,16 +160,36 @@ const RestaurantLogin = ({ onSwitchToSignUp, onLoginSuccess }) => {
             <span className="logo-partner">partner</span>
           </div>
           <button className="language-btn">
-            <span className="globe-icon">🌐</span>
+            <span className="globe-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg></span>
             <span>EN</span>
           </button>
         </div>
 
         <div className="restaurant-login-card">
-          <h2 className="login-title">Log in with your email</h2>
+          <h2 className="login-title">
+            {loginMode === 'email' ? 'Log in with your email' : 'Log in with your phone'}
+          </h2>
+
+          {/* Toggle between Email and Phone login */}
+          <div className="login-mode-toggle">
+            <button
+              className={`mode-toggle-btn ${loginMode === 'email' ? 'active' : ''}`}
+              onClick={() => setLoginMode('email')}
+              type="button"
+            >
+              Email
+            </button>
+            <button
+              className={`mode-toggle-btn ${loginMode === 'phone' ? 'active' : ''}`}
+              onClick={() => setLoginMode('phone')}
+              type="button"
+            >
+              Phone Number
+            </button>
+          </div>
 
           <div className="login-form">
-            {loginMethod === 'email' ? (
+            {loginMode === 'email' ? (
               <>
                 <div className="form-group">
                   <input
@@ -139,7 +217,7 @@ const RestaurantLogin = ({ onSwitchToSignUp, onLoginSuccess }) => {
                       className="toggle-password"
                       onClick={() => setShowPassword(!showPassword)}
                     >
-                      {showPassword ? '👁️' : '👁️'}
+                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
                     </button>
                   </div>
                 </div>
@@ -148,48 +226,53 @@ const RestaurantLogin = ({ onSwitchToSignUp, onLoginSuccess }) => {
                   <a onClick={handleForgotPassword}>Forgot password?</a>
                 </div>
 
-                <button onClick={handleSubmit} className="login-btn">
-                  Log in
-                </button>
-
-                <div className="divider">
-                  <span>OR</span>
-                </div>
-
-                <button 
-                  className="phone-login-btn"
-                  onClick={() => setLoginMethod('phone')}
-                >
-                  <span className="phone-icon">📱</span>
-                  Log in with phone number
+                <button onClick={handleSubmit} className="login-btn" disabled={loading}>
+                  {loading ? 'Logging in...' : 'Log in'}
                 </button>
               </>
             ) : (
               <>
                 <div className="form-group">
-                  <div className="phone-input">
+                  <div className="phone-input-wrapper">
                     <span className="country-code">+880</span>
                     <input
                       type="tel"
-                      placeholder="Phone number"
+                      id="phone"
                       name="phone"
+                      placeholder="1712345678"
+                      value={formData.phone}
+                      onChange={handleChange}
+                      className="phone-field"
                     />
                   </div>
                 </div>
 
-                <button onClick={handleSubmit} className="login-btn">
-                  Log in
-                </button>
-
-                <div className="divider">
-                  <span>OR</span>
+                <div className="form-group">
+                  <div className="password-wrapper">
+                    <input
+                      type={showPhonePassword ? 'text' : 'password'}
+                      id="phonePassword"
+                      name="phonePassword"
+                      placeholder="Password"
+                      value={formData.phonePassword}
+                      onChange={handleChange}
+                    />
+                    <button
+                      type="button"
+                      className="toggle-password"
+                      onClick={() => setShowPhonePassword(!showPhonePassword)}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                    </button>
+                  </div>
                 </div>
 
-                <button 
-                  className="phone-login-btn"
-                  onClick={() => setLoginMethod('email')}
-                >
-                  ✉️ Log in with email
+                <div className="forgot-password-link">
+                  <a onClick={handleForgotPassword}>Forgot password?</a>
+                </div>
+
+                <button onClick={handleSubmit} className="login-btn" disabled={loading}>
+                  {loading ? 'Logging in...' : 'Log in'}
                 </button>
               </>
             )}
@@ -205,8 +288,8 @@ const RestaurantLogin = ({ onSwitchToSignUp, onLoginSuccess }) => {
                   </svg>
                 </div>
                 <div className="google-account-details">
-                  <span className="signin-as">Sign in as JOY</span>
-                  <span className="google-email">tkossboss@gmail.com</span>
+                  <span className="signin-as">Sign in with Google</span>
+                  <span className="google-email">Not yet implemented</span>
                 </div>
               </div>
               <div className="google-g-icon">G</div>

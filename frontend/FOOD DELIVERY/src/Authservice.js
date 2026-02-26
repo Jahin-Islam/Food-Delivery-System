@@ -1,15 +1,12 @@
-// Authservice.js - Fixed with correct API endpoints
+// authService.js - Enhanced with Restaurant Partner Support
 // 
-// IMPORTANT: This file assumes your Django backend has these endpoints:
+// ENDPOINTS:
 // - http://127.0.0.1:8000/api/auth/login/          (POST - login)
-// - http://127.0.0.1:8000/api/auth/register/       (POST - register)
+// - http://127.0.0.1:8000/api/auth/register/       (POST - register customer)
+// - http://127.0.0.1:8000/api/auth/register/vendor/ (POST - register restaurant partner)
 // - http://127.0.0.1:8000/api/auth/logout/         (POST - logout)
 // - http://127.0.0.1:8000/api/auth/token/refresh/  (POST - refresh token)
 // - http://127.0.0.1:8000/api/auth/user/           (GET - get user details)
-//
-// Restaurant endpoints are separate:
-// - http://127.0.0.1:8000/api/v1/restaurants/      (GET - list restaurants)
-// - http://127.0.0.1:8000/api/v1/restaurants/{id}/ (GET - restaurant details)
 
 class AuthService {
   constructor() {
@@ -37,6 +34,7 @@ class AuthService {
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('user');
+    localStorage.removeItem('restaurantData'); // Clear restaurant data on logout
   }
 
   isAuthenticated() {
@@ -58,6 +56,34 @@ class AuthService {
 
   clearUser() {
     localStorage.removeItem('user');
+  }
+
+  // ============================================
+  // RESTAURANT DATA MANAGEMENT (for vendors)
+  // ============================================
+
+  setRestaurantData(restaurantData) {
+    localStorage.setItem('restaurantData', JSON.stringify(restaurantData));
+  }
+
+  getRestaurantData() {
+    const dataStr = localStorage.getItem('restaurantData');
+    return dataStr ? JSON.parse(dataStr) : null;
+  }
+
+  clearRestaurantData() {
+    localStorage.removeItem('restaurantData');
+  }
+
+  // Check if user is a restaurant owner
+  isRestaurantOwner() {
+    const user = this.getUser();
+    // Backend role is 'RESTAURANT' (from views.py: request.user.role != 'RESTAURANT')
+    return user?.role === 'RESTAURANT'
+      || user?.role === 'vendor'
+      || user?.user_type === 'vendor'
+      || user?.is_vendor
+      || !!this.getRestaurantData();
   }
 
   // ============================================
@@ -129,6 +155,7 @@ class AuthService {
       console.error('Token refresh error:', error);
       this.clearTokens();
       this.clearUser();
+      this.clearRestaurantData();
       throw error;
     }
   }
@@ -189,23 +216,48 @@ class AuthService {
   // LOGIN
   // ============================================
 
-  async login(email, password) {
+  async login(identifier, password, loginType = 'email') {
     try {
+      // Build payload based on login type
+      // Format phone number for backend (+880 prefix)
+      let formattedIdentifier = identifier;
+      if (loginType === 'phone') {
+        let phone = identifier.toString().trim();
+        if (phone.startsWith('0')) {
+          phone = '+880' + phone.slice(1);   // 01712345678 → +8801712345678
+        } else if (!phone.startsWith('+')) {
+          phone = '+880' + phone;             // 1712345678  → +8801712345678
+        }
+        formattedIdentifier = phone;
+      }
+
+      const payload = loginType === 'phone'
+        ? { phone_number: formattedIdentifier, password }
+        : { email: formattedIdentifier, password };
+
       const response = await fetch(`${this.API_BASE_URL}/login/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
         let errorMessage = 'Login failed';
         try {
           const errorData = await this.safeJsonParse(response);
-          errorMessage = errorData.detail || errorData.message || 'Login failed';
+          console.error('Backend error response:', errorData);
+          // Try every possible error field from Django
+          errorMessage = errorData.detail 
+            || errorData.message 
+            || errorData.non_field_errors?.[0]
+            || errorData.email?.[0]
+            || errorData.phone_number?.[0]
+            || errorData.phone?.[0]
+            || errorData.username?.[0]
+            || JSON.stringify(errorData);
         } catch (e) {
-          // If we can't parse the error, use a generic message
           errorMessage = `Login failed with status ${response.status}`;
         }
         throw new Error(errorMessage);
@@ -216,9 +268,14 @@ class AuthService {
       // Store tokens
       this.setTokens(data.access, data.refresh);
       
-      // Store user data if provided
+      // Store user data
       if (data.user) {
         this.setUser(data.user);
+        
+        // If user is a vendor, store restaurant data
+        if (data.restaurant) {
+          this.setRestaurantData(data.restaurant);
+        }
       } else {
         // Fetch user details if not provided
         await this.fetchUserDetails();
@@ -237,7 +294,7 @@ class AuthService {
 
   async logout() {
     try {
-      // Optional: Call backend logout endpoint if you have one
+      // Optional: Call backend logout endpoint
       const refreshToken = this.getRefreshToken();
       if (refreshToken) {
         await fetch(`${this.API_BASE_URL}/logout/`, {
@@ -255,11 +312,12 @@ class AuthService {
       // Always clear local data
       this.clearTokens();
       this.clearUser();
+      this.clearRestaurantData();
     }
   }
 
   // ============================================
-  // REGISTER
+  // REGISTER CUSTOMER
   // ============================================
 
   async register(userData) {
@@ -313,6 +371,104 @@ class AuthService {
   }
 
   // ============================================
+  // REGISTER RESTAURANT PARTNER (VENDOR)
+  // ============================================
+
+  async registerRestaurantPartner(partnerData) {
+    try {
+      // Prepare data for vendor registration
+      const password = partnerData.password || 'TempPassword123!';
+      const password2 = partnerData.password2 || password;
+
+      // Format phone: if user typed 01712345678 (11 digits) or 1712345678 (10 digits),
+      // send as +8801712345678 to backend
+      let phone = partnerData.phone || '';
+      if (phone.startsWith('0')) {
+        phone = '+880' + phone.slice(1); // 01712345678 → +8801712345678
+      } else if (!phone.startsWith('+')) {
+        phone = '+880' + phone;          // 1712345678  → +8801712345678
+      }
+
+      const vendorData = {
+        email: partnerData.email,
+        password: password,
+        password2: password2,            // ← actual confirm password
+        first_name: partnerData.ownerFirstName,
+        last_name: partnerData.ownerLastName,
+        phone_number: phone,             // ← formatted with +880
+        user_type: 'vendor',
+        // Restaurant specific data
+        restaurant_name: partnerData.businessName,
+        restaurant_category: partnerData.businessType,
+      };
+
+      const response = await fetch(`${this.API_BASE_URL}/register/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(vendorData),
+      });
+
+      if (!response.ok) {
+        let errorMessage = 'Restaurant registration failed';
+        try {
+          const errorData = await this.safeJsonParse(response);
+          console.error('Registration error response:', errorData);
+          
+          // Extract first meaningful error from any field
+          if (errorData.email) {
+            errorMessage = `Email: ${Array.isArray(errorData.email) ? errorData.email[0] : errorData.email}`;
+          } else if (errorData.phone_number) {
+            errorMessage = `Phone: ${Array.isArray(errorData.phone_number) ? errorData.phone_number[0] : errorData.phone_number}`;
+          } else if (errorData.password) {
+            errorMessage = `Password: ${Array.isArray(errorData.password) ? errorData.password[0] : errorData.password}`;
+          } else if (errorData.password2) {
+            errorMessage = `Confirm Password: ${Array.isArray(errorData.password2) ? errorData.password2[0] : errorData.password2}`;
+          } else if (errorData.restaurant_name) {
+            errorMessage = `Business Name: ${Array.isArray(errorData.restaurant_name) ? errorData.restaurant_name[0] : errorData.restaurant_name}`;
+          } else if (errorData.detail) {
+            errorMessage = errorData.detail;
+          } else if (errorData.message) {
+            errorMessage = errorData.message;
+          } else {
+            // Show all errors so we can debug
+            errorMessage = JSON.stringify(errorData);
+          }
+        } catch (e) {
+          errorMessage = `Registration failed with status ${response.status}`;
+        }
+        throw new Error(errorMessage);
+      }
+
+      const data = await this.safeJsonParse(response);
+      
+      // Auto-login after registration
+      if (data.access && data.refresh) {
+        this.setTokens(data.access, data.refresh);
+        
+        if (data.user) {
+          this.setUser(data.user);
+        }
+        
+        if (data.restaurant) {
+          this.setRestaurantData(data.restaurant);
+        }
+        
+        // If user data not provided, fetch it
+        if (!data.user) {
+          await this.fetchUserDetails();
+        }
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Restaurant partner registration error:', error);
+      throw error;
+    }
+  }
+
+  // ============================================
   // INITIALIZE - Check auth state on app load
   // ============================================
 
@@ -321,29 +477,37 @@ class AuthService {
     const user = this.getUser();
 
     if (accessToken) {
-      // We have a token, verify it's still valid
       try {
         // If we don't have user data, fetch it
         if (!user) {
           await this.fetchUserDetails();
         }
-        return { isAuthenticated: true, user: this.getUser() };
+        return { 
+          isAuthenticated: true, 
+          user: this.getUser(),
+          restaurant: this.getRestaurantData()
+        };
       } catch (error) {
         // Token invalid, try to refresh
         try {
           await this.refreshAccessToken();
           await this.fetchUserDetails();
-          return { isAuthenticated: true, user: this.getUser() };
+          return { 
+            isAuthenticated: true, 
+            user: this.getUser(),
+            restaurant: this.getRestaurantData()
+          };
         } catch (refreshError) {
           // Refresh failed, clear everything
           this.clearTokens();
           this.clearUser();
-          return { isAuthenticated: false, user: null };
+          this.clearRestaurantData();
+          return { isAuthenticated: false, user: null, restaurant: null };
         }
       }
     }
 
-    return { isAuthenticated: false, user: null };
+    return { isAuthenticated: false, user: null, restaurant: null };
   }
 }
 

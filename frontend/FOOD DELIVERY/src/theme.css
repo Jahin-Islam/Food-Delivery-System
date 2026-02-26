@@ -1,0 +1,107 @@
+/* ============================================================
+   THEME.CSS — Change colors HERE, entire website updates.
+   Import this ONCE in main.jsx:  import './theme.css'
+   Then delete :root blocks from all other CSS files.
+   ============================================================ */
+
+:root {
+  /* ── PRIMARY BRAND COLOR ──────────────────────────────────
+     Change ONLY --primary and the whole site updates.
+     Also update --shadow-primary rgba to match.          */
+  --primary:        #d70f64;
+  --primary-dark:   #b80d52;
+  --primary-light:  #fce7f3;
+
+  /* ── STATUS COLORS ───────────────────────────────────── */
+  --success:        #10b981;
+  --success-light:  #d1fae5;
+  --warning:        #f59e0b;
+  --warning-light:  #fef3c7;
+  --danger:         #dc2626;
+  --danger-light:   #fee2e2;
+  --whatsapp:       #25d366;
+
+  /* ── NEUTRALS ────────────────────────────────────────── */
+  --white:          #ffffff;
+  --gray-50:        #f9fafb;
+  --gray-100:       #f3f4f6;
+  --gray-200:       #e5e7eb;
+  --gray-300:       #d1d5db;
+  --gray-400:       #9ca3af;
+  --gray-500:       #6b7280;
+  --gray-600:       #4b5563;
+  --gray-700:       #374151;
+  --gray-800:       #1f2937;
+  --gray-900:       #111827;
+
+  /* ── GRADIENTS ───────────────────────────────────────── */
+  --gradient-primary: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+  --gradient-hero:    linear-gradient(145deg, var(--primary) 0%, var(--primary-dark) 58%, #8b0038 100%);
+  --gradient-rider:   linear-gradient(160deg, var(--primary) 0%, var(--primary-dark) 100%);
+
+  /* ── SHADOWS ─────────────────────────────────────────── */
+  --shadow-sm:      0 1px 3px rgba(0,0,0,0.08);
+  --shadow-md:      0 2px 8px rgba(0,0,0,0.10);
+  --shadow-lg:      0 4px 16px rgba(0,0,0,0.12);
+  --shadow-xl:      0 8px 32px rgba(0,0,0,0.14);
+  --shadow-primary: 0 4px 14px rgba(215,15,100,0.28);   /* ← update rgba when changing --primary */
+  --shadow-primary-hover: 0 8px 24px rgba(215,15,100,0.38);
+
+  /* ── TYPOGRAPHY ──────────────────────────────────────── */
+  --font:           "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+
+  /* ── SHAPE ───────────────────────────────────────────── */
+  --radius:         12px;
+  --radius-sm:      8px;
+  --radius-lg:      16px;
+  --radius-full:    999px;
+
+  /* ── ANIMATION ───────────────────────────────────────── */
+  --t:              0.22s ease;
+
+  /* ── ALIASES (used by existing CSS files as-is) ─────── */
+  /* These map old variable names → new ones so existing   */
+  /* CSS files work without any edits.                     */
+  --c-primary:        var(--primary);
+  --c-primary-dark:   var(--primary-dark);
+  --c-primary-light:  var(--primary-light);
+  --c-white:          var(--white);
+  --c-gray-50:        var(--gray-50);
+  --c-gray-100:       var(--gray-100);
+  --c-gray-200:       var(--gray-200);
+  --c-gray-300:       var(--gray-300);
+  --c-gray-400:       var(--gray-400);
+  --c-gray-500:       var(--gray-500);
+  --c-gray-600:       var(--gray-600);
+  --c-gray-700:       var(--gray-700);
+  --c-gray-800:       var(--gray-800);
+  --c-gray-900:       var(--gray-900);
+  --c-whatsapp:       var(--whatsapp);
+  --c-success:        var(--success);
+  --c-danger:         var(--danger);
+  --c-warning:        var(--warning);
+  --shadow-primary-color: var(--shadow-primary);
+  --app-primary:      var(--primary);
+  --app-primary-dark: var(--primary-dark);
+  --app-primary-light:var(--primary-light);
+  --app-white:        var(--white);
+  --app-bg:           var(--gray-50);
+  --app-font:         var(--font);
+  --app-radius:       var(--radius);
+  --app-transition:   var(--t);
+}
+
+/* ============================================================
+   HOW TO CHANGE THE BRAND COLOR:
+
+   Example — change to blue:
+     --primary:        #1d4ed8;
+     --primary-dark:   #1e40af;
+     --primary-light:  #dbeafe;
+     --shadow-primary: 0 4px 14px rgba(29,78,216,0.28);
+     --shadow-primary-hover: 0 8px 24px rgba(29,78,216,0.38);
+     And in --gradient-hero replace #8b0038 with a dark shade of your color.
+
+   That's it. Every button, border, focus ring, gradient,
+   logo, and highlight across all pages updates instantly.
+   ============================================================ */

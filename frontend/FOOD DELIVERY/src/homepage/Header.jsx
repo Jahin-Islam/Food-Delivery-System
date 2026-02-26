@@ -1,19 +1,20 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import './Header.css';
-import ProfileDropdown from './ProfileDropdown.jsx';
+import ProfileDropdown from './Profiledropdown.jsx';
 
-const Header = ({ 
-  isLoggedIn, 
-  user, 
-  cartItems = [], 
-  onLoginClick, 
-  onSignUpClick, 
-  onCartClick, 
+const Header = ({
+  isLoggedIn,
+  user,
+  cartItems = [],
+  onLoginClick,
+  onSignUpClick,
+  onCartClick,
   onLogout,
   showBanner = false,
   onRestaurantSignUpClick,
   onProfileClick,
-  onOrdersClick
+  onOrdersClick,
 }) => {
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
 
@@ -23,28 +24,51 @@ const Header = ({
 
   return (
     <>
-      {/* Top Pink Banner */}
-      {showBanner && !isLoggedIn && (
-        <div className="top-banner">
-          <div className="banner-icon"></div>
-          <button className="banner-btn" onClick={onRestaurantSignUpClick}>
-            SIGN UP TO BE A RESTAURANT PARTNER
-          </button>
-          <button className="banner-btn" onClick={onRestaurantSignUpClick}>
-            SIGN UP FOR A BUSINESS ACCOUNT
-          </button>
-        </div>
-      )}
+      {/* ── Top Pink Banner ──────────────────────────────────── */}
+      <AnimatePresence>
+        {showBanner && !isLoggedIn && (
+          <motion.div
+            className="top-banner"
+            initial={{ opacity: 0, y: -32 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -32 }}
+            transition={{ duration: 0.3 }}
+          >
+            <div className="banner-icon" />
+            <button className="banner-btn" onClick={onRestaurantSignUpClick}>
+              SIGN UP FOR A BUSINESS ACCOUNT
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* Header */}
-      <header className="header">
+      {/* ── Header ──────────────────────────────────────────── */}
+      <motion.header
+        className="header"
+        initial={{ opacity: 0, y: -16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+      >
         <div className="header-content">
+
+          {/* Left — Logo + Address */}
           <div className="header-left">
-            {/* Logo and Address */}
             <div className="logo-section">
-              <button className="logo-icon"></button>
+              {/* Panda icon inside logo button */}
+              <button className="logo-icon" aria-label="foodpanda home">
+                <img
+                  src="/images/accessories/panda.png"
+                  alt="panda"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                    e.currentTarget.parentNode.style.fontSize = '22px';
+                    e.currentTarget.parentNode.textContent = '🐼';
+                  }}
+                />
+              </button>
               <span className="logo-text">foodpanda</span>
             </div>
+
             <button className="address-button">
               <span className="logo-image">
                 <img src="../../public/images/accessories/gps.png" alt="GPS" />
@@ -56,47 +80,93 @@ const Header = ({
             </button>
           </div>
 
-          {/* Right Side Buttons */}
+          {/* Right — Actions */}
           <div className="header-right">
             {!isLoggedIn ? (
               <>
-                <button className="header-btn" onClick={onLoginClick}>
+                <motion.button
+                  className="header-btn"
+                  onClick={onLoginClick}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.97 }}
+                >
                   Log in
-                </button>
-                <button className="header-btn signup-btn" onClick={onSignUpClick}>
+                </motion.button>
+                <motion.button
+                  className="header-btn signup-btn"
+                  onClick={onSignUpClick}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.97 }}
+                >
                   Sign up for free delivery
-                </button>
+                </motion.button>
               </>
             ) : (
               <>
-                <button className="header-btn language-btn">
+                {/* Language */}
+                <motion.button
+                  className="header-btn language-btn"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.97 }}
+                >
                   <span className="logo-image">
                     <img src="../../public/images/accessories/world.png" alt="Language" />
                   </span>
                   <span>EN</span>
-                </button>
-                <button className="header-btn cart-button" onClick={onCartClick}>
+                </motion.button>
+
+                {/* Cart */}
+                <motion.button
+                  className="header-btn cart-button"
+                  onClick={onCartClick}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.97 }}
+                >
                   <span className="logo-image">
                     <img src="../../public/images/accessories/cart.png" alt="Cart" />
                   </span>
-                  {cartItems && cartItems.length > 0 && (
-                    <span className="cart-badge">{cartItems.length}</span>
-                  )}
+                  <AnimatePresence>
+                    {cartItems && cartItems.length > 0 && (
+                      <motion.span
+                        className="cart-badge"
+                        key={cartItems.length}
+                        initial={{ scale: 0.4 }}
+                        animate={{ scale: 1 }}
+                        exit={{ scale: 0 }}
+                        transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+                      >
+                        {cartItems.length}
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
                   <span>CART</span>
-                </button>
-                <button className="header-btn favourite-btn">
+                </motion.button>
+
+                {/* Favourites */}
+                <motion.button
+                  className="header-btn favourite-btn"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.97 }}
+                >
                   <span className="logo-image">
                     <img src="../../public/images/accessories/heart.png" alt="Favourites" />
                   </span>
                   <span>FAVOURITES</span>
-                </button>
-                <button className="header-btn profile-btn" onClick={handleProfileClick}>
+                </motion.button>
+
+                {/* Profile */}
+                <motion.button
+                  className="header-btn profile-btn"
+                  onClick={handleProfileClick}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.97 }}
+                >
                   <span className="logo-image">
                     <img src="../../public/images/accessories/profile.png" alt="Profile" />
                   </span>
-                  <span>{user?.first_name || "PROFILE"}</span>
-                </button>
-                
+                  <span>{user?.first_name || 'PROFILE'}</span>
+                </motion.button>
+
                 {/* Profile Dropdown */}
                 <ProfileDropdown
                   isOpen={showProfileDropdown}
@@ -111,7 +181,7 @@ const Header = ({
           </div>
         </div>
 
-        {/* Navigation Tabs */}
+        {/* ── Nav Tabs ──────────────────────────────────────── */}
         <div className="nav-tabs">
           <div className="nav-tabs-content">
             <button className="nav-tab active">
@@ -134,7 +204,7 @@ const Header = ({
             </button>
           </div>
         </div>
-      </header>
+      </motion.header>
     </>
   );
 };
