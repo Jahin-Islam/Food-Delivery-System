@@ -1384,3 +1384,72 @@ body {
     height: 2px;
   }
 }
+/* ── Lucide icon replacements ──────────────────────────────── */
+
+/* Spinning loader */
+.spin-icon {
+  animation: spin 1s linear infinite;
+  color: var(--primary);
+}
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* Promo gift icon */
+.promo-image {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255,255,255,0.9);
+  filter: drop-shadow(0 4px 12px rgba(0,0,0,0.15));
+}
+
+/* Restaurant placeholder icon */
+.deal-emoji {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: var(--primary);
+  opacity: 0.5;
+  background: var(--primary-light);
+}
+
+/* Star rating icon */
+.star-icon {
+  display: inline-flex;
+  align-items: center;
+  color: #f59e0b;
+}
+
+/* Error icon */
+.error-icon {
+  display: flex;
+  justify-content: center;
+  color: #f59e0b;
+  margin-bottom: 8px;
+}
+
+/* No results icon */
+.no-results-icon {
+  display: flex;
+  justify-content: center;
+  color: var(--gray-400);
+  margin-bottom: 12px;
+}
+
+/* Loading spinner container */
+.loading-spinner {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+/* Cuisine nav arrow buttons */
+.cuisine-nav-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
