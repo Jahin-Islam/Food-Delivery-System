@@ -136,23 +136,108 @@ class RegisterView(APIView):
 class MyLoginView(TokenObtainPairView):
     serializer_class = MyTokenObtainPairSerializer
 
+
 ############## Shows Users Profile Data ###############
 class UserProfileView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         user_id = request.user.id
+        response_data = {}
+
         with connection.cursor() as cursor:
-            cursor.execute("SELECT email, role, phone_number, is_active FROM users_User WHERE id = %s", [user_id])
-            row = cursor.fetchone()
-        
-        if row:
-            user_data = {
-                "email": row[0],
-                "role": row[1],
-                "phone_number": row[2],
-                "is_active": row[3]
+            # 1. FETCH ONLY BASIC IDENTITY INFO FROM USER TABLE
+            # Excluded: password, is_superuser, is_staff, date_joined, etc.
+            user_query = """
+                SELECT 
+                    first_name, 
+                    last_name, 
+                    email, 
+                    phone_number, 
+                    role, 
+                    image_url
+                FROM users_user 
+                WHERE id = %s
+            """
+            cursor.execute(user_query, [user_id])
+            user_row = cursor.fetchone()
+
+            if not user_row:
+                return Response({"error": "User not found"}, status=404)
+
+            # Manually mapping to ensure we control exactly what goes out
+            response_data = {
+                "first_name": user_row[0],
+                "last_name": user_row[1],
+                "email": user_row[2],
+                "phone_number": user_row[3],
+                "role": user_row[4],
+                "profile_image": user_row[5],
             }
-            return Response(user_data)
-        else:
-            return Response({"error": "User not found"}, status=404)
+
+            role = response_data['role']
+
+            # 2. FETCH ONLY ROLE-SPECIFIC NECESSARY INFO
+            
+            # --- CUSTOMER: Only Wallet Balance ---
+            if role == "CUSTOMER":
+                cursor.execute("""
+                    SELECT wallet_balance 
+                    FROM customers_customer 
+                    WHERE user_id = %s
+                """, [user_id])
+                
+                row = cursor.fetchone()
+                if row:
+                    response_data["wallet_balance"] = row[0]
+                else:
+                    response_data["wallet_balance"] = 0.00
+
+            # --- RIDER: Only Availability & Vehicle Type ---
+            # Excluded: current_latitude, current_longitude (tracking data), license_plate (sensitive)
+            elif role == "RIDER":
+                cursor.execute("""
+                    SELECT is_available, vehicle
+                    FROM riders_rider 
+                    WHERE user_id = %s
+                """, [user_id])
+                
+                row = cursor.fetchone()
+                if row:
+                    response_data["rider_info"] = {
+                        "is_available": row[0],
+                        "vehicle_type": row[1]
+                    }
+
+            # --- RESTAURANT: Name, Rating, Contact & Category ---
+            # Excluded: min_order, total_rated, internal IDs
+            # Note: Since Restaurant is a ForeignKey (One User -> Many Restaurants), 
+            # we fetch the first one associated with this profile.
+            elif role == "RESTAURANT":
+                cursor.execute("""
+                    SELECT 
+                        name, 
+                        restaurant_category, 
+                        rating, 
+                        phone, 
+                        opening_time, 
+                        closing_time, 
+                        image_url 
+                    FROM restaurants_restaurant 
+                    WHERE user_id = %s
+                    LIMIT 1
+                """, [user_id])
+                
+                row = cursor.fetchone()
+                if row:
+                    response_data["restaurant_info"] = {
+                        "restaurant_name": row[0],
+                        "category": row[1],
+                        "rating": row[2],
+                        "contact_phone": row[3],
+                        "opening_time": row[4],
+                        "closing_time": row[5],
+                        "restaurant_image": row[6]
+                    }
+
+        return Response(response_data)
