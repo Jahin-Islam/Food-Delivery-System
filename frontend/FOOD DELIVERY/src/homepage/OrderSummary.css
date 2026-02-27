@@ -10,7 +10,7 @@
   width: 400px;
   min-width: 400px;
   max-width: 400px;
-  background: white;
+  background: var(--white);
   border-radius: var(--radius);
   box-shadow: var(--shadow-md);
   overflow: hidden;
@@ -27,14 +27,14 @@
 .delivery-mode-tabs {
   display: flex;
   border-bottom: 1.5px solid var(--c-gray-200);
-  background: white;
+  background: var(--white);
   flex-shrink: 0;
 }
 
 .mode-tab {
   flex: 1;
   padding: 15px 18px;
-  background: white;
+  background: var(--white);
   border: none;
   border-bottom: 3px solid transparent;
   cursor: pointer;
@@ -248,7 +248,7 @@
 }
 
 .carousel-btn {
-  background: white;
+  background: var(--white);
   border: 1.5px solid var(--c-gray-200);
   width: 32px;
   height: 32px;
@@ -285,7 +285,7 @@
 
 .popular-item {
   min-width: 140px;
-  background: white;
+  background: var(--white);
   border-radius: 10px;
   overflow: hidden;
   box-shadow: var(--shadow-sm);
@@ -440,7 +440,7 @@
   width: 18px;
   left: 3px;
   bottom: 3px;
-  background-color: white;
+  background-color: var(--white);
   transition: 0.3s;
   border-radius: 50%;
   box-shadow: 0 1px 4px rgba(0,0,0,0.18);

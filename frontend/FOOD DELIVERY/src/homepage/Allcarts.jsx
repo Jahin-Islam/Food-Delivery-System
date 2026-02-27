@@ -1,7 +1,7 @@
 import React from 'react';
 import './AllCarts.css';
 import { COLORS, SHADOWS } from '../constants.js';
-import { ShoppingCart, Utensils, Coins } from 'lucide-react';
+import { ShoppingCart, Utensils, Coins, X } from 'lucide-react';
 
 const AllCarts = ({ isOpen, onClose, cartItems = [], onCheckout, onNavigateToRestaurant }) => {
   // Group cart items by restaurant
@@ -48,7 +48,7 @@ const AllCarts = ({ isOpen, onClose, cartItems = [], onCheckout, onNavigateToRes
             onClick={onClose}
             aria-label="Close all carts"
           >
-            ✕
+            <X size={16} />
           </button>
         </div>
 

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { X, Utensils } from 'lucide-react';
 import './ItemDetailModal.css';
 
 const ItemDetailModal = ({ 
@@ -135,7 +136,7 @@ const ItemDetailModal = ({
       <div className="item-detail-modal">
         {/* Close Button */}
         <button className="modal-close-btn" onClick={onClose}>
-          ✕
+          <X size={16} />
         </button>
 
         {/* Modal Content */}
@@ -145,7 +146,7 @@ const ItemDetailModal = ({
             {item.image_url ? (
               <img src={item.image_url} alt={item.name} />
             ) : (
-              <div className="modal-item-emoji">🍽️</div>
+              <div className="modal-item-emoji"><Utensils size={80} style={{opacity:0.4, color:"var(--gray-400)"}} /></div>
             )}
           </div>
 
@@ -204,7 +205,7 @@ const ItemDetailModal = ({
                         {extra.image ? (
                           <img src={extra.image} alt={extra.name} />
                         ) : (
-                          <span className="extra-emoji">🍔</span>
+                          <span className="extra-emoji"><Utensils size={22} color="var(--primary)" /></span>
                         )}
                       </div>
                       <div className="extra-item-details">
