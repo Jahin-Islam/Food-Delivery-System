@@ -16,6 +16,7 @@ const Header = ({
   onRestaurantSignUpClick,
   onProfileClick,
   onOrdersClick,
+  onLogoClick,        // ← NEW: clicking logo goes home
 }) => {
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const [isDark, setIsDark] = useState(() => localStorage.getItem('theme') === 'dark');
@@ -61,8 +62,8 @@ const Header = ({
       >
         <div className="header-content">
           <div className="header-left">
-            <div className="logo-section">
-              <button className="logo-icon" aria-label="foodpanda home">
+            <div className="logo-section" onClick={onLogoClick} style={{ cursor: onLogoClick ? 'pointer' : 'default' }}>
+              <button className="logo-icon" aria-label="foodpanda home" onClick={onLogoClick}>
                 <img
                   src="/images/accessories/panda.png"
                   alt="panda"
@@ -73,7 +74,7 @@ const Header = ({
                   }}
                 />
               </button>
-              <span className="logo-text">foodpanda</span>
+              <span className="logo-text" onClick={onLogoClick}>foodpanda</span>
             </div>
             <button className="address-button">
               <span className="logo-image">

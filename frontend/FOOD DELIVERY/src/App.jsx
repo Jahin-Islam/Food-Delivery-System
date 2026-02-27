@@ -1,147 +1,8 @@
-// import React, { useState } from 'react';
-// import RiderDashboard from './riderpage/Riderdashboard.jsx';
-// import './App.css';
-
-// function App() {
-//   const [isLoggedIn, setIsLoggedIn] = useState(true);
-  
-//   const mockRider = {
-//     name: 'Piyush Agarwal',
-//     id: 'RD-9577690140',
-//     vehicle: 'Car',
-//     phone: '9577690140',
-//     email: 'agarwal.piyush123@outlook.com',
-//     rating: 4.8,
-//     totalReviews: 156
-//   };
-
-//   const handleLogout = () => {
-//     setIsLoggedIn(false);
-//     console.log('Rider logged out');
-//   };
-
-//   return (
-//     <div className="App">
-//       <RiderDashboard 
-//         rider={mockRider}
-//         onLogout={handleLogout}
-//       />
-//     </div>
-//   );
-// }
-
-// export default App;
-
-
-// import React, { useState } from 'react';
-// import RiderDashboard from './riderpage/Riderdashboard.jsx';
-// import './App.css';
-
-// function App() {
-//   const [isLoggedIn, setIsLoggedIn] = useState(true);
-  
-//   const mockRider = {
-//     name: 'Piyush Agarwal',
-//     id: 'RD-9577690140',
-//     vehicle: 'Car',
-//     phone: '9577690140',
-//     email: 'agarwal.piyush123@outlook.com',
-//     rating: 4.8,
-//     totalReviews: 156
-//   };
-
-//   const handleLogout = () => {
-//     setIsLoggedIn(false);
-//     console.log('Rider logged out');
-//   };
-
-//   return (
-//     <div className="App">
-//       <RiderDashboard 
-//         rider={mockRider}
-//         onLogout={handleLogout}
-//       />
-//     </div>
-//   );
-// }
-
-// export default App;
-
-// import React, { useState } from 'react';
-// import RiderDashboard from './riderpage/Riderdashboard.jsx';
-// import './App.css';
-
-// function App() {
-//   const [isLoggedIn, setIsLoggedIn] = useState(true);
-  
-//   const mockRider = {
-//     name: 'Piyush Agarwal',
-//     id: 'RD-9577690140',
-//     vehicle: 'Car',
-//     phone: '9577690140',
-//     email: 'agarwal.piyush123@outlook.com',
-//     rating: 4.8,
-//     totalReviews: 156
-//   };
-
-//   const handleLogout = () => {
-//     setIsLoggedIn(false);
-//     console.log('Rider logged out');
-//   };
-
-//   return (
-//     <div className="App">
-//       <RiderDashboard 
-//         rider={mockRider}
-//         onLogout={handleLogout}
-//       />
-//     </div>
-//   );
-// }
-
-// export default App;
-
-
-// import React, { useState } from 'react';
-// import RiderDashboard from './riderpage/Riderdashboard.jsx';
-// import './App.css';
-
-// function App() {
-//   const [isLoggedIn, setIsLoggedIn] = useState(true);
-  
-//   const mockRider = {
-//     name: 'Piyush Agarwal',
-//     id: 'RD-9577690140',
-//     vehicle: 'Car',
-//     phone: '9577690140',
-//     email: 'agarwal.piyush123@outlook.com',
-//     rating: 4.8,
-//     totalReviews: 156
-//   };
-
-//   const handleLogout = () => {
-//     setIsLoggedIn(false);
-//     console.log('Rider logged out');
-//   };
-
-//   return (
-//     <div className="App">
-//       <RiderDashboard 
-//         rider={mockRider}
-//         onLogout={handleLogout}
-//       />
-//     </div>
-//   );
-// }
-
-// export default App;
-
-
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Homepage from './homepage/homepage.jsx';
 import RestaurantDetail from './homepage/RestaurantDetail.jsx';
 import BusinessDashboard from './business onwer page/Businessdashboard.jsx';
-import BusinessWelcome from './business onwer page/BusinessWelcome.jsx'; // ← ADDED
+import BusinessWelcome from './business onwer page/BusinessWelcome.jsx';
 import Orders from './business onwer page/Orders.jsx';
 import OrderHistory from './business onwer page/Orderhistory.jsx';
 import Checkout from './homepage/Checkout.jsx';
@@ -156,547 +17,303 @@ import authService from './Authservice.js';
 import cartService from './Cartservice.js';
 import cartApiService from './Cartapiservice.js';
 
+const BUSINESS_PAGES = new Set(['business-welcome','business-dashboard','orders','order-history']);
+
 function App() {
-  const [currentPage, setCurrentPage] = useState('home'); // 'home', 'restaurant', 'business-welcome', 'business-dashboard', 'orders', 'order-history', 'checkout', 'profile', 'login', 'signup', 'restaurant-login', 'restaurant-signup', 'rider-signup', 'rider-onboarding'
-  const [selectedRestaurant, setSelectedRestaurant] = useState(null);
+  const [currentPage,          setCurrentPage]          = useState('home');
+  const [selectedRestaurant,   setSelectedRestaurant]   = useState(null);
   const [checkoutRestaurantId, setCheckoutRestaurantId] = useState(null);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [user, setUser] = useState(null);
-  const [cartItems, setCartItems] = useState([]);
-  const [isInitializing, setIsInitializing] = useState(true);
+  const [isLoggedIn,           setIsLoggedIn]           = useState(false);
+  const [user,                 setUser]                 = useState(null);
+  const [cartItems,            setCartItems]            = useState([]);
+  const [isInitializing,       setIsInitializing]       = useState(true);
 
-  // ============================================
-  // INITIALIZE APP - Check auth and load cart
-  // ============================================
+  // Push a history entry and change page
+  const push = useCallback((page, extra = {}) => {
+    window.history.pushState({ page, ...extra }, '', '#' + page);
+    setCurrentPage(page);
+  }, []);
+
+  // Browser back/forward
   useEffect(() => {
-    const initializeApp = async () => {
-      try {
-        setIsInitializing(true);
+    const onPop = (e) => {
+      const state = e.state;
+      const dest  = state?.page ?? 'home';
 
-        // Check authentication status
+      // If on a business page and pressing back to non-business, stay in dashboard
+      if (BUSINESS_PAGES.has(currentPage) && !BUSINESS_PAGES.has(dest) && dest !== 'home') {
+        setCurrentPage('business-dashboard');
+        return;
+      }
+
+      setCurrentPage(dest);
+      if (state?.restaurant)           setSelectedRestaurant(state.restaurant);
+      if ('checkoutRestaurantId' in (state ?? {})) setCheckoutRestaurantId(state.checkoutRestaurantId);
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, [currentPage]);
+
+  // Initialize
+  useEffect(() => {
+    const init = async () => {
+      try {
         const authState = await authService.initialize();
         setIsLoggedIn(authState.isAuthenticated);
         setUser(authState.user);
-
-        // Load cart from localStorage
-        const savedCart = cartService.loadCart();
-        setCartItems(savedCart);
-
-        console.log('App initialized:', {
-          isAuthenticated: authState.isAuthenticated,
-          user: authState.user,
-          cartItems: savedCart.length
-        });
-      } catch (error) {
-        console.error('App initialization error:', error);
-        // On error, assume not logged in
-        setIsLoggedIn(false);
-        setUser(null);
+        if (authState.isAuthenticated) {
+          const items = await cartApiService.getAllCarts();
+          setCartItems(items);
+          cartService.saveCart(items);
+        } else {
+          setCartItems(cartService.loadCart());
+        }
+      } catch (err) {
+        console.error('Init error:', err);
+        setCartItems(cartService.loadCart());
       } finally {
         setIsInitializing(false);
+        // Seed history so back button works from first page
+        window.history.replaceState({ page: 'home' }, '', '#home');
       }
     };
-
-    initializeApp();
+    init();
   }, []);
 
-  // ============================================
-  // SAVE CART whenever it changes
-  // ============================================
   useEffect(() => {
-    if (!isInitializing) {
-      cartService.saveCart(cartItems);
-      console.log('Cart saved to localStorage:', cartItems.length, 'items');
+    if (!isInitializing && !isLoggedIn) cartService.saveCart(cartItems);
+  }, [cartItems, isInitializing, isLoggedIn]);
+
+  const reloadBackendCart = async () => {
+    try {
+      const items = await cartApiService.getAllCarts();
+      setCartItems(items);
+      cartService.saveCart(items);
+    } catch (e) { console.error(e); }
+  };
+
+  // Cart ops
+  const handleAddToCart = async (newItem) => {
+    if (isLoggedIn && newItem.restaurantId) {
+      try {
+        await cartApiService.addToCart(newItem.restaurantId, { food_id: newItem.foodId ?? newItem.food_id, quantity: newItem.quantity ?? 1 });
+        await reloadBackendCart(); return;
+      } catch (e) { console.error(e); }
     }
-  }, [cartItems, isInitializing]);
-
-  // ============================================
-  // CART MANAGEMENT
-  // ============================================
-
-  // Smart Add to Cart - Increases quantity if item already exists
-  const handleAddToCart = (newItem) => {
-    setCartItems(prevItems => {
-      const existingItemIndex = prevItems.findIndex(
-        item => item.foodId === newItem.foodId && 
-                item.restaurantId === newItem.restaurantId
-      );
-
-      if (existingItemIndex !== -1) {
-        // Item exists - increase quantity
-        const updatedItems = [...prevItems];
-        updatedItems[existingItemIndex] = {
-          ...updatedItems[existingItemIndex],
-          quantity: updatedItems[existingItemIndex].quantity + 1
-        };
-        console.log('Increased quantity:', updatedItems[existingItemIndex].name);
-        return updatedItems;
-      } else {
-        // New item - add to cart
-        console.log('Added new item:', newItem.name);
-        return [...prevItems, { ...newItem, quantity: 1 }];
-      }
+    setCartItems(prev => {
+      const idx = prev.findIndex(i => i.foodId === newItem.foodId && i.restaurantId === newItem.restaurantId);
+      if (idx !== -1) { const u=[...prev]; u[idx]={...u[idx],quantity:u[idx].quantity+1}; return u; }
+      return [...prev, { ...newItem, quantity: newItem.quantity ?? 1 }];
     });
   };
 
-  const handleUpdateQuantity = (itemId, newQuantity) => {
-    if (newQuantity <= 0) {
-      handleRemoveItem(itemId);
-      return;
+  const handleUpdateQuantity = async (itemId, qty) => {
+    if (qty <= 0) { handleRemoveItem(itemId); return; }
+    const item = cartItems.find(i => i.id === itemId);
+    if (isLoggedIn && item?.restaurantId) {
+      try { await cartApiService.updateCartItem(item.restaurantId, item.foodId??item.food_id, qty); await reloadBackendCart(); return; }
+      catch (e) { console.error(e); }
     }
-    
-    setCartItems(prevItems =>
-      prevItems.map(item =>
-        item.id === itemId ? { ...item, quantity: newQuantity } : item
-      )
-    );
+    setCartItems(prev => prev.map(i => i.id===itemId ? {...i,quantity:qty} : i));
   };
 
-  const handleRemoveItem = (itemId) => {
-    setCartItems(prevItems => prevItems.filter(item => item.id !== itemId));
+  const handleRemoveItem = async (itemId) => {
+    const item = cartItems.find(i => i.id === itemId);
+    if (isLoggedIn && item?.restaurantId) {
+      try { await cartApiService.removeFromCart(item.restaurantId, item.foodId??item.food_id); await reloadBackendCart(); return; }
+      catch (e) { console.error(e); }
+    }
+    setCartItems(prev => prev.filter(i => i.id !== itemId));
   };
 
-  const handleClearCart = () => {
-    setCartItems([]);
-    cartService.clearCart();
-  };
-
-  // ============================================
-  // NAVIGATION
-  // ============================================
-
-  const handleRestaurantClick = (restaurant) => {
-    setSelectedRestaurant(restaurant);
-    setCurrentPage('restaurant');
-  };
-
-  const handleBusinessDashboardClick = (restaurant) => {
-    setSelectedRestaurant(restaurant);
-    setCurrentPage('business-dashboard');
-  };
-
-  const handleNavigateToOrders = () => {
-    setCurrentPage('orders');
-  };
-
-  const handleNavigateToMenu = () => {
-    setCurrentPage('business-dashboard');
-  };
-
-  const handleNavigateToOrderHistory = () => {
-    setCurrentPage('order-history');
-  };
-
-  const handleBackToHome = () => {
-    setCurrentPage('home');
+  // Navigation helpers
+  const goHome = useCallback(() => {
     setSelectedRestaurant(null);
     setCheckoutRestaurantId(null);
-  };
+    window.history.pushState({ page:'home' }, '', '#home');
+    setCurrentPage('home');
+  }, []);
 
-  const handleBackToRestaurant = () => {
+  const goToRestaurant = useCallback((restaurant) => {
+    setSelectedRestaurant(restaurant);
+    window.history.pushState({ page:'restaurant', restaurant }, '', '#restaurant');
     setCurrentPage('restaurant');
-    setCheckoutRestaurantId(null);
-  };
+  }, []);
 
-  // Handle checkout navigation - FIXED to pass restaurant ID
-  const handleCheckout = (restaurantId) => {
-    console.log('Navigating to checkout for restaurant:', restaurantId);
+  const goToCheckout = useCallback((restaurantId) => {
     setCheckoutRestaurantId(restaurantId);
+    window.history.pushState({ page:'checkout', checkoutRestaurantId: restaurantId }, '', '#checkout');
     setCurrentPage('checkout');
+  }, []);
+
+  // Auth
+  const handleLoginSuccess = async () => {
+    setIsLoggedIn(true); setUser(authService.getUser());
+    try { await cartApiService.syncCartAfterLogin(); } catch(e){}
+    await reloadBackendCart();
+    goHome();
   };
 
-  // ============================================
-  // AUTH HANDLERS - FIXED
-  // ============================================
-
-  const handleLoginClick = () => {
-    console.log('Navigating to login page');
-    setCurrentPage('login');
+  const handleSignUpSuccess = async () => {
+    setIsLoggedIn(true); setUser(authService.getUser());
+    try { await cartApiService.syncCartAfterLogin(); } catch(e){}
+    await reloadBackendCart();
+    goHome();
   };
 
-  const handleSignUpClick = () => {
-    console.log('Navigating to signup page');
-    setCurrentPage('signup');
-  };
-
-  const handleProfileClick = () => {
-    console.log('Navigating to profile page');
-    setCurrentPage('profile');
-  };
-
-  const handleOrdersClick = () => {
-    console.log('Navigating to orders page');
-    // TODO: Implement orders page
-    alert('Orders page coming soon!');
-  };
-
-  const handleLoginSuccess = async (userData) => {
-    console.log('Login successful:', userData);
-    setIsLoggedIn(true);
-    setUser(authService.getUser());
-    setCurrentPage('home'); // Go back to home page after login
-  };
-
-  const handleSignUpSuccess = async (userData) => {
-    console.log('Sign up successful:', userData);
-    setIsLoggedIn(true);
-    setUser(authService.getUser());
-    setCurrentPage('home'); // Go back to home page after signup
-  };
-
-  // Restaurant Partner Authentication Handlers
   const handleRestaurantLoginSuccess = async (userData) => {
-    console.log('Restaurant partner login successful:', userData);
-    setIsLoggedIn(true);
-    setUser(authService.getUser());
-    
-    // Get restaurant data from authService or use provided data
-    const restaurantData = authService.getRestaurantData() || userData.restaurant;
-    
-    if (restaurantData) {
-      setSelectedRestaurant(restaurantData);
-    } else {
-      // Fallback to mock data if backend doesn't return restaurant yet
-      setSelectedRestaurant({
-        id: 1,
-        name: userData.businessName || "Rice & Beyond",
-        description: "Food • Restaurant",
-        address: "Dhaka, Bangladesh",
-        rating: 4.8,
-        total_rated: 1732,
-        total_reviews: 1732,
-        min_order: 50,
-        image_url: null,
-        percentage: 10,
-        opening_time: "10:00 AM",
-        closing_time: "11:00 PM",
-        phone: "+880123456789"
-      });
-    }
-    
-    // Sync any local cart items to backend
-    try {
-      await cartApiService.syncCartAfterLogin();
-    } catch (error) {
-      console.error('Cart sync error:', error);
-    }
-    
-    setCurrentPage('business-welcome'); // ← CHANGED: was 'business-dashboard'
+    setIsLoggedIn(true); setUser(authService.getUser());
+    const r = authService.getRestaurantData() ?? userData?.restaurant ?? { id:1, name:userData?.businessName??'My Restaurant', address:'Dhaka, Bangladesh', rating:4.8 };
+    setSelectedRestaurant(r);
+    window.history.pushState({ page:'business-welcome', restaurant:r }, '', '#business-welcome');
+    setCurrentPage('business-welcome');
   };
 
   const handleRestaurantSignUpSuccess = async (userData) => {
-    console.log('Restaurant partner signup successful:', userData);
-    setIsLoggedIn(true);
-    setUser(authService.getUser());
-    
-    // Get restaurant data from authService or use provided data
-    const restaurantData = authService.getRestaurantData() || userData.restaurant;
-    
-    if (restaurantData) {
-      setSelectedRestaurant(restaurantData);
-    } else {
-      // Fallback to mock data if backend doesn't return restaurant yet
-      setSelectedRestaurant({
-        id: 1,
-        name: userData.businessName || "Rice & Beyond",
-        description: "Food • Restaurant",
-        address: "Dhaka, Bangladesh",
-        rating: 4.8,
-        total_rated: 1732,
-        total_reviews: 1732,
-        min_order: 50,
-        image_url: null,
-        percentage: 10,
-        opening_time: "10:00 AM",
-        closing_time: "11:00 PM",
-        phone: "+880123456789"
-      });
-    }
-    
-    // Sync any local cart items to backend
-    try {
-      await cartApiService.syncCartAfterLogin();
-    } catch (error) {
-      console.error('Cart sync error:', error);
-    }
-    
-    setCurrentPage('business-welcome'); // ← CHANGED: was 'business-dashboard'
+    setIsLoggedIn(true); setUser(authService.getUser());
+    const r = authService.getRestaurantData() ?? userData?.restaurant ?? { id:1, name:userData?.businessName??'My Restaurant', address:'Dhaka, Bangladesh', rating:4.8 };
+    setSelectedRestaurant(r);
+    window.history.pushState({ page:'business-welcome', restaurant:r }, '', '#business-welcome');
+    setCurrentPage('business-welcome');
   };
 
   const handleLogout = async () => {
-    try {
-      await authService.logout();
-      setIsLoggedIn(false);
-      setUser(null);
-      setSelectedRestaurant(null); // Clear restaurant data
-      setCartItems([]);
-      cartService.clearCart();
-      setCurrentPage('home');
-      console.log('Logged out successfully');
-    } catch (error) {
-      console.error('Logout error:', error);
-      // Force logout even if API call fails
-      setIsLoggedIn(false);
-      setUser(null);
-      setSelectedRestaurant(null);
-      setCartItems([]);
-      cartService.clearCart();
-      setCurrentPage('home');
-    }
+    try { await authService.logout(); } catch(e){}
+    setIsLoggedIn(false); setUser(null); setSelectedRestaurant(null);
+    setCartItems([]); cartService.clearCart();
+    goHome();
   };
 
-  const handleSwitchToLogin = () => {
-    setCurrentPage('login');
-  };
-
-  const handleSwitchToSignUp = () => {
-    setCurrentPage('signup');
-  };
-
-  // Restaurant handlers
-  const handleRestaurantLoginClick = () => {
-    setCurrentPage('restaurant-login');
-  };
-
-  const handleSwitchToRestaurantSignUp = () => {
-    setCurrentPage('restaurant-signup');
-  };
-
-  const handleSwitchToRestaurantLogin = () => {
-    setCurrentPage('restaurant-login');
-  };
-
-  // Rider handlers
-  const handleRiderSignUpClick = () => {
-    setCurrentPage('rider-signup');
-  };
-
-  const handleRiderOnBoardingClick = () => {
-    setCurrentPage('rider-onboarding');
-  };
-
-  const handleRiderOnBoardingCompletion = () => {
-    console.log('Rider onboarding completed');
-    alert('Onboarding completed! Welcome to foodpanda! 🎉');
-    setCurrentPage('home');
-  };
-
-  // Handle Place Order
-  const handlePlaceOrder = (orderData) => {
-    console.log('Order placed:', orderData);
-    
-    // Clear cart items for this restaurant
-    const updatedCart = cartItems.filter(
-      item => item.restaurantId !== checkoutRestaurantId
-    );
-    setCartItems(updatedCart);
-    
-    // Show success message
+  const handlePlaceOrder = () => {
+    setCartItems(prev => prev.filter(i => i.restaurantId !== checkoutRestaurantId));
     alert('Order placed successfully! 🎉');
-    
-    // Go back to home
-    setCurrentPage('home');
-    setCheckoutRestaurantId(null);
-    setSelectedRestaurant(null);
+    goHome();
   };
 
-  // ============================================
-  // LOADING STATE
-  // ============================================
+  if (isInitializing) return (
+    <div style={{display:'flex',justifyContent:'center',alignItems:'center',height:'100vh',flexDirection:'column',gap:20}}>
+      <div style={{fontSize:48}}>🐼</div>
+      <p style={{fontSize:18,color:'#6b7280'}}>Loading foodpanda…</p>
+    </div>
+  );
 
-  if (isInitializing) {
-    return (
-      <div style={{
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        height: '100vh',
-        flexDirection: 'column',
-        gap: '20px'
-      }}>
-        <div style={{ fontSize: '48px' }}>🔄</div>
-        <p style={{ fontSize: '18px', color: '#6b7280' }}>Loading...</p>
-      </div>
-    );
-  }
-
-  // ============================================
-  // RENDER - Show different pages based on currentPage state
-  // ============================================
+  // Common props for every page that contains a Header
+  const H = {
+    isLoggedIn, user,
+    onLoginClick:   () => push('login'),
+    onSignUpClick:  () => push('signup'),
+    onLogout:       handleLogout,
+    onProfileClick: () => push('profile'),
+    onOrdersClick:  () => alert('Orders coming soon!'),
+    onLogoClick:    goHome,
+  };
 
   return (
     <div className="App">
-      {/* LOGIN PAGE */}
+
       {currentPage === 'login' && (
-        <SignIn
-          onSwitchToSignUp={handleSwitchToSignUp}
-          onLoginSuccess={handleLoginSuccess}
-        />
+        <SignIn onSwitchToSignUp={() => push('signup')} onLoginSuccess={handleLoginSuccess} />
       )}
 
-      {/* SIGNUP PAGE */}
       {currentPage === 'signup' && (
-        <SignUp
-          onSwitchToSignIn={handleSwitchToLogin}
-          onSignUpSuccess={handleSignUpSuccess}
-        />
+        <SignUp onSwitchToSignIn={() => push('login')} onSignUpSuccess={handleSignUpSuccess} />
       )}
 
-      {/* HOME PAGE */}
       {currentPage === 'home' && (
         <Homepage
-          isLoggedIn={isLoggedIn}
-          user={user}
-          cartItems={cartItems}
-          setCartItems={setCartItems}
-          onAddToCart={handleAddToCart}
-          onUpdateQuantity={handleUpdateQuantity}
-          onRemoveItem={handleRemoveItem}
-          onLoginClick={handleLoginClick}
-          onSignUpClick={handleSignUpClick}
-          onRestaurantSignUpClick={handleSwitchToRestaurantSignUp}
-          onLogout={handleLogout}
-          onRestaurantClick={handleRestaurantClick}
-          onBusinessDashboardClick={handleBusinessDashboardClick}
-          onCheckout={handleCheckout}
-          onProfileClick={handleProfileClick}
-          onOrdersClick={handleOrdersClick}
+          {...H}
+          cartItems={cartItems} setCartItems={setCartItems}
+          onAddToCart={handleAddToCart} onUpdateQuantity={handleUpdateQuantity} onRemoveItem={handleRemoveItem}
+          onRestaurantSignUpClick={() => push('restaurant-signup')}
+          onRestaurantClick={goToRestaurant}
+          onBusinessDashboardClick={(r) => { setSelectedRestaurant(r); push('business-dashboard'); }}
+          onCheckout={goToCheckout}
         />
       )}
 
-      {/* PROFILE PAGE */}
       {currentPage === 'profile' && (
-        <Profile
-          isLoggedIn={isLoggedIn}
-          user={user}
-          cartItems={cartItems}
-          onBack={handleBackToHome}
-          onLoginClick={handleLoginClick}
-          onSignUpClick={handleSignUpClick}
-          onLogout={handleLogout}
-        />
+        <Profile {...H} cartItems={cartItems} onBack={goHome} />
       )}
 
-      {/* RESTAURANT DETAIL PAGE */}
       {currentPage === 'restaurant' && selectedRestaurant && (
         <RestaurantDetail
+          {...H}
           restaurant={selectedRestaurant}
-          onBack={handleBackToHome}
+          onBack={goHome}
           onAddToCart={handleAddToCart}
           cartItems={cartItems}
           onUpdateQuantity={handleUpdateQuantity}
           onRemoveItem={handleRemoveItem}
-          onCheckout={handleCheckout}
-          isLoggedIn={isLoggedIn}
-          user={user}
-          onLoginClick={handleLoginClick}
-          onSignUpClick={handleSignUpClick}
-          onLogout={handleLogout}
+          onCheckout={goToCheckout}
+          onNavigateToRestaurant={goToRestaurant}
         />
       )}
 
-      {/* BUSINESS WELCOME PAGE */}
       {currentPage === 'business-welcome' && selectedRestaurant && (
         <BusinessWelcome
-          user={user}
-          restaurant={selectedRestaurant}
-          onEnterDashboard={() => setCurrentPage('business-dashboard')}
+          user={user} restaurant={selectedRestaurant}
+          onEnterDashboard={() => push('business-dashboard')}
           onLogout={handleLogout}
         />
       )}
 
-      {/* BUSINESS DASHBOARD PAGE */}
       {currentPage === 'business-dashboard' && selectedRestaurant && (
         <BusinessDashboard
-          restaurant={selectedRestaurant}
-          onBack={() => setCurrentPage('business-welcome')}
-          isLoggedIn={isLoggedIn}
-          user={user}
-          onLoginClick={handleLoginClick}
-          onSignUpClick={handleSignUpClick}
-          onLogout={handleLogout}
-          onNavigateToOrders={handleNavigateToOrders}
+          {...H} restaurant={selectedRestaurant}
+          onBack={() => push('business-welcome')}
+          onNavigateToOrders={() => push('orders')}
         />
       )}
 
-      {/* ORDERS PAGE */}
       {currentPage === 'orders' && (
-        <Orders
-          isLoggedIn={isLoggedIn}
-          user={user}
-          onLogout={handleLogout}
-          onNavigateToMenu={handleNavigateToMenu}
-          onNavigateToOrderHistory={handleNavigateToOrderHistory}
+        <Orders {...H}
+          onNavigateToMenu={() => push('business-dashboard')}
+          onNavigateToOrderHistory={() => push('order-history')}
         />
       )}
 
-      {/* ORDER HISTORY PAGE */}
       {currentPage === 'order-history' && (
-        <OrderHistory
-          isLoggedIn={isLoggedIn}
-          user={user}
-          onLogout={handleLogout}
-          onNavigateToMenu={handleNavigateToMenu}
-          onNavigateToOrders={handleNavigateToOrders}
+        <OrderHistory {...H}
+          onNavigateToMenu={() => push('business-dashboard')}
+          onNavigateToOrders={() => push('orders')}
         />
       )}
 
-      {/* CHECKOUT PAGE */}
       {currentPage === 'checkout' && checkoutRestaurantId && (
         <Checkout
-          restaurant={
-            // Find restaurant data from selectedRestaurant or cart items
-            selectedRestaurant || 
-            (cartItems.find(item => item.restaurantId === checkoutRestaurantId) && {
-              id: checkoutRestaurantId,
-              name: cartItems.find(item => item.restaurantId === checkoutRestaurantId).restaurant,
-              image_url: cartItems.find(item => item.restaurantId === checkoutRestaurantId).restaurantImage
-            })
-          }
-          cartItems={cartItems.filter(item => item.restaurantId === checkoutRestaurantId)}
+          {...H}
+          restaurant={selectedRestaurant ?? (() => { const f=cartItems.find(i=>i.restaurantId===checkoutRestaurantId); return f?{id:checkoutRestaurantId,name:f.restaurant,image_url:f.image}:null; })()}
+          cartItems={cartItems.filter(i => i.restaurantId === checkoutRestaurantId)}
           allCartItems={cartItems}
-          onBack={selectedRestaurant ? handleBackToRestaurant : handleBackToHome}
-          isLoggedIn={isLoggedIn}
-          user={user}
-          onLoginClick={handleLoginClick}
-          onSignUpClick={handleSignUpClick}
-          onLogout={handleLogout}
+          onBack={() => selectedRestaurant ? goToRestaurant(selectedRestaurant) : goHome()}
           onPlaceOrder={handlePlaceOrder}
-          onCheckout={handleCheckout}
+          onCheckout={goToCheckout}
         />
       )}
 
-      {/* RESTAURANT LOGIN PAGE */}
       {currentPage === 'restaurant-login' && (
         <RestaurantLogin
-          onSwitchToSignUp={handleSwitchToRestaurantSignUp}
+          onSwitchToSignUp={() => push('restaurant-signup')}
           onLoginSuccess={handleRestaurantLoginSuccess}
         />
       )}
 
-      {/* RESTAURANT SIGNUP PAGE */}
       {currentPage === 'restaurant-signup' && (
         <RestaurantSignUp
-          onSwitchToLogin={handleSwitchToRestaurantLogin}
-          onRiderSignUp={handleRiderSignUpClick}
+          onSwitchToLogin={() => push('restaurant-login')}
+          onRiderSignUp={() => push('rider-signup')}
           onSignUpSuccess={handleRestaurantSignUpSuccess}
         />
       )}
 
-      {/* RIDER SIGNUP PAGE */}
       {currentPage === 'rider-signup' && (
-        <RiderSignUp
-          onSignUpSuccess={handleLoginSuccess}
-          onRiderOnBoarding={handleRiderOnBoardingClick}
-        />
+        <RiderSignUp onSignUpSuccess={handleLoginSuccess} onRiderOnBoarding={() => push('rider-onboarding')} />
       )}
 
-      {/* RIDER ONBOARDING PAGE */}
       {currentPage === 'rider-onboarding' && (
-        <RiderOnBoarding
-          onCompletion={handleRiderOnBoardingCompletion}
-        />
+        <RiderOnBoarding onCompletion={() => { alert('Welcome! 🎉'); goHome(); }} />
       )}
+
     </div>
   );
 }

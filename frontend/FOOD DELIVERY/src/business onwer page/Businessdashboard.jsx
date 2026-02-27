@@ -1,591 +1,640 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import './BusinessDashboard.css';
-import { COLORS, SHADOWS } from '../constants.js';
-import { Search, Utensils, Bike, Star, Camera, Pencil } from 'lucide-react';
+import { COLORS } from '../constants.js';
+import { Search, Utensils, Bike, Star, Camera, Pencil, Trash2, Plus, AlertCircle } from 'lucide-react';
 import authService from '../Authservice.js';
+import vendorApiService from '../Vendorapiservice.js';
+
+// ─── Small Toast notification ─────────────────────────────────────────────────
+const Toast = ({ message, type, onClose }) => {
+  useEffect(() => { const t = setTimeout(onClose, 3000); return () => clearTimeout(t); }, [onClose]);
+  return (
+    <div style={{
+      position: 'fixed', bottom: 24, right: 24, zIndex: 9999,
+      padding: '12px 20px', borderRadius: 10, fontSize: 14, fontWeight: 600,
+      background: type === 'error' ? '#fee2e2' : '#d1fae5',
+      color: type === 'error' ? '#dc2626' : '#065f46',
+      boxShadow: '0 4px 20px rgba(0,0,0,0.12)',
+      display: 'flex', alignItems: 'center', gap: 8,
+      animation: 'slideInRight 0.3s ease',
+    }}>
+      {type === 'error' ? <AlertCircle size={16} /> : '✓'} {message}
+    </div>
+  );
+};
+
+// ─── Confirm Dialog ───────────────────────────────────────────────────────────
+const ConfirmDialog = ({ message, onConfirm, onCancel }) => (
+  <div className="modal-overlay" onClick={onCancel}>
+    <div style={{
+      background: '#fff', borderRadius: 14, padding: '28px 32px', maxWidth: 380,
+      boxShadow: '0 8px 40px rgba(0,0,0,0.18)', textAlign: 'center',
+    }} onClick={e => e.stopPropagation()}>
+      <Trash2 size={40} style={{ color: '#dc2626', margin: '0 auto 16px' }} />
+      <p style={{ fontSize: 16, fontWeight: 600, color: '#1f2937', marginBottom: 8 }}>Are you sure?</p>
+      <p style={{ fontSize: 14, color: '#6b7280', marginBottom: 24 }}>{message}</p>
+      <div style={{ display: 'flex', gap: 12 }}>
+        <button className="modal-cancel-btn" style={{ flex: 1 }} onClick={onCancel}>Cancel</button>
+        <button
+          style={{ flex: 1, padding: '11px', borderRadius: 10, border: 'none', cursor: 'pointer',
+            background: '#dc2626', color: '#fff', fontWeight: 700, fontSize: 14 }}
+          onClick={onConfirm}
+        >Delete</button>
+      </div>
+    </div>
+  </div>
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 const BusinessDashboard = ({
-  restaurant,
-  onBack,
-  isLoggedIn,
-  user,
-  onLoginClick,
-  onSignUpClick,
-  onLogout,
-  onNavigateToOrders,
+  restaurant, onBack, isLoggedIn, user, onLoginClick, onSignUpClick, onLogout, onNavigateToOrders,
 }) => {
   const [activeTab, setActiveTab] = useState('menu');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [menuItems, setMenuItems] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [deals, setDeals] = useState([]);
   const [restaurantDetails, setRestaurantDetails] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
 
-  // Local state for dynamically added items
-  const [localCategories, setLocalCategories] = useState([]);
-  const [localDeals, setLocalDeals] = useState([]);
-  const [localMenuItems, setLocalMenuItems] = useState([]);
+  // Toast
+  const [toast, setToast] = useState(null);
+  const showToast = (message, type = 'success') => setToast({ message, type });
 
-  // Add Item Modal States
+  // Confirm dialog
+  const [confirm, setConfirm] = useState(null); // { message, onConfirm }
+
+  // Submitting states
+  const [submitting, setSubmitting] = useState(false);
+
+  // ── Add Item Modal ──
   const [showAddItemModal, setShowAddItemModal] = useState(false);
+  const [editingItem, setEditingItem] = useState(null); // null = add, object = edit
   const [selectedCategoryForAdd, setSelectedCategoryForAdd] = useState('');
   const [newItemData, setNewItemData] = useState({
-    name: '',
-    description: '',
-    price: '',
-    discount_ammount: '',
-    discount_description: '',
-    is_available: true,
-    image_file: null,
-    image_preview: null,
+    name: '', description: '', price: '', discount_ammount: '',
+    discount_description: '', is_available: true, image_file: null, image_preview: null,
   });
 
-  // Add Category Modal States
+  // ── Add Category Modal ──
   const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
 
-  // Add Deal Modal States
+  // ── Add Deal Modal ──
   const [showAddDealModal, setShowAddDealModal] = useState(false);
-  const [newDealData, setNewDealData] = useState({
-    description: '',
-    min_order: '',
-    percentage: '',
-  });
+  const [editingDeal, setEditingDeal] = useState(null);
+  const [newDealData, setNewDealData] = useState({ description: '', min_order: '', percentage: '' });
 
-  useEffect(() => {
-    const fetchRestaurantDetails = async () => {
-      if (!restaurant || !restaurant.id) {
-        setLoading(false);
-        return;
-      }
-
+  // ─── FETCH all data ───────────────────────────────────────────────────────
+  const fetchAll = useCallback(async () => {
+    if (!restaurant?.id) { setLoading(false); return; }
+    setLoading(true);
+    try {
+      // Restaurant details (public endpoint)
+      let details = null;
       try {
-        setLoading(true);
-        let data;
-
+        const endpoint = `http://127.0.0.1:8000/api/v1/restaurants/${restaurant.id}/`;
         if (isLoggedIn) {
-          data = await authService.authenticatedFetch(
-            `http://127.0.0.1:8000/api/v1/restaurants/${restaurant.id}/`
-          );
+          details = await authService.authenticatedFetch(endpoint);
         } else {
-          const response = await fetch(
-            `http://127.0.0.1:8000/api/v1/restaurants/${restaurant.id}/`
-          );
-          if (!response.ok) {
-            throw new Error('Failed to fetch restaurant details');
-          }
-          data = await response.json();
+          const r = await fetch(endpoint);
+          if (r.ok) details = await r.json();
         }
+      } catch (e) { console.warn('restaurant details fetch failed', e); }
 
-        setRestaurantDetails(data);
-
-        if (data.items && data.items.length > 0) {
-          const uniqueCategories = ['All', ...new Set(data.items.map((item) => item.category_name))];
-          setCategories(uniqueCategories);
-          setMenuItems(data.items);
-        } else {
-          setCategories(['All']);
-          setMenuItems([]);
-        }
-      } catch (err) {
-        console.error('Error fetching restaurant details:', err);
-      } finally {
-        setLoading(false);
+      setRestaurantDetails(details);
+      if (details?.items?.length) {
+        setMenuItems(details.items);
+        const cats = ['All', ...new Set(details.items.map(i => i.category_name).filter(Boolean))];
+        setCategories(cats);
+      } else {
+        setMenuItems([]);
+        setCategories(['All']);
       }
-    };
 
-    fetchRestaurantDetails();
+      // Vendor-specific: categories, deals
+      if (isLoggedIn) {
+        const [cats, disc] = await Promise.all([
+          vendorApiService.getCategories().catch(() => []),
+          vendorApiService.getDiscounts().catch(() => []),
+        ]);
+        // Merge fetched categories into tabs (avoid duplicates)
+        const catNames = cats.map(c => c.name);
+        setCategories(prev => {
+          const merged = ['All', ...new Set([...prev.slice(1), ...catNames])];
+          return merged;
+        });
+        setDeals(disc);
+      }
+    } catch (err) {
+      console.error('fetchAll error:', err);
+      showToast('Failed to load data', 'error');
+    } finally {
+      setLoading(false);
+    }
   }, [restaurant, isLoggedIn]);
 
-  const displayRestaurant = restaurantDetails || restaurant;
+  useEffect(() => { fetchAll(); }, [fetchAll]);
 
-  const allCategories = [...categories, ...localCategories];
-  const allDeals = [...(displayRestaurant?.discounts || []), ...localDeals];
-  const allMenuItems = [...menuItems, ...localMenuItems];
+  const displayRestaurant = restaurantDetails ?? restaurant;
 
-  const filteredItems = allMenuItems.filter((item) => {
-    const matchesSearch =
-      item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.description?.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === 'All' || item.category_name === selectedCategory;
-    return matchesSearch && matchesCategory;
+  // ─── FILTER + GROUP items ──────────────────────────────────────────────────
+  const filteredItems = menuItems.filter(item => {
+    const q = searchQuery.toLowerCase();
+    const matchSearch = item.name.toLowerCase().includes(q) || item.description?.toLowerCase().includes(q);
+    const matchCat = selectedCategory === 'All' || item.category_name === selectedCategory;
+    return matchSearch && matchCat;
   });
 
   const groupedItems = filteredItems.reduce((acc, item) => {
-    const category = item.category_name || 'Other';
-    if (!acc[category]) acc[category] = [];
-    acc[category].push(item);
+    const cat = item.category_name || 'Other';
+    if (!acc[cat]) acc[cat] = [];
+    acc[cat].push(item);
     return acc;
   }, {});
 
-  const handleItemAvailabilityToggle = (itemId) => {
-    console.log('Toggle availability for item:', itemId);
-  };
+  // ─── ITEM handlers ─────────────────────────────────────────────────────────
 
-  const handleItemEdit = (item) => {
-    console.log('Edit item:', item);
-  };
-
-  const handleQuantityChange = (itemId, quantity) => {
-    console.log('Update quantity for item:', itemId, 'to:', quantity);
-  };
-
-  // Add Item Modal Handlers
-  const handleAddItemClick = (category) => {
+  const openAddItem = (category) => {
+    setEditingItem(null);
     setSelectedCategoryForAdd(category);
+    setNewItemData({ name: '', description: '', price: '', discount_ammount: '',
+      discount_description: '', is_available: true, image_file: null, image_preview: null });
     setShowAddItemModal(true);
   };
 
-  const handleCloseAddItemModal = () => {
-    setShowAddItemModal(false);
+  const openEditItem = (item) => {
+    setEditingItem(item);
+    setSelectedCategoryForAdd(item.category_name);
     setNewItemData({
-      name: '',
-      description: '',
-      price: '',
-      discount_ammount: '',
-      discount_description: '',
-      is_available: true,
-      image_file: null,
-      image_preview: null,
+      name: item.name, description: item.description ?? '',
+      price: item.price.toString(), discount_ammount: item.discount_ammount?.toString() ?? '',
+      discount_description: item.discount_description ?? '',
+      is_available: !!item.is_available, image_file: null, image_preview: item.image_url ?? null,
     });
+    setShowAddItemModal(true);
+  };
+
+  const closeAddItemModal = () => {
+    setShowAddItemModal(false);
+    setEditingItem(null);
   };
 
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
-      setNewItemData((prev) => ({
-        ...prev,
-        image_file: file,
-        image_preview: URL.createObjectURL(file),
-      }));
+      setNewItemData(p => ({ ...p, image_file: file, image_preview: URL.createObjectURL(file) }));
     }
   };
 
-  const handleInputChange = (e) => {
+  const handleItemInput = (e) => {
     const { name, value, type, checked } = e.target;
-    setNewItemData((prev) => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value,
-    }));
+    setNewItemData(p => ({ ...p, [name]: type === 'checkbox' ? checked : value }));
   };
 
-  const handleSubmitNewItem = async () => {
-    const newItem = {
-      food_id: Date.now(),
-      name: newItemData.name,
-      description: newItemData.description,
-      price: parseFloat(newItemData.price),
-      discount_ammount: newItemData.discount_ammount ? parseFloat(newItemData.discount_ammount) : null,
-      discount_description: newItemData.discount_description || null,
-      is_available: newItemData.is_available ? 1 : 0,
-      image_url: newItemData.image_preview,
-      category_name: selectedCategoryForAdd,
-      restaurant_id: displayRestaurant.id,
-    };
-
-    console.log('Submitting new item:', newItem);
-    setLocalMenuItems((prev) => [...prev, newItem]);
-    alert('Item added successfully! (Visible on page, backend integration pending)');
-    handleCloseAddItemModal();
-  };
-
-  // Category Modal Handlers
-  const handleAddCategoryClick = () => setShowAddCategoryModal(true);
-
-  const handleCloseAddCategoryModal = () => {
-    setShowAddCategoryModal(false);
-    setNewCategoryName('');
-  };
-
-  const handleSubmitNewCategory = () => {
-    if (!newCategoryName.trim()) {
-      alert('Please enter a category name');
-      return;
+  const handleSubmitItem = async () => {
+    if (!newItemData.name.trim() || !newItemData.price) {
+      showToast('Name and price are required', 'error'); return;
     }
-    setLocalCategories((prev) => [...prev, newCategoryName]);
-    alert('Category added successfully! (Visible on page, backend integration pending)');
-    handleCloseAddCategoryModal();
+    setSubmitting(true);
+    try {
+      const payload = {
+        name: newItemData.name,
+        description: newItemData.description,
+        price: parseFloat(newItemData.price),
+        discount_ammount: newItemData.discount_ammount ? parseFloat(newItemData.discount_ammount) : 0,
+        discount_description: newItemData.discount_description,
+        is_available: newItemData.is_available ? 1 : 0,
+        category_id: selectedCategoryForAdd,
+        image: newItemData.image_file ?? undefined,
+      };
+
+      if (editingItem) {
+        await vendorApiService.updateItem(editingItem.food_id, payload);
+        showToast('Item updated successfully!');
+      } else {
+        await vendorApiService.addItem(payload);
+        showToast('Item added successfully!');
+      }
+      closeAddItemModal();
+      await fetchAll();
+    } catch (err) {
+      console.error(err);
+      showToast(err.message || 'Failed to save item', 'error');
+    } finally { setSubmitting(false); }
   };
 
-  // Deal Modal Handlers
-  const handleAddDealClick = () => setShowAddDealModal(true);
+  const handleDeleteItem = (item) => {
+    setConfirm({
+      message: `Delete "${item.name}"? This cannot be undone.`,
+      onConfirm: async () => {
+        setConfirm(null);
+        try {
+          await vendorApiService.deleteItem(item.food_id);
+          showToast('Item deleted');
+          await fetchAll();
+        } catch (e) { showToast('Failed to delete item', 'error'); }
+      },
+    });
+  };
 
-  const handleCloseAddDealModal = () => {
-    setShowAddDealModal(false);
+  const handleToggleAvailability = async (item) => {
+    try {
+      await vendorApiService.toggleItemAvailability(item.food_id, !item.is_available);
+      setMenuItems(prev =>
+        prev.map(i => i.food_id === item.food_id ? { ...i, is_available: !i.is_available } : i)
+      );
+    } catch (e) { showToast('Failed to update availability', 'error'); }
+  };
+
+  // ─── CATEGORY handlers ─────────────────────────────────────────────────────
+
+  const handleSubmitCategory = async () => {
+    if (!newCategoryName.trim()) { showToast('Category name is required', 'error'); return; }
+    setSubmitting(true);
+    try {
+      await vendorApiService.addCategory({ name: newCategoryName.trim() });
+      showToast('Category added!');
+      setShowAddCategoryModal(false);
+      setNewCategoryName('');
+      await fetchAll();
+    } catch (e) {
+      showToast(e.message || 'Failed to add category', 'error');
+    } finally { setSubmitting(false); }
+  };
+
+  const handleDeleteCategory = (cat) => {
+    // Find category id from backend (categories from vendor API have id)
+    setConfirm({
+      message: `Delete category "${cat}"? Items in it will not be deleted.`,
+      onConfirm: async () => {
+        setConfirm(null);
+        // We need the category id — re-fetch to get it
+        try {
+          const cats = await vendorApiService.getCategories();
+          const found = cats.find(c => c.name === cat);
+          if (!found) { showToast('Category not found', 'error'); return; }
+          await vendorApiService.deleteCategory(found.id);
+          showToast('Category deleted');
+          await fetchAll();
+        } catch (e) { showToast('Failed to delete category', 'error'); }
+      },
+    });
+  };
+
+  // ─── DEAL handlers ─────────────────────────────────────────────────────────
+
+  const openAddDeal = () => {
+    setEditingDeal(null);
     setNewDealData({ description: '', min_order: '', percentage: '' });
+    setShowAddDealModal(true);
   };
 
-  const handleDealInputChange = (e) => {
+  const openEditDeal = (deal) => {
+    setEditingDeal(deal);
+    setNewDealData({
+      description: deal.description,
+      min_order: deal.min_order.toString(),
+      percentage: deal.percentage.toString(),
+    });
+    setShowAddDealModal(true);
+  };
+
+  const handleDealInput = (e) => {
     const { name, value } = e.target;
-    setNewDealData((prev) => ({ ...prev, [name]: value }));
+    setNewDealData(p => ({ ...p, [name]: value }));
   };
 
-  const handleSubmitNewDeal = () => {
-    if (!newDealData.description || !newDealData.min_order || !newDealData.percentage) {
-      alert('Please fill in all fields');
-      return;
+  const handleSubmitDeal = async () => {
+    const { description, min_order, percentage } = newDealData;
+    if (!description || !min_order || !percentage) {
+      showToast('All fields are required', 'error'); return;
     }
-    const newDeal = {
-      id: Date.now(),
-      description: newDealData.description,
-      min_order: parseFloat(newDealData.min_order),
-      percentage: parseFloat(newDealData.percentage),
-      resturant_id: displayRestaurant.id,
-    };
-    setLocalDeals((prev) => [...prev, newDeal]);
-    alert('Deal added successfully! (Visible on page, backend integration pending)');
-    handleCloseAddDealModal();
+    setSubmitting(true);
+    try {
+      const payload = {
+        description,
+        min_order: parseFloat(min_order),
+        percentage: parseFloat(percentage),
+      };
+      if (editingDeal) {
+        await vendorApiService.updateDiscount(editingDeal.id, payload);
+        showToast('Deal updated!');
+      } else {
+        await vendorApiService.addDiscount(payload);
+        showToast('Deal added!');
+      }
+      setShowAddDealModal(false);
+      setEditingDeal(null);
+      await fetchAll();
+    } catch (e) {
+      showToast(e.message || 'Failed to save deal', 'error');
+    } finally { setSubmitting(false); }
   };
 
+  const handleDeleteDeal = (deal) => {
+    setConfirm({
+      message: `Delete deal "${deal.description}"?`,
+      onConfirm: async () => {
+        setConfirm(null);
+        try {
+          await vendorApiService.deleteDiscount(deal.id);
+          showToast('Deal deleted');
+          await fetchAll();
+        } catch (e) { showToast('Failed to delete deal', 'error'); }
+      },
+    });
+  };
+
+  // ─── LOADING STATE ─────────────────────────────────────────────────────────
   if (loading) {
     return (
       <div className="business-dashboard">
-        <div style={{ padding: '40px', textAlign: 'center' }}>
-          <div className="loading-spinner">
-            <img className="load-icon" src="/images/accessories/load.gif" alt="Loading..." />
-          </div>
-          <p>Loading restaurant details...</p>
+        <div style={{ padding: '80px', textAlign: 'center' }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>🐼</div>
+          <p style={{ color: '#6b7280', fontSize: 16 }}>Loading restaurant details…</p>
         </div>
       </div>
     );
   }
 
+  // ─── RENDER ────────────────────────────────────────────────────────────────
   return (
     <div className="business-dashboard">
 
-      {/* ── Business Header ──────────────────────────────────── */}
+      {/* Toast */}
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+
+      {/* Confirm dialog */}
+      {confirm && <ConfirmDialog message={confirm.message} onConfirm={confirm.onConfirm} onCancel={() => setConfirm(null)} />}
+
+      {/* ── Header ── */}
       <header className="business-header">
         <div className="business-header-content">
-
-          {/* LEFT — wider CSS padding pushes this further left */}
           <div className="business-header-left">
             <div className="business-logo-section">
-              {/* Panda image in the pink logo square */}
               <button className="logo-icon" aria-label="foodpanda business">
-                <img
-                  src="/images/accessories/panda.png"
-                  alt="panda"
-                  onError={(e) => {
-                    // graceful fallback if panda.png not found
-                    e.currentTarget.style.display = 'none';
-                    e.currentTarget.parentNode.style.fontSize = '22px';
-                    e.currentTarget.parentNode.textContent = '🐼';
-                  }}
-                />
+                <img src="/images/accessories/panda.png" alt="panda"
+                  onError={e => { e.currentTarget.style.display = 'none'; e.currentTarget.parentNode.textContent = '🐼'; }} />
               </button>
               <div className="business-logo-text">
                 <span className="logo-main">foodpanda</span>
                 <span className="logo-sub">business</span>
               </div>
             </div>
-
             <button className="business-address-button">
-              <span className="logo-image">
-                <img src="/images/accessories/gps.png" alt="GPS" />
-              </span>
+              <span className="logo-image"><img src="/images/accessories/gps.png" alt="GPS" /></span>
               <div className="address-text">
                 <div className="address-label">Restaurant Location</div>
-                <div className="address-full">{displayRestaurant.address || 'Dhaka, Bangladesh'}</div>
+                <div className="address-full">{displayRestaurant?.address || 'Dhaka, Bangladesh'}</div>
               </div>
             </button>
           </div>
-
-          {/* RIGHT — wider CSS padding pushes this further right */}
           <div className="business-header-right">
             <button className="business-header-btn language-btn">
-              <span className="logo-image">
-                <img src="/images/accessories/world.png" alt="Language" />
-              </span>
+              <span className="logo-image"><img src="/images/accessories/world.png" alt="Language" /></span>
               <span>EN</span>
             </button>
-            <button
-              className="business-header-btn profile-btn"
-              onClick={() => setShowProfileDropdown(!showProfileDropdown)}
-            >
-              <span className="logo-image">
-                <img src="/images/accessories/profile.png" alt="Profile" />
-              </span>
+            <button className="business-header-btn profile-btn"
+              onClick={() => setShowProfileDropdown(p => !p)}>
+              <span className="logo-image"><img src="/images/accessories/profile.png" alt="Profile" /></span>
               <span>{user?.first_name || 'PROFILE'}</span>
             </button>
           </div>
         </div>
 
-        {/* Navigation Tabs */}
         <div className="business-nav-tabs">
           <div className="business-nav-tabs-content">
-            <button
-              className={`business-nav-tab ${activeTab === 'menu' ? 'active' : ''}`}
-              onClick={() => setActiveTab('menu')}
-            >
-              <span className="logo-image">
-                <img src="/images/accessories/delivery.png" alt="Menu" />
-              </span>
+            <button className={`business-nav-tab ${activeTab === 'menu' ? 'active' : ''}`}
+              onClick={() => setActiveTab('menu')}>
+              <span className="logo-image"><img src="/images/accessories/delivery.png" alt="Menu" /></span>
               Menu
             </button>
-            <button
-              className={`business-nav-tab ${activeTab === 'orders' ? 'active' : ''}`}
-              onClick={() => onNavigateToOrders && onNavigateToOrders()}
-            >
-              <span className="logo-image">
-                <img src="/images/accessories/cart.png" alt="Orders" />
-              </span>
+            <button className={`business-nav-tab ${activeTab === 'orders' ? 'active' : ''}`}
+              onClick={() => onNavigateToOrders?.()}>
+              <span className="logo-image"><img src="/images/accessories/cart.png" alt="Orders" /></span>
               Orders
             </button>
-            <button
-              className={`business-nav-tab ${activeTab === 'order-history' ? 'active' : ''}`}
-              onClick={() => setActiveTab('order-history')}
-            >
-              <span className="logo-image">
-                <img src="/images/accessories/heart.png" alt="Order History" />
-              </span>
+            <button className={`business-nav-tab ${activeTab === 'order-history' ? 'active' : ''}`}
+              onClick={() => setActiveTab('order-history')}>
+              <span className="logo-image"><img src="/images/accessories/heart.png" alt="Order History" /></span>
               Order History
             </button>
           </div>
         </div>
       </header>
 
-      {/* ── Restaurant Banner ────────────────────────────────── */}
+      {/* ── Restaurant Banner ── */}
       <div className="business-restaurant-banner">
-        <button className="business-back-button" onClick={onBack}>
-          ← Back to restaurants
-        </button>
-
+        <button className="business-back-button" onClick={onBack}>← Back</button>
         <div className="business-banner-content">
           <div className="business-banner-image">
-            {displayRestaurant.image_url ? (
-              <img
-                src={displayRestaurant.image_url}
-                alt={displayRestaurant.name}
-                className="restaurant-banner-img"
-              />
-            ) : (
-              <Utensils size={64} color="var(--primary)" style={{opacity:0.6}} />
-            )}
+            {displayRestaurant?.image_url
+              ? <img src={displayRestaurant.image_url} alt={displayRestaurant.name} className="restaurant-banner-img" />
+              : <Utensils size={64} color="var(--primary)" style={{ opacity: 0.6 }} />}
           </div>
-
           <div className="business-restaurant-info">
-            <h1 className="business-restaurant-name">{displayRestaurant.name}</h1>
+            <h1 className="business-restaurant-name">{displayRestaurant?.name}</h1>
             <p className="business-restaurant-subtitle">Restaurant</p>
-
             <div className="business-restaurant-meta">
               <p className="meta-item">
-                <Bike size={16} style={{marginRight:4, verticalAlign:"middle", color:"var(--primary)"}} />
-                Delivery: 20-30 min
+                <Bike size={16} style={{ marginRight: 4, verticalAlign: 'middle', color: 'var(--primary)' }} />
+                Delivery: 20–30 min
               </p>
             </div>
-
             <div className="business-restaurant-rating">
-              <Star size={16} fill="#f59e0b" color="#f59e0b" style={{marginRight:4, verticalAlign:"middle"}} />
-              <span className="rating-number">{displayRestaurant.rating || '4.8'}</span>
-              <span className="rating-count">({displayRestaurant.total_reviews || '1732'})</span>
-              <a href="#" className="rating-link">See reviews</a>
-              <a href="#" className="rating-link">More info</a>
+              <Star size={16} fill="#f59e0b" color="#f59e0b" style={{ marginRight: 4, verticalAlign: 'middle' }} />
+              <span className="rating-number">{displayRestaurant?.rating || '4.8'}</span>
+              <span className="rating-count">({displayRestaurant?.total_reviews || '0'})</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* ── Available Deals ──────────────────────────────────── */}
+      {/* ── Deals Section ── */}
       <div className="business-deals-section">
-        <h2 className="business-section-title">Available deals</h2>
+        <h2 className="business-section-title">Available Deals</h2>
         <div className="business-deals-grid">
-          {allDeals.map((discount, index) => (
-            <div
-              key={discount.id || index}
-              className="business-deal-card"
-              style={{
-                background:
-                  index % 2 === 0
-                    ? 'linear-gradient(135deg, #1e293b 0%, #334155 100%)'
-                    : COLORS.gradientPrimary,
-              }}
-            >
-              <div className="deal-icon">
-                <img className="discount-icon" src="/images/accessories/discount.png" alt="Discount" />
+          {deals.map((deal, i) => (
+            <div key={deal.id ?? i} className="business-deal-card"
+              style={{ background: i % 2 === 0 ? 'linear-gradient(135deg, #1e293b 0%, #334155 100%)' : COLORS.gradientPrimary }}>
+              <div className="deal-content" style={{ flex: 1 }}>
+                <h3 className="deal-title">{deal.description}</h3>
+                <p className="deal-description">Min. ৳{deal.min_order} • {deal.percentage}% off</p>
               </div>
-              <div className="deal-content">
-                <h3 className="deal-title">{discount.description}</h3>
-                <p className="deal-description">
-                  Min. order ৳{discount.min_order} • {discount.percentage}% off
-                </p>
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <button
+                  onClick={() => openEditDeal(deal)}
+                  style={{ background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: 6,
+                    padding: '5px 8px', cursor: 'pointer', color: '#fff', fontSize: 12 }}>
+                  <Pencil size={13} />
+                </button>
+                <button
+                  onClick={() => handleDeleteDeal(deal)}
+                  style={{ background: 'rgba(220,38,38,0.7)', border: 'none', borderRadius: 6,
+                    padding: '5px 8px', cursor: 'pointer', color: '#fff', fontSize: 12 }}>
+                  <Trash2 size={13} />
+                </button>
               </div>
             </div>
           ))}
-
-          <button className="business-add-card" onClick={handleAddDealClick}>
-            <div className="add-card-icon">+</div>
+          <button className="business-add-card" onClick={openAddDeal}>
+            <div className="add-card-icon"><Plus size={22} /></div>
             <div className="add-card-text">Add New Deal</div>
           </button>
         </div>
       </div>
 
-      {/* ── Menu Section ─────────────────────────────────────── */}
+      {/* ── Menu Section ── */}
       <div className="business-menu-section">
         <h2 className="business-section-title">Menu</h2>
 
+        {/* Search */}
         <div className="business-menu-controls">
           <div className="business-search-in-menu">
-            <Search size={16} style={{marginRight:8, color:"var(--gray-400)", flexShrink:0}} />
-            <input
-              type="text"
-              placeholder="Search in menu"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="business-menu-search-input"
-            />
+            <Search size={16} style={{ marginRight: 8, color: 'var(--gray-400)', flexShrink: 0 }} />
+            <input type="text" placeholder="Search in menu" value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)} className="business-menu-search-input" />
           </div>
         </div>
 
+        {/* Category tabs */}
         <div className="business-menu-categories">
           <div className="business-categories-scroll">
-            {allCategories.map((category) => (
-              <button
-                key={category}
-                className={`business-category-btn ${selectedCategory === category ? 'active' : ''}`}
-                onClick={() => setSelectedCategory(category)}
-              >
-                {category}
-              </button>
+            {categories.map(cat => (
+              <div key={cat} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <button
+                  className={`business-category-btn ${selectedCategory === cat ? 'active' : ''}`}
+                  onClick={() => setSelectedCategory(cat)}>
+                  {cat}
+                </button>
+                {cat !== 'All' && (
+                  <button onClick={() => handleDeleteCategory(cat)}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer',
+                      color: 'var(--gray-400)', padding: '2px 4px', borderRadius: 4,
+                      display: 'flex', alignItems: 'center' }}
+                    title="Delete category">
+                    <Trash2 size={13} />
+                  </button>
+                )}
+              </div>
             ))}
-            <button className="business-add-category-btn" onClick={handleAddCategoryClick}>
+            <button className="business-add-category-btn" onClick={() => setShowAddCategoryModal(true)}>
               + Add Category
             </button>
           </div>
         </div>
 
+        {/* Items grid */}
         <div className="business-menu-items-container">
           {Object.entries(groupedItems).map(([category, items]) => (
             <div key={category} className="business-category-section">
               <h3 className="business-category-title">{category}</h3>
-              <p className="business-category-subtitle">{items.length} items</p>
-
+              <p className="business-category-subtitle">{items.length} item{items.length !== 1 ? 's' : ''}</p>
               <div className="business-items-grid">
-                {items.map((item) => (
+                {items.map(item => (
                   <div key={item.food_id} className="business-item-card">
                     <div className="business-item-info">
                       <h4 className="business-item-name">{item.name}</h4>
                       <p className="business-item-description">{item.description}</p>
-
                       <div className="business-item-footer">
                         <span className="business-item-price">৳{item.price}</span>
-                        {item.discount_ammount && (
-                          <span className="business-item-discount">
-                            -{item.discount_ammount}%
-                          </span>
+                        {item.discount_ammount > 0 && (
+                          <span className="business-item-discount">−{item.discount_ammount}%</span>
                         )}
                       </div>
-
                       <div className="business-item-controls">
-                        <button
-                          className="business-item-edit-btn"
-                          onClick={() => handleItemEdit(item)}
-                        >
-                          <Pencil size={13} style={{marginRight:4, verticalAlign:'middle'}} />Edit
+                        {/* Edit */}
+                        <button className="business-item-edit-btn" onClick={() => openEditItem(item)}>
+                          <Pencil size={13} style={{ marginRight: 4, verticalAlign: 'middle' }} />Edit
                         </button>
-
+                        {/* Delete */}
+                        <button
+                          onClick={() => handleDeleteItem(item)}
+                          style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 10px',
+                            borderRadius: 7, border: '1px solid #fee2e2', background: '#fff8f8',
+                            color: '#dc2626', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
+                          <Trash2 size={13} /> Remove
+                        </button>
+                        {/* Availability */}
                         <div className="business-item-availability">
                           <label className="availability-switch">
-                            <input
-                              type="checkbox"
-                              defaultChecked={item.is_available}
-                              onChange={() => handleItemAvailabilityToggle(item.food_id)}
-                            />
-                            <span className="availability-slider"></span>
+                            <input type="checkbox" checked={!!item.is_available}
+                              onChange={() => handleToggleAvailability(item)} />
+                            <span className="availability-slider" />
                           </label>
                           <span className="availability-label">
                             {item.is_available ? 'Available' : 'Unavailable'}
                           </span>
                         </div>
-
-                        <div className="business-item-quantity">
-                          <label>Stock:</label>
-                          <input
-                            type="number"
-                            min="0"
-                            defaultValue="50"
-                            className="quantity-input"
-                            onChange={(e) => handleQuantityChange(item.food_id, e.target.value)}
-                          />
-                        </div>
                       </div>
                     </div>
-
                     <div className="business-item-image-container">
                       <div className="business-item-image">
-                        {item.image_url ? (
-                          <img
-                            src={item.image_url}
-                            alt={item.name}
-                            style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '10px' }}
-                          />
-                        ) : (
-                          <div className="menu-item-emoji"><Utensils size={32} color="var(--primary)" style={{opacity:0.5}} /></div>
-                        )}
+                        {item.image_url
+                          ? <img src={item.image_url} alt={item.name}
+                              style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 10 }} />
+                          : <Utensils size={32} color="var(--primary)" style={{ opacity: 0.5 }} />}
                       </div>
                     </div>
                   </div>
                 ))}
-
-                <button
-                  className="business-add-item-card"
-                  onClick={() => handleAddItemClick(category)}
-                >
-                  <div className="add-item-icon">+</div>
+                <button className="business-add-item-card" onClick={() => openAddItem(category)}>
+                  <div className="add-item-icon"><Plus size={22} /></div>
                   <div className="add-item-text">Add New Item</div>
                 </button>
               </div>
             </div>
           ))}
 
-          {localCategories
-            .filter((cat) => !Object.keys(groupedItems).includes(cat))
-            .map((category) => (
-              <div key={category} className="business-category-section">
-                <h3 className="business-category-title">{category}</h3>
-                <p className="business-category-subtitle">0 items</p>
-                <div className="business-items-grid">
-                  <button
-                    className="business-add-item-card"
-                    onClick={() => handleAddItemClick(category)}
-                  >
-                    <div className="add-item-icon">+</div>
-                    <div className="add-item-text">Add New Item</div>
-                  </button>
-                </div>
+          {/* Empty categories (no items yet) */}
+          {categories.slice(1).filter(cat => !Object.keys(groupedItems).includes(cat)).map(cat => (
+            <div key={cat} className="business-category-section">
+              <h3 className="business-category-title">{cat}</h3>
+              <p className="business-category-subtitle">0 items</p>
+              <div className="business-items-grid">
+                <button className="business-add-item-card" onClick={() => openAddItem(cat)}>
+                  <div className="add-item-icon"><Plus size={22} /></div>
+                  <div className="add-item-text">Add New Item</div>
+                </button>
               </div>
-            ))}
+            </div>
+          ))}
 
-          {Object.keys(groupedItems).length === 0 && localCategories.length === 0 && (
+          {Object.keys(groupedItems).length === 0 && categories.length <= 1 && (
             <div className="business-no-results">
-              <div className="no-results-icon"><Search size={48} style={{color:"var(--gray-400)", opacity:0.5}} /></div>
-              <p>No items found matching "{searchQuery}"</p>
+              <div className="no-results-icon"><Search size={48} style={{ color: 'var(--gray-400)', opacity: 0.5 }} /></div>
+              <p>{searchQuery ? `No items found for "${searchQuery}"` : 'No items yet. Add a category and start adding items!'}</p>
             </div>
           )}
         </div>
       </div>
 
-      {/* ── Add Item Modal ───────────────────────────────────── */}
+      {/* ════════════════════════════════════════
+          ADD / EDIT ITEM MODAL
+      ════════════════════════════════════════ */}
       {showAddItemModal && (
-        <div className="modal-overlay" onClick={handleCloseAddItemModal}>
-          <div className="add-item-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-overlay" onClick={closeAddItemModal}>
+          <div className="add-item-modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h2 className="modal-title">Add New Item to {selectedCategoryForAdd}</h2>
-              <button className="modal-close-btn" onClick={handleCloseAddItemModal}>×</button>
+              <h2 className="modal-title">
+                {editingItem ? `Edit "${editingItem.name}"` : `Add Item to ${selectedCategoryForAdd}`}
+              </h2>
+              <button className="modal-close-btn" onClick={closeAddItemModal}>×</button>
             </div>
-
             <div className="modal-body">
+              {/* Image upload */}
               <div className="form-group">
                 <label className="form-label">Item Photo</label>
                 <div className="image-upload-area">
                   {newItemData.image_preview ? (
                     <div className="image-preview-container">
                       <img src={newItemData.image_preview} alt="Preview" className="image-preview" />
-                      <button
-                        className="remove-image-btn"
-                        onClick={() => setNewItemData((prev) => ({ ...prev, image_file: null, image_preview: null }))}
-                      >
+                      <button className="remove-image-btn"
+                        onClick={() => setNewItemData(p => ({ ...p, image_file: null, image_preview: null }))}>
                         Remove
                       </button>
                     </div>
@@ -593,7 +642,7 @@ const BusinessDashboard = ({
                     <label className="upload-label">
                       <input type="file" accept="image/*" onChange={handleImageUpload} className="file-input" />
                       <div className="upload-placeholder">
-                        <div className="upload-icon"><Camera size={32} style={{color:"var(--gray-400)"}} /></div>
+                        <Camera size={32} style={{ color: 'var(--gray-400)', marginBottom: 8 }} />
                         <div className="upload-text">Click to upload photo</div>
                         <div className="upload-subtext">PNG, JPG up to 5MB</div>
                       </div>
@@ -604,68 +653,32 @@ const BusinessDashboard = ({
 
               <div className="form-group">
                 <label className="form-label">Item Name *</label>
-                <input
-                  type="text"
-                  name="name"
-                  value={newItemData.name}
-                  onChange={handleInputChange}
-                  placeholder="e.g., Chicken Cashewnut Salad"
-                  className="form-input"
-                  required
-                />
+                <input type="text" name="name" value={newItemData.name} onChange={handleItemInput}
+                  placeholder="e.g., Chicken Cashewnut Salad" className="form-input" />
               </div>
 
               <div className="form-group">
                 <label className="form-label">Description</label>
-                <textarea
-                  name="description"
-                  value={newItemData.description}
-                  onChange={handleInputChange}
-                  placeholder="Describe your dish..."
-                  className="form-textarea"
-                  rows="3"
-                />
+                <textarea name="description" value={newItemData.description} onChange={handleItemInput}
+                  placeholder="Describe your dish…" className="form-textarea" rows={3} />
               </div>
 
               <div className="form-group">
                 <label className="form-label">Price (৳) *</label>
-                <input
-                  type="number"
-                  name="price"
-                  value={newItemData.price}
-                  onChange={handleInputChange}
-                  placeholder="0.00"
-                  className="form-input"
-                  min="0"
-                  step="0.01"
-                  required
-                />
+                <input type="number" name="price" value={newItemData.price} onChange={handleItemInput}
+                  placeholder="0.00" className="form-input" min="0" step="0.01" />
               </div>
 
               <div className="form-row">
                 <div className="form-group">
                   <label className="form-label">Discount (%)</label>
-                  <input
-                    type="number"
-                    name="discount_ammount"
-                    value={newItemData.discount_ammount}
-                    onChange={handleInputChange}
-                    placeholder="0"
-                    className="form-input"
-                    min="0"
-                    max="100"
-                  />
+                  <input type="number" name="discount_ammount" value={newItemData.discount_ammount}
+                    onChange={handleItemInput} placeholder="0" className="form-input" min="0" max="100" />
                 </div>
                 <div className="form-group">
                   <label className="form-label">Discount Description</label>
-                  <input
-                    type="text"
-                    name="discount_description"
-                    value={newItemData.discount_description}
-                    onChange={handleInputChange}
-                    placeholder="e.g., Weekend Special"
-                    className="form-input"
-                  />
+                  <input type="text" name="discount_description" value={newItemData.discount_description}
+                    onChange={handleItemInput} placeholder="e.g., Weekend Special" className="form-input" />
                 </div>
               </div>
 
@@ -673,13 +686,9 @@ const BusinessDashboard = ({
                 <label className="form-label">Availability</label>
                 <div className="availability-toggle-group">
                   <label className="availability-switch">
-                    <input
-                      type="checkbox"
-                      name="is_available"
-                      checked={newItemData.is_available}
-                      onChange={handleInputChange}
-                    />
-                    <span className="availability-slider"></span>
+                    <input type="checkbox" name="is_available" checked={newItemData.is_available}
+                      onChange={handleItemInput} />
+                    <span className="availability-slider" />
                   </label>
                   <span className="availability-label">
                     {newItemData.is_available ? 'Available' : 'Unavailable'}
@@ -687,116 +696,81 @@ const BusinessDashboard = ({
                 </div>
               </div>
             </div>
-
             <div className="modal-footer">
-              <button className="modal-cancel-btn" onClick={handleCloseAddItemModal}>Cancel</button>
-              <button
-                className="modal-submit-btn"
-                onClick={handleSubmitNewItem}
-                disabled={!newItemData.name || !newItemData.price}
-              >
-                Add Item
+              <button className="modal-cancel-btn" onClick={closeAddItemModal} disabled={submitting}>Cancel</button>
+              <button className="modal-submit-btn" onClick={handleSubmitItem}
+                disabled={submitting || !newItemData.name || !newItemData.price}>
+                {submitting ? 'Saving…' : editingItem ? 'Save Changes' : 'Add Item'}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ── Add Category Modal ───────────────────────────────── */}
+      {/* ════════════════════════════════════════
+          ADD CATEGORY MODAL
+      ════════════════════════════════════════ */}
       {showAddCategoryModal && (
-        <div className="modal-overlay" onClick={handleCloseAddCategoryModal}>
-          <div className="add-category-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-overlay" onClick={() => setShowAddCategoryModal(false)}>
+          <div className="add-category-modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h2 className="modal-title">Add New Category</h2>
-              <button className="modal-close-btn" onClick={handleCloseAddCategoryModal}>×</button>
+              <button className="modal-close-btn" onClick={() => setShowAddCategoryModal(false)}>×</button>
             </div>
             <div className="modal-body">
               <div className="form-group">
                 <label className="form-label">Category Name *</label>
-                <input
-                  type="text"
-                  value={newCategoryName}
-                  onChange={(e) => setNewCategoryName(e.target.value)}
-                  placeholder="e.g., Desserts, Beverages, Appetizers"
-                  className="form-input"
-                  required
-                />
+                <input type="text" value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)}
+                  placeholder="e.g., Desserts, Beverages, Appetizers" className="form-input" />
               </div>
             </div>
             <div className="modal-footer">
-              <button className="modal-cancel-btn" onClick={handleCloseAddCategoryModal}>Cancel</button>
-              <button
-                className="modal-submit-btn"
-                onClick={handleSubmitNewCategory}
-                disabled={!newCategoryName.trim()}
-              >
-                Add Category
+              <button className="modal-cancel-btn" onClick={() => setShowAddCategoryModal(false)} disabled={submitting}>Cancel</button>
+              <button className="modal-submit-btn" onClick={handleSubmitCategory}
+                disabled={submitting || !newCategoryName.trim()}>
+                {submitting ? 'Adding…' : 'Add Category'}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ── Add Deal Modal ───────────────────────────────────── */}
+      {/* ════════════════════════════════════════
+          ADD / EDIT DEAL MODAL
+      ════════════════════════════════════════ */}
       {showAddDealModal && (
-        <div className="modal-overlay" onClick={handleCloseAddDealModal}>
-          <div className="add-deal-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-overlay" onClick={() => { setShowAddDealModal(false); setEditingDeal(null); }}>
+          <div className="add-deal-modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h2 className="modal-title">Add New Deal</h2>
-              <button className="modal-close-btn" onClick={handleCloseAddDealModal}>×</button>
+              <h2 className="modal-title">{editingDeal ? 'Edit Deal' : 'Add New Deal'}</h2>
+              <button className="modal-close-btn" onClick={() => { setShowAddDealModal(false); setEditingDeal(null); }}>×</button>
             </div>
             <div className="modal-body">
               <div className="form-group">
                 <label className="form-label">Deal Name *</label>
-                <input
-                  type="text"
-                  name="description"
-                  value={newDealData.description}
-                  onChange={handleDealInputChange}
-                  placeholder="e.g., Weekend Special - 20% Off"
-                  className="form-input"
-                  required
-                />
+                <input type="text" name="description" value={newDealData.description}
+                  onChange={handleDealInput} placeholder="e.g., Weekend Special – 20% Off" className="form-input" />
               </div>
               <div className="form-row">
                 <div className="form-group">
                   <label className="form-label">Minimum Order (৳) *</label>
-                  <input
-                    type="number"
-                    name="min_order"
-                    value={newDealData.min_order}
-                    onChange={handleDealInputChange}
-                    placeholder="0"
-                    className="form-input"
-                    min="0"
-                    step="0.01"
-                    required
-                  />
+                  <input type="number" name="min_order" value={newDealData.min_order}
+                    onChange={handleDealInput} placeholder="0" className="form-input" min="0" />
                 </div>
                 <div className="form-group">
                   <label className="form-label">Discount (%) *</label>
-                  <input
-                    type="number"
-                    name="percentage"
-                    value={newDealData.percentage}
-                    onChange={handleDealInputChange}
-                    placeholder="0"
-                    className="form-input"
-                    min="0"
-                    max="100"
-                    required
-                  />
+                  <input type="number" name="percentage" value={newDealData.percentage}
+                    onChange={handleDealInput} placeholder="0" className="form-input" min="0" max="100" />
                 </div>
               </div>
             </div>
             <div className="modal-footer">
-              <button className="modal-cancel-btn" onClick={handleCloseAddDealModal}>Cancel</button>
-              <button
-                className="modal-submit-btn"
-                onClick={handleSubmitNewDeal}
-                disabled={!newDealData.description || !newDealData.min_order || !newDealData.percentage}
-              >
-                Add Deal
+              <button className="modal-cancel-btn"
+                onClick={() => { setShowAddDealModal(false); setEditingDeal(null); }}
+                disabled={submitting}>Cancel</button>
+              <button className="modal-submit-btn" onClick={handleSubmitDeal}
+                disabled={submitting || !newDealData.description || !newDealData.min_order || !newDealData.percentage}>
+                {submitting ? 'Saving…' : editingDeal ? 'Save Changes' : 'Add Deal'}
               </button>
             </div>
           </div>

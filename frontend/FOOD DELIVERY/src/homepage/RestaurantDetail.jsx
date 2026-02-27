@@ -20,7 +20,11 @@ const RestaurantDetail = ({
   user,
   onLoginClick,
   onSignUpClick,
-  onLogout 
+  onLogout,
+  onProfileClick,       // ← NEW: passed to Header so profile works
+  onOrdersClick,        // ← NEW
+  onLogoClick,          // ← NEW: logo → home
+  onNavigateToRestaurant, // ← receives restaurant object from AllCarts
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -97,6 +101,9 @@ const RestaurantDetail = ({
           onLoginClick={onLoginClick}
           onSignUpClick={onSignUpClick}
           onCartClick={() => setShowCart(!showCart)}
+          onProfileClick={onProfileClick}
+          onOrdersClick={onOrdersClick}
+          onLogoClick={onLogoClick}
           onLogout={onLogout}
           showBanner={false}
         />
@@ -122,6 +129,9 @@ const RestaurantDetail = ({
           onLoginClick={onLoginClick}
           onSignUpClick={onSignUpClick}
           onCartClick={() => setShowCart(!showCart)}
+          onProfileClick={onProfileClick}
+          onOrdersClick={onOrdersClick}
+          onLogoClick={onLogoClick}
           onLogout={onLogout}
           showBanner={false}
         />
@@ -148,6 +158,9 @@ const RestaurantDetail = ({
           onLoginClick={onLoginClick}
           onSignUpClick={onSignUpClick}
           onCartClick={() => setShowCart(!showCart)}
+          onProfileClick={onProfileClick}
+          onOrdersClick={onOrdersClick}
+          onLogoClick={onLogoClick}
           onLogout={onLogout}
           showBanner={false}
         />
@@ -275,20 +288,27 @@ const RestaurantDetail = ({
     }
   };
 
-  // Handle navigation to restaurant from AllCarts
+  // Handle navigation to restaurant from AllCarts sidebar
   const handleNavigateToRestaurant = (restaurantId) => {
-    // Close the cart sidebar
     setShowCart(false);
-    // If different restaurant, user should navigate from homepage
-    // This is already on the restaurant page, so just close
+    // If it's the current restaurant, nothing to do
+    if (restaurantId === displayRestaurant?.id) return;
+
+    // Build a minimal restaurant object from cart items so App can navigate
+    const cartItem = cartItems.find(i => i.restaurantId === restaurantId);
+    if (cartItem && onNavigateToRestaurant) {
+      onNavigateToRestaurant({
+        id: restaurantId,
+        name: cartItem.restaurant,
+        image_url: cartItem.restaurantImage ?? cartItem.image ?? '',
+      });
+    }
   };
 
   // Handle checkout from AllCarts sidebar
   const handleCheckoutFromCart = (restaurantId) => {
     setShowCart(false);
-    if (onCheckout && restaurantId === displayRestaurant.id) {
-      onCheckout(restaurantId);
-    }
+    if (onCheckout) onCheckout(restaurantId);
   };
 
   return (
@@ -300,6 +320,9 @@ const RestaurantDetail = ({
         onLoginClick={onLoginClick}
         onSignUpClick={onSignUpClick}
         onCartClick={() => setShowCart(!showCart)}
+          onProfileClick={onProfileClick}
+          onOrdersClick={onOrdersClick}
+          onLogoClick={onLogoClick}
         onLogout={onLogout}
         showBanner={false}
       />

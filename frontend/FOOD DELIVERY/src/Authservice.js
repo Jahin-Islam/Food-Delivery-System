@@ -113,7 +113,7 @@ class AuthService {
 
   async fetchUserDetails() {
     try {
-      const response = await this.authenticatedFetch(`${this.API_BASE_URL}/user/`);
+      const response = await this.authenticatedFetch(`${this.API_BASE_URL}/profile/`);
       if (response) {
         this.setUser(response);
         return response;
