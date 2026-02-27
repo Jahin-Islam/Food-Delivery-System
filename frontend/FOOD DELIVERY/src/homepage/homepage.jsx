@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Gift, Loader2, AlertTriangle, UtensilsCrossed, Star, Search, ChevronLeft, ChevronRight, X } from "lucide-react";
 import "./homepage.css";
 import Header from "./Header.jsx";
 import CuisineFilter from "./cuisineOption.jsx";
@@ -263,7 +264,7 @@ const Homepage = ({
                 onClick={() => setShowFilters(false)}
                 aria-label="Close filters"
               >
-                ✕
+                <X size={16} />
               </button>
             </div>
 
@@ -324,7 +325,7 @@ const Homepage = ({
                     Sign up
                   </button>
                 </div>
-                <div className="promo-image">🎁</div>
+                <div className="promo-image"><Gift size={64} strokeWidth={1.5} /></div>
               </div>
             )}
 
@@ -339,7 +340,7 @@ const Homepage = ({
                     disabled={!showLeftArrow}
                     aria-label="Scroll left"
                   >
-                    ←
+                    <ChevronLeft size={18} />
                   </button>
                   <button
                     className={`cuisine-nav-btn ${!showRightArrow ? 'disabled' : ''}`}
@@ -347,7 +348,7 @@ const Homepage = ({
                     disabled={!showRightArrow}
                     aria-label="Scroll right"
                   >
-                    →
+                    <ChevronRight size={18} />
                   </button>
                 </div>
               </div>
@@ -382,11 +383,12 @@ const Homepage = ({
                   ? `Search results for "${searchQuery}"`
                   : "Featured Restaurants"}
               </h2>
+              <br/>
 
               {/* Loading State */}
               {loading && (
                 <div className="loading-state">
-                  <div className="loading-spinner">🔄</div>
+                  <div className="loading-spinner"><Loader2 size={40} strokeWidth={1.5} className="spin-icon" /></div>
                   <p>Loading restaurants...</p>
                 </div>
               )}
@@ -394,7 +396,7 @@ const Homepage = ({
               {/* Error State */}
               {error && (
                 <div className="error-state">
-                  <div className="error-icon">⚠️</div>
+                  <div className="error-icon"><AlertTriangle size={40} strokeWidth={1.5} /></div>
                   <p>Failed to load restaurants: {error}</p>
                   <button
                     onClick={() => window.location.reload()}
@@ -433,7 +435,7 @@ const Homepage = ({
                               display: restaurant.image_url ? "none" : "flex",
                             }}
                           >
-                            🍽️
+                            <UtensilsCrossed size={52} strokeWidth={1.5} />
                           </div>
                           {restaurant.percentage > 0 && (
                             <div className="deal-discount">
@@ -449,7 +451,7 @@ const Homepage = ({
                           <p className="deal-address">{restaurant.address}</p>
                           <div className="deal-footer">
                             <div className="deal-rating">
-                              <span>⭐</span>
+                              <span className="star-icon"><Star size={13} fill="currentColor" /></span>
                               <span>{restaurant.rating}</span>
                               <span className="rating-count">
                                 ({restaurant.total_rated})
@@ -464,7 +466,7 @@ const Homepage = ({
                     ))
                   ) : (
                     <div className="no-results">
-                      <div className="no-results-icon">🔍</div>
+                      <div className="no-results-icon"><Search size={48} strokeWidth={1.5} /></div>
                       <p>
                         {selectedCuisines.length > 0
                           ? `No restaurants found serving ${selectedCuisines.join(', ')}`

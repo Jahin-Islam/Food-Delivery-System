@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import './OrderHistory.css';
+import './Orderhistory.css';
+import { COLORS, SHADOWS } from '../constants.js';
+import { ScrollText } from 'lucide-react';
 
 const OrderHistory = ({ 
   isLoggedIn,
@@ -261,7 +263,7 @@ const OrderHistory = ({
                       style={{ 
                         height: `${(data.orders / maxOrders) * 100}%`,
                         background: index === chartData.length - 1 
-                          ? 'linear-gradient(135deg, #db2777 0%, #be185d 100%)'
+                          ? COLORS.gradientPrimary
                           : '#e5e7eb'
                       }}
                     >
@@ -278,7 +280,7 @@ const OrderHistory = ({
           <div className="live-ops-monitor">
             <h3 className="ops-title">Live Ops Monitor</h3>
             <div className="ops-status">
-              <span className="status-icon">✅</span>
+              <span className="status-icon"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></span>
               <span className="status-text">Your restaurant is operating normally</span>
             </div>
           </div>
@@ -314,7 +316,7 @@ const OrderHistory = ({
                   <div className="order-details">
                     <div className="order-meta-row">
                       <div className="order-customer">
-                        <span className="detail-icon">👤</span>
+                        <span className="detail-icon"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
                         <div>
                           <p className="detail-label">Customer</p>
                           <p className="detail-value">{order.customerName}</p>
@@ -322,7 +324,7 @@ const OrderHistory = ({
                       </div>
 
                       <div className="order-rider">
-                        <span className="detail-icon">🚴</span>
+                        <span className="detail-icon"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18.5" cy="17.5" r="3.5"/><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="15" cy="5" r="1"/><path d="M12 17.5V14l-3-3 4-3 2 3h2"/></svg></span>
                         <div>
                           <p className="detail-label">Rider</p>
                           <p className="detail-value">{order.riderName}</p>
@@ -330,7 +332,7 @@ const OrderHistory = ({
                       </div>
 
                       <div className="order-time-info">
-                        <span className="detail-icon">🕒</span>
+                        <span className="detail-icon"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
                         <div>
                           <p className="detail-label">Completed</p>
                           <p className="detail-value">{formatDate(order.completedAt)}</p>
@@ -381,7 +383,7 @@ const OrderHistory = ({
               ))
             ) : (
               <div className="empty-state">
-                <div className="empty-icon">📜</div>
+                <div className="empty-icon"><ScrollText size={64} style={{color:"var(--gray-400)", opacity:0.5}} /></div>
                 <p className="empty-text">No orders found for selected period</p>
               </div>
             )}

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import './Orders.css';
+import { User, Bike, Package, CheckCircle, AlertTriangle } from 'lucide-react';
 
 const Orders = ({ 
   isLoggedIn,
@@ -199,7 +200,7 @@ const Orders = ({
 
                   <div className="order-details">
                     <div className="order-customer">
-                      <span className="detail-icon">👤</span>
+                      <span className="detail-icon"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
                       <div>
                         <p className="detail-label">Customer</p>
                         <p className="detail-value">{order.customerName}</p>
@@ -264,7 +265,7 @@ const Orders = ({
               ))
             ) : (
               <div className="empty-state">
-                <div className="empty-icon">📦</div>
+                <div className="empty-icon"><svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" opacity="0.5"><path d="M16.5 9.4 7.55 4.24"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.29 7 12 12 20.71 7"/><line x1="12" x2="12" y1="22" y2="12"/></svg></div>
                 <p className="empty-text">No new orders</p>
               </div>
             )}
@@ -297,7 +298,7 @@ const Orders = ({
 
                   <div className="order-details">
                     <div className="order-customer">
-                      <span className="detail-icon">👤</span>
+                      <span className="detail-icon"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
                       <div>
                         <p className="detail-label">Customer</p>
                         <p className="detail-value">{order.customerName}</p>
@@ -305,7 +306,7 @@ const Orders = ({
                     </div>
 
                     <div className="order-rider">
-                      <span className="detail-icon">🚴</span>
+                      <span className="detail-icon"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18.5" cy="17.5" r="3.5"/><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="15" cy="5" r="1"/><path d="M12 17.5V14l-3-3 4-3 2 3h2"/></svg></span>
                       <div>
                         <p className="detail-label">Rider</p>
                         <p className="detail-value rider-status">
@@ -366,7 +367,7 @@ const Orders = ({
               ))
             ) : (
               <div className="empty-state">
-                <div className="empty-icon">✅</div>
+                <div className="empty-icon"><svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" opacity="0.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
                 <p className="empty-text">No accepted orders</p>
               </div>
             )}
@@ -379,7 +380,7 @@ const Orders = ({
         <div className="modal-overlay" onClick={() => setShowDenyModal(false)}>
           <div className="deny-modal" onClick={(e) => e.stopPropagation()}>
             <div className="deny-modal-content">
-              <div className="deny-icon">⚠️</div>
+              <div className="deny-icon"><AlertTriangle size={52} color="#f59e0b" /></div>
               <h3 className="deny-title">Deny Order?</h3>
               <p className="deny-message">
                 Are you sure you want to deny order {orderToDeny?.id}? This action cannot be undone.

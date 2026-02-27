@@ -1,447 +1,230 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { User, Mail, Phone, Lock, Shield, Trash2, CheckCircle, XCircle, Edit2, X } from 'lucide-react';
+import toast, { Toaster } from 'react-hot-toast';
 import './Profile.css';
 import Header from './Header.jsx';
 import authService from '../Authservice.js';
+import { COLORS, MOTION } from '../constants.js';
 
-const Profile = ({ 
-  isLoggedIn,
-  user,
-  onBack,
-  onLoginClick,
-  onSignUpClick,
-  onLogout,
-  cartItems = []
-}) => {
-  const [showCart, setShowCart] = useState(false);
-  const [formData, setFormData] = useState({
-    first_name: '',
-    last_name: '',
-    phone: '',
-    email: ''
-  });
-  const [passwordData, setPasswordData] = useState({
-    current_password: '',
-    new_password: ''
-  });
-  const [isEditing, setIsEditing] = useState(false);
-  const [isEditingEmail, setIsEditingEmail] = useState(false);
-  const [isChangingPassword, setIsChangingPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState({ type: '', text: '' });
+const Profile = ({ isLoggedIn, user, onBack, onLoginClick, onSignUpClick, onLogout, cartItems = [] }) => {
+  const [showCart,            setShowCart]            = useState(false);
+  const [formData,            setFormData]            = useState({ first_name: '', last_name: '', phone: '', email: '' });
+  const [passwordData,        setPasswordData]        = useState({ current_password: '', new_password: '' });
+  const [isEditing,           setIsEditing]           = useState(false);
+  const [isChangingPassword,  setIsChangingPassword]  = useState(false);
+  const [loading,             setLoading]             = useState(false);
+  const [message,             setMessage]             = useState({ type: '', text: '' });
 
-  // Debug and load user data on component mount
   useEffect(() => {
-    console.log('=== PROFILE COMPONENT DEBUG ===');
-    console.log('User prop:', user);
-    console.log('User from localStorage:', authService.getUser());
-    
-    // Try to get the most recent user data
-    const currentUser = user || authService.getUser();
-    console.log('Current user being used:', currentUser);
-    
-    if (currentUser) {
-      setFormData({
-        first_name: currentUser.first_name || currentUser.firstName || '',
-        last_name: currentUser.last_name || currentUser.lastName || '',
-        phone: currentUser.phone || currentUser.phoneNumber || currentUser.phone_number || '',
-        email: currentUser.email || ''
-      });
-    }
+    const u = user || authService.getUser();
+    if (u) setFormData({
+      first_name: u.first_name || u.firstName || '',
+      last_name:  u.last_name  || u.lastName  || '',
+      phone:      u.phone_number || u.phone || '',
+      email:      u.email || '',
+    });
   }, [user]);
 
-  // Fetch fresh user data when component mounts
-  useEffect(() => {
-    const fetchUserData = async () => {
-      if (isLoggedIn) {
-        try {
-          const userData = await authService.fetchUserDetails();
-          console.log('Fetched fresh user data:', userData);
-          if (userData) {
-            setFormData({
-              first_name: userData.first_name || userData.firstName || '',
-              last_name: userData.last_name || userData.lastName || '',
-              phone: userData.phone || userData.phoneNumber || userData.phone_number || '',
-              email: userData.email || ''
-            });
-          }
-        } catch (error) {
-          console.error('Error fetching user data:', error);
-        }
-      }
-    };
-    
-    fetchUserData();
-  }, [isLoggedIn]);
-
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-    setMessage({ type: '', text: '' });
+  const showMsg = (type, text) => {
+    setMessage({ type, text });
+    setTimeout(() => setMessage({ type: '', text: '' }), 4000);
   };
 
-  const handlePasswordChange = (e) => {
-    const { name, value } = e.target;
-    setPasswordData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-    setMessage({ type: '', text: '' });
-  };
-
-  const handleSaveProfile = async () => {
+  const handleUpdate = async () => {
     setLoading(true);
-    setMessage({ type: '', text: '' });
-
     try {
-      // Call API to update profile
-      const response = await authService.authenticatedFetch(
-        'http://127.0.0.1:8000/api/auth/user/',
-        {
-          method: 'PATCH',
-          body: JSON.stringify(formData)
-        }
-      );
-
-      // Update user in authService
-      authService.setUser(response);
-      
-      setMessage({ type: 'success', text: 'Profile updated successfully!' });
+      await authService.authenticatedFetch('http://127.0.0.1:8000/api/auth/user/', {
+        method: 'PATCH',
+        body: JSON.stringify({ first_name: formData.first_name, last_name: formData.last_name, phone_number: formData.phone }),
+      });
+      toast.success('Profile updated successfully');
       setIsEditing(false);
-      
-      // Clear success message after 3 seconds
-      setTimeout(() => setMessage({ type: '', text: '' }), 3000);
-    } catch (error) {
-      console.error('Error updating profile:', error);
-      setMessage({ type: 'error', text: error.message || 'Failed to update profile' });
+    } catch (err) {
+      toast.error(err.message || 'Failed to update profile');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleChangePassword = async () => {
+  const handlePasswordChange = async () => {
     if (!passwordData.current_password || !passwordData.new_password) {
-      setMessage({ type: 'error', text: 'Please fill in all password fields' });
-      return;
+      toast.error('Please fill in both password fields'); return;
     }
-
     if (passwordData.new_password.length < 8) {
-      setMessage({ type: 'error', text: 'New password must be at least 8 characters' });
-      return;
+      toast.error('New password must be at least 8 characters'); return;
     }
-
     setLoading(true);
-    setMessage({ type: '', text: '' });
-
     try {
-      // Call API to change password
-      await authService.authenticatedFetch(
-        'http://127.0.0.1:8000/api/auth/change-password/',
-        {
-          method: 'POST',
-          body: JSON.stringify({
-            old_password: passwordData.current_password,
-            new_password: passwordData.new_password
-          })
-        }
-      );
-
-      setMessage({ type: 'success', text: 'Password changed successfully!' });
+      await authService.authenticatedFetch('http://127.0.0.1:8000/api/auth/change-password/', {
+        method: 'POST', body: JSON.stringify(passwordData),
+      });
+      toast.success('Password changed successfully');
       setPasswordData({ current_password: '', new_password: '' });
       setIsChangingPassword(false);
-      
-      // Clear success message after 3 seconds
-      setTimeout(() => setMessage({ type: '', text: '' }), 3000);
-    } catch (error) {
-      console.error('Error changing password:', error);
-      setMessage({ type: 'error', text: error.message || 'Failed to change password' });
+    } catch (err) {
+      toast.error(err.message || 'Failed to change password');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCancelEdit = () => {
-    setFormData({
-      first_name: user?.first_name || '',
-      last_name: user?.last_name || '',
-      phone: user?.phone || '',
-      email: user?.email || ''
-    });
-    setIsEditing(false);
-    setMessage({ type: '', text: '' });
-  };
-
-  const handleSaveEmail = async () => {
-    setLoading(true);
-    setMessage({ type: '', text: '' });
-
-    try {
-      // Call API to update email
-      const response = await authService.authenticatedFetch(
-        'http://127.0.0.1:8000/api/auth/user/',
-        {
-          method: 'PATCH',
-          body: JSON.stringify({ email: formData.email })
-        }
-      );
-
-      // Update user in authService
-      authService.setUser(response);
-      
-      setMessage({ type: 'success', text: 'Email updated successfully!' });
-      setIsEditingEmail(false);
-      
-      // Clear success message after 3 seconds
-      setTimeout(() => setMessage({ type: '', text: '' }), 3000);
-    } catch (error) {
-      console.error('Error updating email:', error);
-      setMessage({ type: 'error', text: error.message || 'Failed to update email' });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleCancelEmailEdit = () => {
-    setFormData(prev => ({
-      ...prev,
-      email: user?.email || ''
-    }));
-    setIsEditingEmail(false);
-    setMessage({ type: '', text: '' });
-  };
-
-  const handleCancelPasswordChange = () => {
-    setPasswordData({ current_password: '', new_password: '' });
-    setIsChangingPassword(false);
-    setMessage({ type: '', text: '' });
-  };
+  const initials = `${formData.first_name?.[0] || ''}${formData.last_name?.[0] || ''}`.toUpperCase() || 'U';
+  const fullName = `${formData.first_name} ${formData.last_name}`.trim() || 'User';
 
   return (
-    <div className="profile-page-container">
-      <Header
-        isLoggedIn={isLoggedIn}
-        user={user}
-        cartItems={cartItems}
-        onLoginClick={onLoginClick}
-        onSignUpClick={onSignUpClick}
-        onCartClick={() => setShowCart(!showCart)}
-        onLogout={onLogout}
-        showBanner={false}
-      />
+    <div className="profile-container">
+      <Toaster position="top-center" toastOptions={{
+        style: { borderRadius: '10px', fontFamily: 'Segoe UI,sans-serif', fontSize: '14px' },
+        success: { iconTheme: { primary: COLORS.primary, secondary: '#fff' } },
+      }} />
+      <Header isLoggedIn={isLoggedIn} user={user} cartItems={cartItems}
+        onLoginClick={onLoginClick} onSignUpClick={onSignUpClick}
+        onCartClick={() => setShowCart(!showCart)} onLogout={onLogout} onBack={onBack} />
 
       <div className="profile-content">
-        <div className="profile-wrapper">
-          {/* Back Button */}
-          <button className="profile-back-btn" onClick={onBack}>
-            ← Back
-          </button>
-
-          <h1 className="profile-page-title">My Account</h1>
-
-          {/* Success/Error Message */}
-          {message.text && (
-            <div className={`profile-message ${message.type}`}>
-              {message.text}
+        {/* Avatar card */}
+        <motion.div className="profile-section" {...MOTION.slideUp}>
+          <div className="profile-avatar-section">
+            <div className="profile-avatar">{initials}</div>
+            <div>
+              <div className="profile-name">{fullName}</div>
+              <div className="profile-email-preview">{formData.email}</div>
             </div>
-          )}
-
-          {/* My Profile Section */}
-          <div className="profile-section">
-            <div className="profile-section-header">
-              <h2 className="profile-section-title">My profile</h2>
-              {!isEditing ? (
-                <button 
-                  className="profile-edit-btn"
-                  onClick={() => setIsEditing(true)}
-                >
-                  Edit
-                </button>
-              ) : (
-                <button 
-                  className="profile-cancel-btn"
-                  onClick={handleCancelEdit}
-                >
-                  Cancel
-                </button>
-              )}
-            </div>
-
-            <div className="profile-form-grid">
-              <div className="profile-input-group">
-                <label>First name</label>
-                <input
-                  type="text"
-                  name="first_name"
-                  value={formData.first_name}
-                  onChange={handleInputChange}
-                  disabled={!isEditing}
-                  placeholder="First name"
-                />
-              </div>
-
-              <div className="profile-input-group">
-                <label>Last name</label>
-                <input
-                  type="text"
-                  name="last_name"
-                  value={formData.last_name}
-                  onChange={handleInputChange}
-                  disabled={!isEditing}
-                  placeholder="Last name"
-                />
-              </div>
-
-              <div className="profile-input-group full-width">
-                <label>Mobile number</label>
-                <input
-                  type="tel"
-                  name="phone"
-                  value={formData.phone}
-                  onChange={handleInputChange}
-                  disabled={!isEditing}
-                  placeholder="Mobile number"
-                />
-              </div>
-            </div>
-
-            {isEditing && (
-              <button 
-                className="profile-save-btn"
-                onClick={handleSaveProfile}
-                disabled={loading}
-              >
-                {loading ? 'Saving...' : 'Save'}
-              </button>
-            )}
           </div>
 
-          {/* Email Section */}
-          <div className="profile-section">
-            <div className="profile-section-header">
-              <h2 className="profile-section-title">Email</h2>
-              {!isEditingEmail ? (
-                <button 
-                  className="profile-edit-btn"
-                  onClick={() => setIsEditingEmail(true)}
-                >
-                  Edit
-                </button>
-              ) : (
-                <button 
-                  className="profile-cancel-btn"
-                  onClick={handleCancelEmailEdit}
-                >
-                  Cancel
-                </button>
-              )}
-            </div>
-            
-            <div className="profile-input-group">
-              <label>Email</label>
-              {!isEditingEmail ? (
-                <div className="email-with-badge">
-                  <input
-                    type="email"
-                    value={formData.email}
-                    disabled
-                    className="email-input-disabled"
-                  />
-                  <span className="verified-badge">✓ Verified</span>
-                </div>
-              ) : (
-                <input
-                  type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleInputChange}
-                  placeholder="Enter your email"
-                />
-              )}
-            </div>
-
-            {isEditingEmail && (
-              <button 
-                className="profile-save-btn"
-                onClick={handleSaveEmail}
-                disabled={loading}
-              >
-                {loading ? 'Saving...' : 'Save'}
-              </button>
+          {/* Message */}
+          <AnimatePresence>
+            {message.text && (
+              <motion.div className={`profile-message ${message.type}`}
+                initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                {message.type === 'success'
+                  ? <CheckCircle size={15} /> : <XCircle size={15} />}
+                {message.text}
+              </motion.div>
             )}
-          </div>
+          </AnimatePresence>
 
-          {/* Password Section */}
-          <div className="profile-section">
-            <div className="profile-section-header">
-              <h2 className="profile-section-title">Password</h2>
-              {!isChangingPassword && (
-                <button 
-                  className="profile-edit-btn"
-                  onClick={() => setIsChangingPassword(true)}
-                >
-                  Change
-                </button>
-              )}
-            </div>
-
-            {isChangingPassword && (
-              <>
-                <div className="profile-form-grid">
-                  <div className="profile-input-group full-width">
-                    <label>Current password</label>
-                    <input
-                      type="password"
-                      name="current_password"
-                      value={passwordData.current_password}
-                      onChange={handlePasswordChange}
-                      placeholder="Enter current password"
-                    />
-                  </div>
-
-                  <div className="profile-input-group full-width">
-                    <label>New password</label>
-                    <input
-                      type="password"
-                      name="new_password"
-                      value={passwordData.new_password}
-                      onChange={handlePasswordChange}
-                      placeholder="Enter new password (min. 8 characters)"
-                    />
-                  </div>
-                </div>
-
-                <div className="profile-password-actions">
-                  <button 
-                    className="profile-cancel-btn"
-                    onClick={handleCancelPasswordChange}
-                  >
-                    Cancel
-                  </button>
-                  <button 
-                    className="profile-save-btn"
-                    onClick={handleChangePassword}
-                    disabled={loading}
-                  >
-                    {loading ? 'Changing...' : 'Change Password'}
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-
-          {/* Account Management Section */}
-          <div className="profile-section">
-            <h2 className="profile-section-title">Account Management</h2>
-            <p className="profile-danger-text">
-              You can delete your account and personal data associated with it
-            </p>
-            <button className="profile-delete-btn">
-              Delete my account
+          {/* Personal Info */}
+          <div className="section-header">
+            <span className="section-title-profile">
+              <User size={14} style={{ marginRight: 6, verticalAlign: 'middle' }} />
+              Personal Information
+            </span>
+            <button className="section-edit-btn" onClick={() => setIsEditing(!isEditing)}>
+              {isEditing ? <><X size={13} /> Cancel</> : <><Edit2 size={13} /> Edit</>}
             </button>
           </div>
-        </div>
+
+          {isEditing ? (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+              <div className="field-row">
+                <div className="field-group">
+                  <label className="field-label">First Name</label>
+                  <input className="profile-input" value={formData.first_name}
+                    onChange={e => setFormData(p => ({ ...p, first_name: e.target.value }))} />
+                </div>
+                <div className="field-group">
+                  <label className="field-label">Last Name</label>
+                  <input className="profile-input" value={formData.last_name}
+                    onChange={e => setFormData(p => ({ ...p, last_name: e.target.value }))} />
+                </div>
+              </div>
+              <div className="field-group" style={{ marginTop: 12 }}>
+                <label className="field-label">Phone Number</label>
+                <input className="profile-input" value={formData.phone}
+                  onChange={e => setFormData(p => ({ ...p, phone: e.target.value }))} />
+              </div>
+              <div className="btn-row">
+                <button className="btn-primary" onClick={handleUpdate} disabled={loading}>
+                  {loading ? <span className="btn-loading"><span/><span/><span/></span> : 'Save Changes'}
+                </button>
+                <button className="btn-ghost" onClick={() => setIsEditing(false)}>Cancel</button>
+              </div>
+            </motion.div>
+          ) : (
+            <div className="field-row">
+              <div className="field-group">
+                <div className="field-label">First Name</div>
+                <div className="field-value">{formData.first_name || <span className="field-value muted">Not set</span>}</div>
+              </div>
+              <div className="field-group">
+                <div className="field-label">Last Name</div>
+                <div className="field-value">{formData.last_name || <span className="field-value muted">Not set</span>}</div>
+              </div>
+              <div className="field-group">
+                <div className="field-label"><Phone size={11} style={{marginRight:4}} />Phone</div>
+                <div className="field-value">{formData.phone || <span className="field-value muted">Not set</span>}</div>
+              </div>
+            </div>
+          )}
+        </motion.div>
+
+        {/* Email */}
+        <motion.div className="profile-section" {...MOTION.slideUp} transition={{ delay: 0.05, duration: 0.28 }}>
+          <div className="section-header">
+            <span className="section-title-profile">
+              <Mail size={14} style={{ marginRight: 6, verticalAlign: 'middle' }} />
+              Email Address
+            </span>
+            <span className="verified-badge"><CheckCircle size={12} /> Verified</span>
+          </div>
+          <div className="field-value">{formData.email}</div>
+        </motion.div>
+
+        {/* Password */}
+        <motion.div className="profile-section" {...MOTION.slideUp} transition={{ delay: 0.08, duration: 0.28 }}>
+          <div className="section-header">
+            <span className="section-title-profile">
+              <Lock size={14} style={{ marginRight: 6, verticalAlign: 'middle' }} />
+              Password &amp; Security
+            </span>
+            <button className="section-edit-btn" onClick={() => setIsChangingPassword(!isChangingPassword)}>
+              {isChangingPassword ? <><X size={13} /> Cancel</> : <><Shield size={13} /> Change</>}
+            </button>
+          </div>
+          <AnimatePresence>
+            {isChangingPassword && (
+              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}>
+                <div className="field-group" style={{ marginBottom: 12 }}>
+                  <label className="field-label">Current Password</label>
+                  <input type="password" className="profile-input" placeholder="Enter current password"
+                    value={passwordData.current_password}
+                    onChange={e => setPasswordData(p => ({ ...p, current_password: e.target.value }))} />
+                </div>
+                <div className="field-group">
+                  <label className="field-label">New Password</label>
+                  <input type="password" className="profile-input" placeholder="Min. 8 characters"
+                    value={passwordData.new_password}
+                    onChange={e => setPasswordData(p => ({ ...p, new_password: e.target.value }))} />
+                </div>
+                <div className="btn-row">
+                  <button className="btn-primary" onClick={handlePasswordChange} disabled={loading}>
+                    {loading ? <span className="btn-loading"><span/><span/><span/></span> : 'Update Password'}
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+          {!isChangingPassword && <div className="field-value muted">••••••••••</div>}
+        </motion.div>
+
+        {/* Danger zone */}
+        <motion.div className="profile-section" {...MOTION.slideUp} transition={{ delay: 0.11, duration: 0.28 }}>
+          <div className="section-header">
+            <span className="section-title-profile">
+              <Trash2 size={14} style={{ marginRight: 6, verticalAlign: 'middle', color: 'var(--c-danger)' }} />
+              <span style={{ color: 'var(--c-danger)' }}>Delete Account</span>
+            </span>
+          </div>
+          <p style={{ fontSize: 13, color: 'var(--c-gray-500)', marginBottom: 14, lineHeight: 1.5 }}>
+            Permanently delete your account and all associated data. This action cannot be undone.
+          </p>
+          <button className="btn-danger"
+            onClick={() => toast.error('Account deletion requires confirmation', { icon: '⚠️' })}>
+            Delete My Account
+          </button>
+        </motion.div>
       </div>
     </div>
   );

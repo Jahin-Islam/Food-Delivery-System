@@ -1,22 +1,173 @@
-/* index.css - FIXED VERSION */
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+/* ============================================================
+   INDEX.CSS — THE ONE FILE TO CHANGE COLORS FOR THE WHOLE SITE
+   ============================================================
+   🎨 Change the values under PRIMARY below and the whole site
+      recolors. Also update constants.js to match.
+   ============================================================ */
+
+:root {
+  /* ══════════════════════════════════════════
+     🎨 PRIMARY — EDIT THESE LINES ONLY
+     ══════════════════════════════════════════ */
+  --primary:          #4f46e5;   /* Electric Indigo        */
+  --primary-dark:     #3730a3;   /* Deep Navy Indigo       */
+  --primary-darkest:  #1e1b4b;   /* Midnight Indigo        */
+  --primary-light:    #e0e7ff;   /* Soft Lavender Tint     */
+  --primary-bg:       #eef2ff;   /* Barely-there Lavender  */
+
+  /* rgba versions of --primary (79,70,229 = #4f46e5) */
+  --shadow-primary-color:       rgba(79,70,229,0.30);
+  --shadow-primary-hover-color: rgba(79,70,229,0.42);
+  --shadow-primary-ring:        rgba(79,70,229,0.09);
+  --shadow-primary-subtle:      rgba(79,70,229,0.22);
+
+  /* Gradients — built from primary values above */
+  --gradient-primary: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+  --gradient-hero:    linear-gradient(145deg, var(--primary) 0%, var(--primary-dark) 55%, var(--primary-darkest) 100%);
+  --gradient-rider:   linear-gradient(160deg, var(--primary) 0%, var(--primary-dark) 100%);
+
+  /* Shadows */
+  --shadow-primary:       0 4px 14px var(--shadow-primary-color);
+  --shadow-primary-hover: 0 8px 24px var(--shadow-primary-hover-color);
+
+  /* ══════════════════════════════════════════
+     Status colors
+     ══════════════════════════════════════════ */
+  --success:       #10b981;
+  --success-light: #d1fae5;
+  --warning:       #f59e0b;
+  --warning-light: #fef3c7;
+  --danger:        #dc2626;
+  --danger-light:  #fee2e2;
+  --whatsapp:      #25de69;
+
+  /* ══════════════════════════════════════════
+     Neutrals
+     ══════════════════════════════════════════ */
+  --white:    #ffffff;
+  --gray-50:  #f9fafb;
+  --gray-100: #f3f4f6;
+  --gray-200: #e5e7eb;
+  --gray-300: #d1d5db;
+  --gray-400: #9ca3af;
+  --gray-500: #6b7280;
+  --gray-600: #4b5563;
+  --gray-700: #374151;
+  --gray-800: #1f2937;
+  --gray-900: #111827;
+
+  /* ══════════════════════════════════════════
+     Font / Shape / Speed
+     ══════════════════════════════════════════ */
+  --font:        "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  --radius:      12px;
+  --radius-sm:   8px;
+  --radius-lg:   16px;
+  --radius-full: 999px;
+  --t:           0.22s ease;
+
+  /* ══════════════════════════════════════════
+     Aliases — DO NOT EDIT
+     Maps every old variable name across all
+     CSS files to the new variables above
+     ══════════════════════════════════════════ */
+  --c-primary:         var(--primary);
+  --c-primary-alt:     var(--primary);
+  --c-primary-dark:    var(--primary-dark);
+  --c-primary-light:   var(--primary-light);
+  --c-primary-bg:      var(--primary-bg);
+  --c-white:           var(--white);
+  --c-gray-50:         var(--gray-50);
+  --c-gray-100:        var(--gray-100);
+  --c-gray-200:        var(--gray-200);
+  --c-gray-300:        var(--gray-300);
+  --c-gray-400:        var(--gray-400);
+  --c-gray-500:        var(--gray-500);
+  --c-gray-600:        var(--gray-600);
+  --c-gray-700:        var(--gray-700);
+  --c-gray-800:        var(--gray-800);
+  --c-gray-900:        var(--gray-900);
+  --c-success:         var(--success);
+  --c-success-light:   var(--success-light);
+  --c-danger:          var(--danger);
+  --c-danger-light:    var(--danger-light);
+  --c-warning:         var(--warning);
+  --c-warning-light:   var(--warning-light);
+  --c-whatsapp:        var(--whatsapp);
+  --app-primary:       var(--primary);
+  --app-primary-dark:  var(--primary-dark);
+  --app-primary-light: var(--primary-light);
+  --app-white:         var(--white);
+  --app-bg:            var(--gray-50);
+  --app-font:          var(--font);
+  --app-radius:        var(--radius);
+  --app-transition:    var(--t);
 }
+
+/* ── Global resets ─────────────────────────── */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
 html, body {
-  width: 100vw;
-  height: 100%;
-  margin: 0;
-  padding: 0;
-  overflow-x: hidden;
-  background-color: white;
-  color: #333;
+  width: 100vw; height: 100%; overflow-x: hidden;
+  background-color: var(--gray-50);
+  color: var(--gray-900);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-#root {
-  width: 100vw;
-  height: 100%;
-  overflow-x: hidden;
+#root { width: 100vw; height: 100%; overflow-x: hidden; }
+body.modal-open { overflow: hidden; }
+
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+:focus:not(:focus-visible) { outline: none; }
+
+/* ============================================================
+   🌙 DARK MODE
+   Triggered by Header.jsx setting data-theme="dark" on <html>
+   Every var(--white) and var(--gray-*) in every CSS file flips.
+   ============================================================ */
+[data-theme="dark"] {
+  --white:    #1a1a2e;
+  --gray-50:  #12121f;
+  --gray-100: #1c1c30;
+  --gray-200: #252542;
+  --gray-300: #32325a;
+  --gray-400: #5c5c90;
+  --gray-500: #8080b8;
+  --gray-600: #a0a0cc;
+  --gray-700: #c0c0e0;
+  --gray-800: #dcdcf5;
+  --gray-900: #f0f0ff;
+
+  --primary:        #818cf8;
+  --primary-dark:   #6366f1;
+  --primary-light:  #1e1b4b;
+
+  --shadow-primary:       0 4px 14px rgba(129,140,248,0.35);
+  --shadow-primary-hover: 0 8px 24px rgba(129,140,248,0.50);
+
+  --gradient-primary: linear-gradient(135deg, #818cf8 0%, #6366f1 100%);
+  --gradient-hero:    linear-gradient(145deg, #4f46e5 0%, #3730a3 55%, #1e1b4b 100%);
+  --gradient-rider:   linear-gradient(160deg, #4f46e5 0%, #3730a3 100%);
+
+  --success-light: #052e16;
+  --warning-light: #431407;
+  --danger-light:  #3b0000;
+}
+
+/* dark toggle button style */
+.dark-toggle-btn {
+  width: 40px !important;
+  height: 40px !important;
+  padding: 0 !important;
+  min-width: unset !important;
+  border-radius: 50% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
 }

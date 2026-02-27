@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import './OrderSummary.css';
+import { COLORS, SHADOWS } from '../constants.js';
+import { UtensilsCrossed, Trash2, Utensils, Coffee } from 'lucide-react';
 
 const OrderSummary = ({ 
   cartItems = [], 
@@ -14,16 +16,14 @@ const OrderSummary = ({
   const serviceFee = 3;
   const total = subtotal + serviceFee;
 
-  // Mock popular items
   const popularItems = [
-    { id: 1, name: 'Americano', price: 145, originalPrice: 170, image: '☕' },
-    { id: 2, name: 'Latte', price: 179, originalPrice: 210, image: '☕' },
-    { id: 3, name: 'Hot Chocolate', price: 187, originalPrice: 200, image: '☕' }
+    { id: 1, name: 'Americano', price: 145, originalPrice: 170, image: 'coffee' },
+    { id: 2, name: 'Latte', price: 179, originalPrice: 210, image: 'coffee' },
+    { id: 3, name: 'Hot Chocolate', price: 187, originalPrice: 200, image: 'coffee' }
   ];
 
   return (
     <div className="order-summary-container">
-      {/* Delivery/Pickup Toggle */}
       <div className="delivery-mode-tabs">
         <button
           className={`mode-tab ${deliveryMode === 'delivery' ? 'active' : ''}`}
@@ -41,7 +41,6 @@ const OrderSummary = ({
         </button>
       </div>
 
-      {/* Your Items */}
       <div className="order-summary-content">
         <h3 className="summary-section-title">Your items</h3>
         
@@ -58,7 +57,9 @@ const OrderSummary = ({
                     {item.image && item.image.startsWith('http') ? (
                       <img src={item.image} alt={item.name} />
                     ) : (
-                      <span className="item-emoji">{item.emoji || '🍽️'}</span>
+                      <span className="item-emoji" style={{display:'flex',alignItems:'center',justifyContent:'center'}}>
+                        <UtensilsCrossed size={32} color={COLORS.primary} />
+                      </span>
                     )}
                   </div>
                   <div className="order-item-details">
@@ -76,7 +77,7 @@ const OrderSummary = ({
                     className="remove-btn"
                     onClick={() => onRemoveItem && onRemoveItem(item.id)}
                   >
-                    🗑️
+                    <Trash2 size={18} />
                   </button>
                   <div className="quantity-selector">
                     <button 
@@ -99,7 +100,6 @@ const OrderSummary = ({
           </div>
         )}
 
-        {/* Popular with your order */}
         {cartItems.length > 0 && (
           <div className="popular-recommendations">
             <h3 className="summary-section-title">Popular with your order</h3>
@@ -111,7 +111,9 @@ const OrderSummary = ({
                 {popularItems.map((item) => (
                   <div key={item.id} className="popular-item">
                     <div className="popular-item-image">
-                      <span className="popular-emoji">{item.image}</span>
+                      <span className="popular-emoji" style={{display:'flex',alignItems:'center',justifyContent:'center'}}>
+                        <Coffee size={40} color={COLORS.primary} />
+                      </span>
                       <button className="quick-add-btn">+</button>
                     </div>
                     <div className="popular-item-details">
@@ -129,7 +131,6 @@ const OrderSummary = ({
           </div>
         )}
 
-        {/* Summary */}
         {cartItems.length > 0 && (
           <>
             <div className="order-summary-breakdown">
@@ -143,10 +144,11 @@ const OrderSummary = ({
               </div>
             </div>
 
-            {/* Cutlery */}
             <div className="cutlery-section">
               <div className="cutlery-info">
-                <span className="cutlery-icon">🍴</span>
+                <span className="cutlery-icon" style={{display:'flex',alignItems:'center'}}>
+                  <Utensils size={20} />
+                </span>
                 <div>
                   <div className="cutlery-title">Cutlery</div>
                   <div className="cutlery-text">No cutlery provided. Thanks for reducing waste!</div>
@@ -158,7 +160,6 @@ const OrderSummary = ({
               </label>
             </div>
 
-            {/* Total */}
             <div className="order-total-section">
               <div className="total-row">
                 <div>
@@ -173,7 +174,6 @@ const OrderSummary = ({
               <button className="summary-link-btn">See summary</button>
             </div>
 
-            {/* Checkout Button */}
             <button className="review-payment-btn" onClick={onCheckout}>
               Review payment and address
             </button>

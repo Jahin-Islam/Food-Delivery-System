@@ -1,4 +1,8 @@
-/* App.css - FIXED VERSION */
+/* ============================================================
+   APP.CSS — Global app styles
+   Variables are in index.css — do NOT add :root here.
+   ============================================================ */
+
 #root {
   width: 100%;
   margin: 0;
@@ -11,9 +15,39 @@
   width: 100%;
   min-height: 100vh;
   overflow-x: hidden;
+  background: var(--gray-50);
+  font-family: var(--font);
 }
 
-/* Remove unused demo styles */
-.logo, .card, .read-the-docs {
-  display: none;
+/* ── Global scrollbar ── */
+* { scrollbar-width: thin; scrollbar-color: #d1d5db transparent; }
+*::-webkit-scrollbar { width: 5px; height: 5px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 99px; }
+*::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+
+/* ── Loading screen ── */
+.app-loading {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  height: 100vh; gap: 18px;
+  background: var(--gray-50);
 }
+.app-loading-logo {
+  font-size: 36px; font-weight: 800; letter-spacing: -1px;
+  color: var(--primary);
+}
+.app-loading-dots { display: flex; gap: 7px; }
+.app-loading-dots span {
+  width: 9px; height: 9px;
+  background: var(--primary); border-radius: 50%;
+  animation: appDot 0.9s ease-in-out infinite;
+}
+.app-loading-dots span:nth-child(2) { animation-delay: 0.15s; }
+.app-loading-dots span:nth-child(3) { animation-delay: 0.30s; }
+@keyframes appDot {
+  0%,80%,100% { transform: scale(0.6); opacity: 0.35; }
+  40%          { transform: scale(1);   opacity: 1;    }
+}
+
+.logo, .card, .read-the-docs { display: none; }

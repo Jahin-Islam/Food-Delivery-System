@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { COLORS } from '../constants.js';
 
 export default function PriceOption() {
   const [selectedPrice, setSelectedPrice] = useState(null);
@@ -22,7 +23,7 @@ export default function PriceOption() {
               padding: '10px',
               border: '1px solid #ebebeb',
               borderRadius: '8px',
-              backgroundColor: selectedPrice === level.id ? '#d70f64' : 'white',
+              backgroundColor: selectedPrice === level.id ? COLORS.primary : 'white',
               color: selectedPrice === level.id ? 'white' : '#333',
               fontWeight: 'bold',
               cursor: 'pointer',

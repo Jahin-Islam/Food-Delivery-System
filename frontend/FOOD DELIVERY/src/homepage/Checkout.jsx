@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import './Checkout.css';
+import { COLORS, SHADOWS } from '../constants.js';
 import Header from './Header.jsx';
 import AllCarts from './AllCarts.jsx';
+import { MapPin, Home, Briefcase, Heart, Plus } from 'lucide-react';
 
 const Checkout = ({ 
   restaurant,
@@ -13,8 +15,8 @@ const Checkout = ({
   onSignUpClick,
   onLogout,
   onPlaceOrder,
-  allCartItems = [], // All cart items for the header cart display
-  onCheckout // For navigating to other restaurant checkouts from cart
+  allCartItems = [],
+  onCheckout
 }) => {
   const [deliveryAddress, setDeliveryAddress] = useState('Road 71, Dhaka');
   const [streetNumber, setStreetNumber] = useState('');
@@ -31,12 +33,11 @@ const Checkout = ({
   const [saveTip, setSaveTip] = useState(false);
   const [showCart, setShowCart] = useState(false);
 
-  // Calculate totals
   const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  const deliveryFee = deliveryOption === 'priority' ? 33 : 0; // Free standard delivery
+  const deliveryFee = deliveryOption === 'priority' ? 33 : 0;
   const serviceFee = 14;
   const total = subtotal + deliveryFee + serviceFee + tipAmount;
-  const savings = 30; // Calculate from discounts
+  const savings = 30;
 
   const handlePlaceOrder = () => {
     const orderData = {
@@ -51,40 +52,29 @@ const Checkout = ({
       },
       deliveryOption,
       contactlessDelivery,
-      personalDetails: {
-        firstName,
-        lastName,
-        email,
-        mobile
-      },
+      personalDetails: { firstName, lastName, email, mobile },
       tip: tipAmount,
       subtotal,
       deliveryFee,
       serviceFee,
       total
     };
-
     if (onPlaceOrder) {
       onPlaceOrder(orderData);
     } else {
-      console.log('Order placed:', orderData);
       alert('Order placed successfully!');
     }
   };
 
-  // Handle checkout from AllCarts sidebar
   const handleCheckoutFromCart = (restaurantId) => {
     setShowCart(false);
     if (onCheckout && restaurantId !== restaurant?.id) {
-      // Navigate to different restaurant's checkout
       onCheckout(restaurantId);
     }
   };
 
-  // Handle navigation to restaurant - not needed on checkout page
   const handleNavigateToRestaurant = (restaurantId) => {
     setShowCart(false);
-    // Just close cart, user is already on checkout
   };
 
   return (
@@ -102,29 +92,29 @@ const Checkout = ({
 
       <div className="checkout-content">
         <div className="checkout-main">
-          {/* Page Title */}
           <h1 className="checkout-title">Review and place your order</h1>
 
-          {/* Delivery Address Section */}
           <section className="checkout-section">
             <div className="section-header-checkout">
               <h2 className="section-title-checkout">Delivery address</h2>
               <button className="edit-btn">Edit</button>
             </div>
 
-            {/* Map Placeholder */}
             <div className="map-container">
               <div className="map-placeholder">
-                <div className="map-pin">📍</div>
+                <div className="map-pin" style={{display:'flex',justifyContent:'center'}}>
+                  <MapPin size={48} color={COLORS.primary} />
+                </div>
                 <p className="map-text">Map View</p>
               </div>
               <div className="address-display">
-                <span className="location-icon">📍</span>
+                <span className="location-icon" style={{display:'flex',alignItems:'center'}}>
+                  <MapPin size={18} color={COLORS.primary} />
+                </span>
                 <span className="address-text">{deliveryAddress}</span>
               </div>
             </div>
 
-            {/* Address Details */}
             <div className="address-details">
               <p className="missing-info">We're missing your street - house number</p>
               
@@ -152,33 +142,36 @@ const Checkout = ({
                 rows={3}
               />
 
-              {/* Address Labels */}
               <div className="address-labels">
                 <p className="label-title">Add a Label</p>
                 <div className="label-options">
                   <button
                     className={`label-btn ${addressLabel === 'home' ? 'active' : ''}`}
                     onClick={() => setAddressLabel('home')}
+                    style={{display:'flex',alignItems:'center',gap:'6px'}}
                   >
-                    🏠 Home
+                    <Home size={14} /> Home
                   </button>
                   <button
                     className={`label-btn ${addressLabel === 'work' ? 'active' : ''}`}
                     onClick={() => setAddressLabel('work')}
+                    style={{display:'flex',alignItems:'center',gap:'6px'}}
                   >
-                    💼 Work
+                    <Briefcase size={14} /> Work
                   </button>
                   <button
                     className={`label-btn ${addressLabel === 'partner' ? 'active' : ''}`}
                     onClick={() => setAddressLabel('partner')}
+                    style={{display:'flex',alignItems:'center',gap:'6px'}}
                   >
-                    ❤️ Partner
+                    <Heart size={14} /> Partner
                   </button>
                   <button
                     className={`label-btn ${addressLabel === 'other' ? 'active' : ''}`}
                     onClick={() => setAddressLabel('other')}
+                    style={{display:'flex',alignItems:'center',gap:'6px'}}
                   >
-                    ➕ Other
+                    <Plus size={14} /> Other
                   </button>
                 </div>
               </div>
@@ -187,7 +180,6 @@ const Checkout = ({
                 Save and continue
               </button>
 
-              {/* Contactless Delivery */}
               <div className="contactless-option">
                 <span>Contactless delivery</span>
                 <label className="toggle-switch-checkout">
@@ -202,7 +194,6 @@ const Checkout = ({
             </div>
           </section>
 
-          {/* Delivery Options */}
           <section className="checkout-section">
             <h2 className="section-title-checkout">Delivery options</h2>
             
@@ -242,7 +233,6 @@ const Checkout = ({
             </div>
           </section>
 
-          {/* Personal Details */}
           <section className="checkout-section">
             <div className="section-header-checkout">
               <h2 className="section-title-checkout">Personal details</h2>
@@ -285,42 +275,21 @@ const Checkout = ({
             </div>
           </section>
 
-          {/* Tip Your Rider */}
           <section className="checkout-section">
             <h2 className="section-title-checkout">Tip your rider</h2>
+            <br/>
             <p className="section-subtitle-checkout">Your rider receives 100% of the tip</p>
 
             <div className="tip-options">
-              <button
-                className={`tip-btn ${tipAmount === 0 ? 'active' : ''}`}
-                onClick={() => setTipAmount(0)}
-              >
-                Not now
-              </button>
-              <button
-                className={`tip-btn ${tipAmount === 10 ? 'active' : ''}`}
-                onClick={() => setTipAmount(10)}
-              >
-                Tk 10
-              </button>
-              <button
-                className={`tip-btn ${tipAmount === 20 ? 'active' : ''}`}
-                onClick={() => setTipAmount(20)}
-              >
-                Tk 20
-              </button>
-              <button
-                className={`tip-btn ${tipAmount === 30 ? 'active' : ''}`}
-                onClick={() => setTipAmount(30)}
-              >
-                Tk 30
-              </button>
-              <button
-                className={`tip-btn ${tipAmount === 50 ? 'active' : ''}`}
-                onClick={() => setTipAmount(50)}
-              >
-                Tk 50
-              </button>
+              {[0, 10, 20, 30, 50].map(amount => (
+                <button
+                  key={amount}
+                  className={`tip-btn ${tipAmount === amount ? 'active' : ''}`}
+                  onClick={() => setTipAmount(amount)}
+                >
+                  {amount === 0 ? 'Not now' : `Tk ${amount}`}
+                </button>
+              ))}
             </div>
 
             <p className="tip-note">More common</p>
@@ -336,7 +305,6 @@ const Checkout = ({
             </div>
           </section>
 
-          {/* Place Order Button */}
           <button className="place-order-btn" onClick={handlePlaceOrder}>
             Place order
           </button>
@@ -351,7 +319,6 @@ const Checkout = ({
           </p>
         </div>
 
-        {/* Order Summary Sidebar */}
         <aside className="order-summary-sidebar">
           <h3 className="summary-title">Your order from</h3>
           <p className="restaurant-name-summary">{restaurant?.name || 'Restaurant'}</p>
@@ -404,7 +371,6 @@ const Checkout = ({
         </aside>
       </div>
 
-      {/* All Carts Sidebar */}
       <AllCarts
         isOpen={showCart}
         onClose={() => setShowCart(false)}

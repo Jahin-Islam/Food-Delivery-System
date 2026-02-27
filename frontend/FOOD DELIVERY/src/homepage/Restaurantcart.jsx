@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import './RestaurantCart.css';
+import { COLORS, SHADOWS } from '../constants.js';
+import { ShoppingCart, Trash2, UtensilsCrossed, Utensils, Coffee } from 'lucide-react';
 
 const RestaurantCart = ({ 
   isOpen, 
@@ -14,28 +16,24 @@ const RestaurantCart = ({
 
   const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   const serviceFee = 3;
-  const deliveryFee = 0; // Free delivery
-  const savings = 30; // Calculate from discounts
+  const deliveryFee = 0;
+  const savings = 30;
   const total = subtotal + serviceFee + deliveryFee;
 
-  // Get popular items suggestions (mock data - you can fetch from API)
   const popularSuggestions = [
-    { id: 1, name: 'Americano', price: 145, originalPrice: 170, image: '☕' },
-    { id: 2, name: 'Latte', price: 179, originalPrice: 210, image: '☕' },
-    { id: 3, name: 'Hot Chocolate', price: 187, originalPrice: 200, image: '☕' }
+    { id: 1, name: 'Americano', price: 145, originalPrice: 170, image: 'coffee' },
+    { id: 2, name: 'Latte', price: 179, originalPrice: 210, image: 'coffee' },
+    { id: 3, name: 'Hot Chocolate', price: 187, originalPrice: 200, image: 'coffee' }
   ];
 
   return (
     <>
-      {/* Overlay */}
       <div 
         className={`restaurant-cart-overlay ${isOpen ? 'active' : ''}`}
         onClick={onClose}
       />
 
-      {/* Cart Sidebar */}
       <aside className={`restaurant-cart-sidebar ${isOpen ? 'cart-visible' : 'cart-hidden'}`}>
-        {/* Delivery/Pickup Toggle */}
         <div className="delivery-mode-header">
           <button
             className={`mode-btn ${deliveryMode === 'delivery' ? 'active' : ''}`}
@@ -56,13 +54,14 @@ const RestaurantCart = ({
         <div className="restaurant-cart-content">
           {cartItems.length === 0 ? (
             <div className="cart-empty">
-              <div className="empty-cart-icon">🛒</div>
+              <div className="empty-cart-icon" style={{display:'flex',justifyContent:'center',opacity:0.5}}>
+                <ShoppingCart size={80} strokeWidth={1} />
+              </div>
               <p className="empty-cart-text">Your cart is empty</p>
               <p className="empty-cart-subtext">Add items to get started</p>
             </div>
           ) : (
             <>
-              {/* Your Items Section */}
               <div className="your-items-section">
                 <h3 className="section-title">Your items</h3>
                 
@@ -74,7 +73,9 @@ const RestaurantCart = ({
                           {item.image && item.image.startsWith('http') ? (
                             <img src={item.image} alt={item.name} />
                           ) : (
-                            <div className="item-emoji">{item.emoji || '🍽️'}</div>
+                            <div className="item-emoji" style={{display:'flex',alignItems:'center',justifyContent:'center'}}>
+                              <UtensilsCrossed size={32} color={COLORS.primary} />
+                            </div>
                           )}
                         </div>
                         <div className="item-info">
@@ -92,7 +93,7 @@ const RestaurantCart = ({
                           className="delete-btn"
                           onClick={() => onRemoveItem && onRemoveItem(item.id)}
                         >
-                          🗑️
+                          <Trash2 size={18} />
                         </button>
                         <div className="quantity-controls">
                           <button 
@@ -115,7 +116,6 @@ const RestaurantCart = ({
                 </div>
               </div>
 
-              {/* Popular with your order */}
               <div className="popular-section">
                 <h3 className="section-title">Popular with your order</h3>
                 <p className="section-subtitle">Based on what other customers bought together</p>
@@ -124,7 +124,9 @@ const RestaurantCart = ({
                   {popularSuggestions.map((item) => (
                     <div key={item.id} className="popular-item-card">
                       <div className="popular-item-image">
-                        <span className="popular-emoji">{item.image}</span>
+                        <span className="popular-emoji" style={{display:'flex',alignItems:'center',justifyContent:'center'}}>
+                          <Coffee size={48} color={COLORS.primary} />
+                        </span>
                         <button className="add-popular-btn">+</button>
                       </div>
                       <div className="popular-item-info">
@@ -139,7 +141,6 @@ const RestaurantCart = ({
                 </div>
               </div>
 
-              {/* Summary */}
               <div className="cart-summary">
                 <div className="summary-row">
                   <span>Subtotal</span>
@@ -151,10 +152,11 @@ const RestaurantCart = ({
                 </div>
               </div>
 
-              {/* Cutlery Option */}
               <div className="cutlery-option">
                 <div className="cutlery-info">
-                  <span className="cutlery-icon">🍴</span>
+                  <span className="cutlery-icon" style={{display:'flex',alignItems:'center'}}>
+                    <Utensils size={20} />
+                  </span>
                   <div>
                     <div className="cutlery-title">Cutlery</div>
                     <div className="cutlery-subtitle">No cutlery provided. Thanks for reducing waste!</div>
@@ -166,7 +168,6 @@ const RestaurantCart = ({
                 </label>
               </div>
 
-              {/* Total */}
               <div className="cart-total-section">
                 <div className="total-row">
                   <div>
@@ -183,7 +184,6 @@ const RestaurantCart = ({
                 <button className="see-summary-btn">See summary</button>
               </div>
 
-              {/* Checkout Button */}
               <button className="checkout-btn" onClick={onCheckout}>
                 Review payment and address
               </button>
