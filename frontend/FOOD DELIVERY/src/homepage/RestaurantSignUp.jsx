@@ -12,6 +12,7 @@ const RestaurantPartnerSignUp = ({ onSwitchToLogin, onRiderSignUp, onSignUpSucce
     phone: '',
     password: '',
     password2: '',
+    role: 'RESTAURANT',
     sameAsPhone: false,
     whatsappUpdates: true
   });
@@ -80,6 +81,7 @@ const RestaurantPartnerSignUp = ({ onSwitchToLogin, onRiderSignUp, onSignUpSucce
         email: formData.email,
         phone: formData.phone,
         password: formData.password,
+        role: 'RESTAURANT',
         password2: formData.password2   // ← pass actual confirm password
       });
 

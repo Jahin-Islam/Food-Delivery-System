@@ -396,7 +396,7 @@ class AuthService {
         first_name: partnerData.ownerFirstName,
         last_name: partnerData.ownerLastName,
         phone_number: phone,             // ← formatted with +880
-        user_type: 'vendor',
+        role: 'RESTAURANT',
         // Restaurant specific data
         restaurant_name: partnerData.businessName,
         restaurant_category: partnerData.businessType,

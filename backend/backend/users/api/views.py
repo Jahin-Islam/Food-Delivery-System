@@ -164,7 +164,7 @@ class UserProfileView(APIView):
             user_row = cursor.fetchone()
 
             if not user_row:
-                return Response({"error": "User not found"}, status=404)
+                return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
 
             # Manually mapping to ensure we control exactly what goes out
             response_data = {
@@ -173,7 +173,7 @@ class UserProfileView(APIView):
                 "email": user_row[2],
                 "phone_number": user_row[3],
                 "role": user_row[4],
-                "profile_image": user_row[5],
+                "image_url": user_row[5],
             }
 
             role = response_data['role']
@@ -224,7 +224,7 @@ class UserProfileView(APIView):
                         opening_time, 
                         closing_time, 
                         image_url 
-                    FROM restaurants_restaurant 
+                    FROM resturants_restaurant 
                     WHERE user_id = %s
                     LIMIT 1
                 """, [user_id])

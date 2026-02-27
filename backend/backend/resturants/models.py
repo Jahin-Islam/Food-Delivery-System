@@ -11,10 +11,10 @@ class Restaurant(models.Model):
         CAFE = "CAFE", "Cafe"
         FAST = "FAST FOOD", "Fast Food"
         BAKERY = "BAKERY", "Bakery"
-        DESERT = "DESERT", "Desert"
-        CLOUD = "CLOUD", "Cloud"
+        DESERT = "DESERT", "Dessert Shop"
+        CLOUD = "CLOUD", "Cloud Kitchen"
         TRUCK = "FOOD TRUCK", "Food Truck",
-        CATERING = "CATERING", "Catering"
+        CATERING = "CATERING", "Catering Service"
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="restaurant_profiles")
     address = models.OneToOneField(Address, on_delete=models.SET_NULL, null=True)
