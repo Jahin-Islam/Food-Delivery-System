@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { ArrowLeft, AlertTriangle, Utensils, ChevronLeft, ChevronRight, Search } from 'lucide-react';
 import './RestaurantDetail.css';
 import { COLORS, SHADOWS } from '../constants.js';
 import Header from './Header.jsx';
@@ -101,7 +102,7 @@ const RestaurantDetail = ({
         />
         <div className="restaurant-detail-header">
           <button className="back-button" onClick={onBack}>
-            ← Back
+            <ArrowLeft size={16} style={{display:"inline",marginRight:6}} />Back
           </button>
         </div>
         <div style={{ padding: '40px', textAlign: 'center' }}>
@@ -126,7 +127,7 @@ const RestaurantDetail = ({
         />
         <div className="restaurant-detail-header">
           <button className="back-button" onClick={onBack}>
-            ← Back
+            <ArrowLeft size={16} style={{display:"inline",marginRight:6}} />Back
           </button>
         </div>
         <div style={{ padding: '40px', textAlign: 'center' }}>
@@ -152,11 +153,11 @@ const RestaurantDetail = ({
         />
         <div className="restaurant-detail-header">
           <button className="back-button" onClick={onBack}>
-            ← Back
+            <ArrowLeft size={16} style={{display:"inline",marginRight:6}} />Back
           </button>
         </div>
         <div style={{ padding: '40px', textAlign: 'center' }}>
-          <div className="error-icon">⚠️</div>
+          <div className="error-icon"><AlertTriangle size={48} color="var(--warning)" /></div>
           <p>Failed to load restaurant details: {error}</p>
           <button onClick={() => window.location.reload()} className="retry-btn">
             Retry
@@ -217,7 +218,7 @@ const RestaurantDetail = ({
       restaurantId: displayRestaurant.id,
       restaurantImage: displayRestaurant.image_url,
       image: item.image_url,
-      emoji: item.emoji || '🍽️',
+      emoji: item.emoji || '',
       quantity: 1,
       variation: null,
       extras: [],
@@ -305,7 +306,7 @@ const RestaurantDetail = ({
 
       <div className="restaurant-detail-header">
         <button className="back-button" onClick={onBack}>
-          ← Back to restaurants
+          <ArrowLeft size={16} style={{display:"inline",marginRight:6}} />Back to restaurants
         </button>
       </div>
 
@@ -323,11 +324,11 @@ const RestaurantDetail = ({
                 }}
               />
               <div className="banner-emoji" style={{ display: displayRestaurant.image_url ? 'none' : 'flex' }}>
-                🍽️
+                <Utensils size={64} color="var(--primary)" />
               </div>
             </>
           ) : (
-            <div className="banner-emoji">🍽️</div>
+            <div className="banner-emoji"><Utensils size={64} color="var(--primary)" /></div>
           )}
         </div>
         
@@ -412,7 +413,7 @@ const RestaurantDetail = ({
                 }
               }}
             >
-              ‹
+              <ChevronLeft size={18} />
             </button>
             
             <div className="menu-categories-scroll" ref={categoriesScrollRef}>
@@ -438,7 +439,7 @@ const RestaurantDetail = ({
                 }
               }}
             >
-              ›
+              <ChevronRight size={18} />
             </button>
           </div>
 
@@ -498,7 +499,7 @@ const RestaurantDetail = ({
                               className="menu-item-emoji" 
                               style={{ display: item.image_url ? 'none' : 'flex' }}
                             >
-                              🍽️
+                              <Utensils size={32} color="var(--primary)" />
                             </div>
                           </div>
                           
@@ -517,7 +518,7 @@ const RestaurantDetail = ({
               ))
             ) : (
               <div className="no-menu-results">
-                <div className="no-results-icon">🔍</div>
+                <div className="no-results-icon"><Search size={48} color="var(--gray-400)" /></div>
                 <p>No items found matching "{searchQuery}"</p>
               </div>
             )}
