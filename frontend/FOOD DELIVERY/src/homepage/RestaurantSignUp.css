@@ -109,7 +109,7 @@ html, body { width: 100vw; height: 100%; overflow-x: hidden; }
 .phone-input-wrapper { display: flex; gap: 0; }
 .country-code {
   padding: 11px 12px;
-  background: var(--c-gray-100); border: 2px solid var(--c-gray-200);
+  background: var(--gray-100); border: 2px solid var(--c-gray-200);
   border-right: none; border-radius: var(--radius) 0 0 var(--radius);
   font-size: 14px; font-weight: 600; color: var(--c-gray-700);
   white-space: nowrap;

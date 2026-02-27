@@ -1,7 +1,7 @@
 /* Orders Page Container */
 .orders-page {
   min-height: 100vh;
-  background: #f9fafb;
+  background: var(--gray-50);
   font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
 }
 
@@ -17,7 +17,7 @@
 
 /* Orders Section */
 .orders-section {
-  background: white;
+  background: var(--white);
   border-radius: 16px;
   padding: 24px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
@@ -33,7 +33,7 @@
 .orders-section-title {
   font-size: 28px;
   font-weight: bold;
-  color: #111827;
+  color: var(--gray-900);
   margin: 0;
 }
 
@@ -55,8 +55,8 @@
 
 /* Order Card */
 .order-card {
-  background: white;
-  border: 2px solid #e5e7eb;
+  background: var(--white);
+  border: 2px solid var(--gray-200);
   border-radius: 16px;
   padding: 20px;
   transition: all 0.3s ease;
@@ -113,13 +113,13 @@
 .order-number {
   font-size: 24px;
   font-weight: bold;
-  color: #111827;
+  color: var(--gray-900);
   margin: 0;
 }
 
 .order-id {
   font-size: 13px;
-  color: #6b7280;
+  color: var(--gray-500);
   margin: 0;
 }
 
@@ -145,7 +145,7 @@
   align-items: flex-start;
   gap: 12px;
   padding: 12px;
-  background: #f9fafb;
+  background: var(--gray-50);
   border-radius: 10px;
 }
 
@@ -155,7 +155,7 @@
 
 .detail-label {
   font-size: 12px;
-  color: #6b7280;
+  color: var(--gray-500);
   margin: 0 0 4px 0;
   font-weight: 600;
   text-transform: uppercase;
@@ -164,7 +164,7 @@
 
 .detail-value {
   font-size: 16px;
-  color: #111827;
+  color: var(--gray-900);
   font-weight: 600;
   margin: 0;
 }
@@ -198,18 +198,18 @@
 
 .item-name {
   flex: 1;
-  color: #374151;
+  color: var(--gray-700);
   font-weight: 500;
 }
 
 .item-price {
   font-weight: bold;
-  color: #111827;
+  color: var(--gray-900);
 }
 
 /* Order Totals */
 .order-totals {
-  background: #f9fafb;
+  background: var(--gray-50);
   border-radius: 10px;
   padding: 16px;
   display: flex;
@@ -221,15 +221,15 @@
   display: flex;
   justify-content: space-between;
   font-size: 14px;
-  color: #6b7280;
+  color: var(--gray-500);
 }
 
 .total-final {
   font-size: 18px;
   font-weight: bold;
-  color: #111827;
+  color: var(--gray-900);
   padding-top: 8px;
-  border-top: 2px solid #e5e7eb;
+  border-top: 2px solid var(--gray-200);
   margin-top: 4px;
 }
 
@@ -254,7 +254,7 @@
 }
 
 .deny-btn {
-  background: white;
+  background: var(--white);
   color: #dc2626;
   border: 2px solid #dc2626;
 }
@@ -301,13 +301,13 @@
 
 .empty-text {
   font-size: 16px;
-  color: #6b7280;
+  color: var(--gray-500);
   margin: 0;
 }
 
 /* Deny Confirmation Modal */
 .deny-modal {
-  background: white;
+  background: var(--white);
   border-radius: 16px;
   width: 100%;
   max-width: 450px;
@@ -328,13 +328,13 @@
 .deny-title {
   font-size: 24px;
   font-weight: bold;
-  color: #111827;
+  color: var(--gray-900);
   margin: 0 0 12px 0;
 }
 
 .deny-message {
   font-size: 15px;
-  color: #6b7280;
+  color: var(--gray-500);
   margin: 0 0 24px 0;
   line-height: 1.6;
 }
@@ -357,14 +357,14 @@
 }
 
 .deny-cancel-btn {
-  background: #f3f4f6;
-  color: #6b7280;
-  border: 2px solid #e5e7eb;
+  background: var(--gray-100);
+  color: var(--gray-500);
+  border: 2px solid var(--gray-200);
 }
 
 .deny-cancel-btn:hover {
-  background: #e5e7eb;
-  color: #374151;
+  background: var(--gray-200);
+  color: var(--gray-700);
 }
 
 .deny-confirm-btn {

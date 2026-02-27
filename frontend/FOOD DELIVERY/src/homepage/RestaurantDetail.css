@@ -11,7 +11,7 @@
 
 /* ── Header ─────────────────────────────────────────────────── */
 .restaurant-detail-header {
-  background: white;
+  background: var(--white);
   padding: 18px 40px;
   border-bottom: 1.5px solid var(--c-gray-200);
   position: sticky;
@@ -41,7 +41,7 @@
 
 /* ── Restaurant Banner ──────────────────────────────────────── */
 .restaurant-banner {
-  background: white;
+  background: var(--white);
   padding: 28px 40px;
   margin-bottom: 18px;
   display: flex;
@@ -150,7 +150,7 @@
 
 /* ── Deals Section ──────────────────────────────────────────── */
 .deals-section-detail {
-  background: white;
+  background: var(--white);
   padding: 28px 40px;
   margin-bottom: 18px;
 }
@@ -231,7 +231,7 @@
 .menu-section {
   flex: 1;
   min-width: 0;
-  background: white;
+  background: var(--white);
   padding: 28px;
   border-radius: var(--radius);
   display: flex;
@@ -317,7 +317,7 @@
 }
 
 .category-scroll-btn {
-  background: white;
+  background: var(--white);
   border: 1.5px solid var(--c-gray-200);
   width: 36px;
   height: 36px;
@@ -357,7 +357,7 @@
 .menu-categories-scroll::-webkit-scrollbar { display: none; }
 
 .menu-category-btn {
-  background: white;
+  background: var(--white);
   border: 1.5px solid var(--c-gray-200);
   color: var(--c-gray-500);
   padding: 9px 18px;
@@ -415,7 +415,7 @@
 }
 
 .menu-item-card {
-  background: white;
+  background: var(--white);
   border: 1.5px solid var(--c-gray-200);
   border-radius: 14px;
   padding: 14px;
@@ -544,7 +544,7 @@
 
 /* ── Similar Restaurants ────────────────────────────────────── */
 .similar-restaurants-section {
-  background: white;
+  background: var(--white);
   padding: 28px 40px;
   margin-bottom: 18px;
 }
@@ -608,7 +608,7 @@
 
 /* ── Footer Info ────────────────────────────────────────────── */
 .restaurant-footer-info {
-  background: white;
+  background: var(--white);
   padding: 28px 40px;
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));

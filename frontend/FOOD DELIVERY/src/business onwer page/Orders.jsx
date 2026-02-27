@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import './Orders.css';
-import { User, Bike, Package, CheckCircle } from 'lucide-react';
+import { User, Bike, Package, CheckCircle, AlertTriangle } from 'lucide-react';
 
 const Orders = ({ 
   isLoggedIn,
@@ -380,7 +380,7 @@ const Orders = ({
         <div className="modal-overlay" onClick={() => setShowDenyModal(false)}>
           <div className="deny-modal" onClick={(e) => e.stopPropagation()}>
             <div className="deny-modal-content">
-              <div className="deny-icon">⚠️</div>
+              <div className="deny-icon"><AlertTriangle size={52} color="#f59e0b" /></div>
               <h3 className="deny-title">Deny Order?</h3>
               <p className="deny-message">
                 Are you sure you want to deny order {orderToDeny?.id}? This action cannot be undone.

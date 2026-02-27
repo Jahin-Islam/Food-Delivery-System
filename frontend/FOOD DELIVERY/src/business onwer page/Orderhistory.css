@@ -1,7 +1,7 @@
 /* Order History Page Container */
 .order-history-page {
   min-height: 100vh;
-  background: #f9fafb;
+  background: var(--gray-50);
   font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
 }
 
@@ -19,7 +19,7 @@
    BUSINESS SUMMARY SECTION
 ===================== */
 .business-summary-section {
-  background: white;
+  background: var(--white);
   border-radius: 16px;
   padding: 32px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
@@ -32,7 +32,7 @@
 .summary-title {
   font-size: 28px;
   font-weight: bold;
-  color: #111827;
+  color: var(--gray-900);
   margin: 0;
 }
 
@@ -42,15 +42,15 @@
   gap: 12px;
   margin-bottom: 32px;
   padding-bottom: 16px;
-  border-bottom: 2px solid #e5e7eb;
+  border-bottom: 2px solid var(--gray-200);
   overflow-x: auto;
 }
 
 .date-tab {
   padding: 10px 24px;
   border: none;
-  background: white;
-  color: #6b7280;
+  background: var(--white);
+  color: var(--gray-500);
   font-size: 15px;
   font-weight: 600;
   cursor: pointer;
@@ -60,8 +60,8 @@
 }
 
 .date-tab:hover {
-  background: #f9fafb;
-  color: #374151;
+  background: var(--gray-50);
+  color: var(--gray-700);
 }
 
 .date-tab.active {
@@ -78,7 +78,7 @@
 .chart-title {
   font-size: 18px;
   font-weight: 600;
-  color: #6b7280;
+  color: var(--gray-500);
   margin: 0 0 20px 0;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -98,7 +98,7 @@
   height: 100%;
   padding: 10px 0;
   font-size: 12px;
-  color: #6b7280;
+  color: var(--gray-500);
   font-weight: 600;
 }
 
@@ -141,12 +141,12 @@
 .bar-value {
   font-size: 13px;
   font-weight: bold;
-  color: #374151;
+  color: var(--gray-700);
 }
 
 .bar-label {
   font-size: 13px;
-  color: #6b7280;
+  color: var(--gray-500);
   font-weight: 600;
   margin-top: auto;
 }
@@ -162,7 +162,7 @@
 .ops-title {
   font-size: 20px;
   font-weight: bold;
-  color: #111827;
+  color: var(--gray-900);
   margin: 0 0 12px 0;
 }
 
@@ -186,7 +186,7 @@
    ORDER HISTORY LIST
 ===================== */
 .history-orders-section {
-  background: white;
+  background: var(--white);
   border-radius: 16px;
   padding: 32px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
@@ -202,7 +202,7 @@
 .history-title {
   font-size: 28px;
   font-weight: bold;
-  color: #111827;
+  color: var(--gray-900);
   margin: 0;
 }
 
@@ -224,8 +224,8 @@
 
 /* History Order Card */
 .history-order-card {
-  background: white;
-  border: 2px solid #e5e7eb;
+  background: var(--white);
+  border: 2px solid var(--gray-200);
   border-left: 5px solid #10b981;
   border-radius: 16px;
   padding: 20px;
@@ -273,7 +273,7 @@
   align-items: flex-start;
   gap: 12px;
   padding: 12px;
-  background: #f9fafb;
+  background: var(--gray-50);
   border-radius: 10px;
 }
 
@@ -290,7 +290,7 @@
 
 .empty-text {
   font-size: 18px;
-  color: #6b7280;
+  color: var(--gray-500);
   margin: 0;
 }
 

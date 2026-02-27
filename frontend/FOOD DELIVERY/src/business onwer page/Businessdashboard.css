@@ -18,7 +18,7 @@
    ============================================================ */
 .business-header {
   width: 100%;
-  background: white;
+  background: var(--white);
   border-bottom: 1.5px solid var(--c-gray-200);
   position: sticky;
   top: 0;
@@ -133,7 +133,7 @@
   gap: 8px;
   padding: 9px 16px;
   border: 1.5px solid var(--c-gray-200);
-  background: white;
+  background: var(--white);
   border-radius: 10px;
   font-size: 13px;
   font-weight: 600;
@@ -168,7 +168,7 @@
 
 /* ── Nav Tabs — same padding as header to align with content ── */
 .business-nav-tabs {
-  background: white;
+  background: var(--white);
   border-top: 1.5px solid var(--c-gray-200);
   padding: 0 60px;
 }
@@ -209,7 +209,7 @@
    RESTAURANT BANNER
    ============================================================ */
 .business-restaurant-banner {
-  background: white;
+  background: var(--white);
   padding: 28px 60px;
   margin-bottom: 18px;
   border-bottom: 1.5px solid var(--c-gray-200);
@@ -332,7 +332,7 @@
    ============================================================ */
 .business-deals-section {
   padding: 28px 60px;
-  background: white;
+  background: var(--white);
   margin-bottom: 18px;
 }
 
@@ -435,7 +435,7 @@
    ============================================================ */
 .business-menu-section {
   padding: 28px 60px;
-  background: white;
+  background: var(--white);
 }
 
 .business-menu-controls {
@@ -501,7 +501,7 @@
 }
 
 .business-category-btn {
-  background: white;
+  background: var(--white);
   border: 1.5px solid var(--c-gray-200);
   color: var(--c-gray-500);
   padding: 9px 18px;
@@ -580,7 +580,7 @@
 
 /* ── Item Card ──────────────────────────────────────────────── */
 .business-item-card {
-  background: white;
+  background: var(--white);
   border: 1.5px solid var(--c-gray-200);
   border-radius: 16px;
   padding: 16px;
@@ -706,7 +706,7 @@
   width: 18px;
   left: 3px;
   bottom: 3px;
-  background-color: white;
+  background-color: var(--white);
   transition: 0.28s;
   border-radius: 50%;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
@@ -891,7 +891,7 @@ input:checked + .availability-slider:before {
 }
 
 .add-item-modal {
-  background: white;
+  background: var(--white);
   border-radius: 18px;
   width: 100%;
   max-width: 600px;
@@ -920,7 +920,7 @@ input:checked + .availability-slider:before {
   align-items: center;
   position: sticky;
   top: 0;
-  background: white;
+  background: var(--white);
   z-index: 1;
   border-radius: 18px 18px 0 0;
 }
@@ -989,7 +989,7 @@ input:checked + .availability-slider:before {
 .form-textarea:focus {
   outline: none;
   border-color: var(--c-primary-alt);
-  background: white;
+  background: var(--white);
   box-shadow: 0 0 0 3px rgba(219, 39, 119, 0.09);
 }
 
@@ -1103,7 +1103,7 @@ input:checked + .availability-slider:before {
   justify-content: flex-end;
   position: sticky;
   bottom: 0;
-  background: white;
+  background: var(--white);
   border-radius: 0 0 18px 18px;
 }
 
@@ -1168,7 +1168,7 @@ input:checked + .availability-slider:before {
 }
 
 .add-category-modal {
-  background: white;
+  background: var(--white);
   border-radius: 18px;
   width: 100%;
   max-width: 450px;
@@ -1177,7 +1177,7 @@ input:checked + .availability-slider:before {
 }
 
 .add-deal-modal {
-  background: white;
+  background: var(--white);
   border-radius: 18px;
   width: 100%;
   max-width: 500px;

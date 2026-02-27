@@ -125,3 +125,49 @@ body.modal-open { overflow: hidden; }
   border-radius: 4px;
 }
 :focus:not(:focus-visible) { outline: none; }
+
+/* ============================================================
+   🌙 DARK MODE
+   Triggered by Header.jsx setting data-theme="dark" on <html>
+   Every var(--white) and var(--gray-*) in every CSS file flips.
+   ============================================================ */
+[data-theme="dark"] {
+  --white:    #1a1a2e;
+  --gray-50:  #12121f;
+  --gray-100: #1c1c30;
+  --gray-200: #252542;
+  --gray-300: #32325a;
+  --gray-400: #5c5c90;
+  --gray-500: #8080b8;
+  --gray-600: #a0a0cc;
+  --gray-700: #c0c0e0;
+  --gray-800: #dcdcf5;
+  --gray-900: #f0f0ff;
+
+  --primary:        #818cf8;
+  --primary-dark:   #6366f1;
+  --primary-light:  #1e1b4b;
+
+  --shadow-primary:       0 4px 14px rgba(129,140,248,0.35);
+  --shadow-primary-hover: 0 8px 24px rgba(129,140,248,0.50);
+
+  --gradient-primary: linear-gradient(135deg, #818cf8 0%, #6366f1 100%);
+  --gradient-hero:    linear-gradient(145deg, #4f46e5 0%, #3730a3 55%, #1e1b4b 100%);
+  --gradient-rider:   linear-gradient(160deg, #4f46e5 0%, #3730a3 100%);
+
+  --success-light: #052e16;
+  --warning-light: #431407;
+  --danger-light:  #3b0000;
+}
+
+/* dark toggle button style */
+.dark-toggle-btn {
+  width: 40px !important;
+  height: 40px !important;
+  padding: 0 !important;
+  min-width: unset !important;
+  border-radius: 50% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}

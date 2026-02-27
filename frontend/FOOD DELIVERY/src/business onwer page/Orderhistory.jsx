@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import './Orderhistory.css';
 import { COLORS, SHADOWS } from '../constants.js';
+import { ScrollText } from 'lucide-react';
 
 const OrderHistory = ({ 
   isLoggedIn,
@@ -382,7 +383,7 @@ const OrderHistory = ({
               ))
             ) : (
               <div className="empty-state">
-                <div className="empty-icon">📜</div>
+                <div className="empty-icon"><ScrollText size={64} style={{color:"var(--gray-400)", opacity:0.5}} /></div>
                 <p className="empty-text">No orders found for selected period</p>
               </div>
             )}

@@ -23,7 +23,7 @@
 }
 
 .banner-btn {
-  background: white;
+  background: var(--white);
   color: var(--c-primary);
   border: none;
   padding: 7px 16px;
@@ -43,7 +43,7 @@
 
 /* ── Header Shell ───────────────────────────────────────────── */
 .header {
-  background: white;
+  background: var(--white);
   position: sticky;
   top: 0;
   z-index: 1000;
@@ -175,7 +175,7 @@
   gap: 7px;
   padding: 9px 15px;
   border: 1.5px solid var(--c-gray-200);
-  background: white;
+  background: var(--white);
   border-radius: 10px;
   font-size: 13px;
   font-weight: 600;
@@ -238,7 +238,7 @@
 
 /* ── Nav Tabs ───────────────────────────────────────────────── */
 .nav-tabs {
-  background: white;
+  background: var(--white);
   border-bottom: 1px solid #ebebeb;
 }
 
@@ -253,7 +253,7 @@
   align-items: center;
   gap: 7px;
   padding: 13px 18px;
-  background: white;
+  background: var(--white);
   border: none;
   border-bottom: 3px solid transparent;
   font-size: 14px;
@@ -329,4 +329,28 @@
   .nav-tab span:not(.logo-image) { display: none; }
 
   .nav-tab { padding: 12px; }
+}
+
+/* ── Dark Mode Toggle Button ─────────────────────────────────── */
+.dark-toggle-btn {
+  width: 40px !important;
+  height: 40px !important;
+  padding: 0 !important;
+  min-width: unset !important;
+  border-radius: 50% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+[data-theme="dark"] .dark-toggle-btn {
+  background: var(--gray-200) !important;
+  border-color: var(--gray-300) !important;
+  color: var(--gray-700) !important;
+}
+
+[data-theme="dark"] .dark-toggle-btn:hover {
+  background: var(--primary-light) !important;
+  border-color: var(--primary) !important;
+  color: var(--primary) !important;
 }

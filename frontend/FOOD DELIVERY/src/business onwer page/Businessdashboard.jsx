@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './BusinessDashboard.css';
 import { COLORS, SHADOWS } from '../constants.js';
+import { Search, Utensils, Bike, Star, Camera, Pencil } from 'lucide-react';
 import authService from '../Authservice.js';
 
 const BusinessDashboard = ({
@@ -360,7 +361,7 @@ const BusinessDashboard = ({
                 className="restaurant-banner-img"
               />
             ) : (
-              <span className="banner-emoji">🍽️</span>
+              <Utensils size={64} color="var(--primary)" style={{opacity:0.6}} />
             )}
           </div>
 
@@ -370,13 +371,13 @@ const BusinessDashboard = ({
 
             <div className="business-restaurant-meta">
               <p className="meta-item">
-                <span className="meta-icon">🚴</span>
+                <Bike size={16} style={{marginRight:4, verticalAlign:"middle", color:"var(--primary)"}} />
                 Delivery: 20-30 min
               </p>
             </div>
 
             <div className="business-restaurant-rating">
-              <span className="rating-star">⭐</span>
+              <Star size={16} fill="#f59e0b" color="#f59e0b" style={{marginRight:4, verticalAlign:"middle"}} />
               <span className="rating-number">{displayRestaurant.rating || '4.8'}</span>
               <span className="rating-count">({displayRestaurant.total_reviews || '1732'})</span>
               <a href="#" className="rating-link">See reviews</a>
@@ -426,7 +427,7 @@ const BusinessDashboard = ({
 
         <div className="business-menu-controls">
           <div className="business-search-in-menu">
-            <span className="search-icon">🔍</span>
+            <Search size={16} style={{marginRight:8, color:"var(--gray-400)", flexShrink:0}} />
             <input
               type="text"
               placeholder="Search in menu"
@@ -481,7 +482,7 @@ const BusinessDashboard = ({
                           className="business-item-edit-btn"
                           onClick={() => handleItemEdit(item)}
                         >
-                          ✏️ Edit
+                          <Pencil size={13} style={{marginRight:4, verticalAlign:'middle'}} />Edit
                         </button>
 
                         <div className="business-item-availability">
@@ -520,7 +521,7 @@ const BusinessDashboard = ({
                             style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '10px' }}
                           />
                         ) : (
-                          <div className="menu-item-emoji">🍽️</div>
+                          <div className="menu-item-emoji"><Utensils size={32} color="var(--primary)" style={{opacity:0.5}} /></div>
                         )}
                       </div>
                     </div>
@@ -558,7 +559,7 @@ const BusinessDashboard = ({
 
           {Object.keys(groupedItems).length === 0 && localCategories.length === 0 && (
             <div className="business-no-results">
-              <div className="no-results-icon">🔍</div>
+              <div className="no-results-icon"><Search size={48} style={{color:"var(--gray-400)", opacity:0.5}} /></div>
               <p>No items found matching "{searchQuery}"</p>
             </div>
           )}
@@ -592,7 +593,7 @@ const BusinessDashboard = ({
                     <label className="upload-label">
                       <input type="file" accept="image/*" onChange={handleImageUpload} className="file-input" />
                       <div className="upload-placeholder">
-                        <div className="upload-icon">📷</div>
+                        <div className="upload-icon"><Camera size={32} style={{color:"var(--gray-400)"}} /></div>
                         <div className="upload-text">Click to upload photo</div>
                         <div className="upload-subtext">PNG, JPG up to 5MB</div>
                       </div>

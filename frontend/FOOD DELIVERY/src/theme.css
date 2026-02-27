@@ -105,3 +105,69 @@
    That's it. Every button, border, focus ring, gradient,
    logo, and highlight across all pages updates instantly.
    ============================================================ */
+
+/* ============================================================
+   🌙 DARK MODE
+   Set by Header.jsx:  document.documentElement.setAttribute('data-theme','dark')
+   Saved in:           localStorage('theme')
+   ============================================================ */
+[data-theme="dark"] {
+  --primary:        #818cf8;
+  --primary-dark:   #6366f1;
+  --primary-light:  #1e1b4b;
+
+  --shadow-primary:             0 4px 14px rgba(129,140,248,0.35);
+  --shadow-primary-hover:       0 8px 24px rgba(129,140,248,0.50);
+  --shadow-primary-hover-color: rgba(129,140,248,0.50);
+  --shadow-primary-color:       rgba(129,140,248,0.35);
+
+  --gradient-primary: linear-gradient(135deg, #818cf8 0%, #6366f1 100%);
+  --gradient-hero:    linear-gradient(145deg, #4f46e5 0%, #3730a3 55%, #1e1b4b 100%);
+  --gradient-rider:   linear-gradient(160deg, #4f46e5 0%, #3730a3 100%);
+
+  /* ALL neutrals flipped — this is what makes everything go dark */
+  --white:    #1a1a2e;
+  --gray-50:  #12121f;
+  --gray-100: #1c1c30;
+  --gray-200: #252542;
+  --gray-300: #32325a;
+  --gray-400: #5c5c90;
+  --gray-500: #8080b8;
+  --gray-600: #a0a0cc;
+  --gray-700: #c0c0e0;
+  --gray-800: #dcdcf5;
+  --gray-900: #f0f0ff;
+
+  --success:       #34d399;
+  --success-light: #052e16;
+  --warning:       #fbbf24;
+  --warning-light: #431407;
+  --danger:        #f87171;
+  --danger-light:  #3b0000;
+}
+
+/* body & root backgrounds */
+[data-theme="dark"] body,
+[data-theme="dark"] .homepage-container,
+[data-theme="dark"] .main-content {
+  background-color: var(--gray-50);
+  color: var(--gray-900);
+}
+
+/* search input text */
+[data-theme="dark"] .search-input {
+  color: var(--gray-900);
+}
+[data-theme="dark"] .search-input::placeholder {
+  color: var(--gray-500);
+}
+
+/* hamburger lines */
+[data-theme="dark"] .hamburger-icon span {
+  background-color: var(--gray-700);
+}
+
+/* sidebar title */
+[data-theme="dark"] .sidebar-title {
+  color: var(--gray-900);
+}

@@ -383,6 +383,7 @@ const Homepage = ({
                   ? `Search results for "${searchQuery}"`
                   : "Featured Restaurants"}
               </h2>
+              <br/>
 
               {/* Loading State */}
               {loading && (
