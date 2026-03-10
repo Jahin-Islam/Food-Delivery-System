@@ -36,7 +36,7 @@ class User(AbstractUser):
     role = models.CharField(max_length=50, choices=Role.choices, default=Role.CUSTOMER)
     username = None
     email = models.EmailField(unique=True)
-    phone_number = models.CharField(max_length=20, blank=True, unique=True)
+    phone_number = models.CharField(max_length=20, blank=True, unique=True, null=True)
     image_url = models.CharField(max_length=500, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
     address = models.OneToOneField(Address, on_delete=models.SET_NULL,  null= True, blank=True)
