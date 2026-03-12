@@ -27,8 +27,14 @@
   --gradient-rider:   linear-gradient(160deg, var(--primary) 0%, var(--primary-dark) 100%);
 
   /* Shadows */
+  --shadow-sm:            0 1px 3px rgba(0,0,0,0.08);
+  --shadow-md:            0 4px 16px rgba(0,0,0,0.10);
+  --shadow-lg:            0 8px 32px rgba(0,0,0,0.14);
   --shadow-primary:       0 4px 14px var(--shadow-primary-color);
   --shadow-primary-hover: 0 8px 24px var(--shadow-primary-hover-color);
+
+  /* Layout */
+  --header-h:             72px;
 
   /* ══════════════════════════════════════════
      Status colors

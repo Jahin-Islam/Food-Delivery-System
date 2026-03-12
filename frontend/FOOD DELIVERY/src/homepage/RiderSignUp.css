@@ -1,5 +1,5 @@
 /* ============================================================
-   RIDER SIGN UP — Enhanced CSS
+   RIDER SIGN UP — wider form, dark mode, map picker
    ============================================================ */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { width: 100vw; height: 100%; overflow-x: hidden; }
@@ -23,19 +23,30 @@ html, body { width: 100vw; height: 100%; overflow-x: hidden; }
   width: 36px; height: 36px; background: var(--c-white); border-radius: 8px;
   display: flex; align-items: center; justify-content: center;
 }
-.logo-text { font-size: 20px; font-weight: 800; color: var(--c-white); letter-spacing: -0.5px; }
-.language-btns { display: flex; gap: 6px; }
+.logo-text     { font-size: 20px; font-weight: 800; color: var(--c-white); letter-spacing: -0.5px; }
+.logo-sub-text { font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.7); margin-top: 4px; }
+
+.rider-header-right { display: flex; align-items: center; gap: 8px; }
+
 .lang-btn {
   padding: 5px 13px; border-radius: 999px;
   background: rgba(255,255,255,0.15); border: 1.5px solid rgba(255,255,255,0.25);
   color: var(--c-white); font-size: 13px; font-weight: 600; cursor: pointer;
-  transition: background var(--t);
+  transition: background var(--t); font-family: var(--font);
 }
 .lang-btn.active, .lang-btn:hover { background: rgba(255,255,255,0.28); }
 
-/* MAIN CONTENT */
+.theme-toggle-btn {
+  width: 34px; height: 34px; border-radius: 50%;
+  background: rgba(255,255,255,0.15); border: 1.5px solid rgba(255,255,255,0.25);
+  color: white; display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: background var(--t);
+}
+.theme-toggle-btn:hover { background: rgba(255,255,255,0.28); }
+
+/* MAIN */
 .rider-content {
-  flex: 1; display: flex; align-items: stretch; gap: 0;
+  flex: 1; display: flex; align-items: stretch;
   padding: 40px; gap: 40px;
 }
 
@@ -47,7 +58,6 @@ html, body { width: 100vw; height: 100%; overflow-x: hidden; }
 }
 .hero-section p { font-size: 16px; color: rgba(255,255,255,0.88); font-weight: 300; }
 
-/* Info card */
 .info-card {
   background: rgba(255,255,255,0.13); backdrop-filter: blur(10px);
   border: 1.5px solid rgba(255,255,255,0.2);
@@ -79,49 +89,18 @@ html, body { width: 100vw; height: 100%; overflow-x: hidden; }
 
 /* Rider illustration */
 .rider-image { flex-shrink: 0; width: 120px; display: flex; align-items: center; justify-content: center; }
-.rider-illustration {
-  width: 110px; height: 120px; position: relative;
-  display: flex; align-items: center; justify-content: center;
-}
-/* Bike shape built from CSS */
-.bike-body {
-  position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
-  width: 80px; height: 38px;
-}
-.bike-wheel {
-  position: absolute; bottom: 0;
-  width: 30px; height: 30px;
-  border: 3px solid rgba(255,255,255,0.7); border-radius: 50%;
-}
+.rider-illustration { width: 110px; height: 120px; position: relative; display: flex; align-items: center; justify-content: center; }
+.bike-body { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); width: 80px; height: 38px; }
+.bike-wheel { position: absolute; bottom: 0; width: 30px; height: 30px; border: 3px solid rgba(255,255,255,0.7); border-radius: 50%; }
 .bike-wheel.front { right: 0; }
 .bike-wheel.back  { left: 0; }
-.bike-frame {
-  position: absolute; bottom: 14px; left: 8px; right: 8px; height: 2px;
-  background: rgba(255,255,255,0.6); border-radius: 2px;
-}
-.bike-handlebar {
-  position: absolute; right: 8px; bottom: 16px; width: 2px; height: 16px;
-  background: rgba(255,255,255,0.6); border-radius: 2px;
-}
-.bike-seat {
-  position: absolute; left: 18px; bottom: 16px;
-  width: 18px; height: 4px;
-  background: rgba(255,255,255,0.6); border-radius: 2px;
-}
-/* Rider figure on bike */
-.rider-figure {
-  position: absolute; bottom: 50px; right: 18px;
-  display: flex; flex-direction: column; align-items: center; gap: 2px;
-}
-.rider-head {
-  width: 18px; height: 18px; border-radius: 50%;
-  background: rgba(255,255,255,0.6); border: 2px solid rgba(255,255,255,0.9);
-}
-.rider-body {
-  width: 14px; height: 18px; border-radius: 4px;
-  background: rgba(255,255,255,0.4); border: 1.5px solid rgba(255,255,255,0.7);
-}
-/* Buildings */
+.bike-frame { position: absolute; bottom: 14px; left: 8px; right: 8px; height: 2px; background: rgba(255,255,255,0.6); border-radius: 2px; }
+.bike-handlebar { position: absolute; right: 8px; bottom: 16px; width: 2px; height: 16px; background: rgba(255,255,255,0.6); border-radius: 2px; }
+.bike-seat { position: absolute; left: 18px; bottom: 16px; width: 18px; height: 4px; background: rgba(255,255,255,0.6); border-radius: 2px; }
+.rider-figure { position: absolute; bottom: 50px; right: 18px; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.rider-head { width: 18px; height: 18px; border-radius: 50%; background: rgba(255,255,255,0.6); border: 2px solid rgba(255,255,255,0.9); }
+.rider-body { width: 14px; height: 18px; border-radius: 4px; background: rgba(255,255,255,0.4); border: 1.5px solid rgba(255,255,255,0.7); }
+
 .buildings {
   display: flex; align-items: flex-end; gap: 4px;
   margin-top: 16px; border-top: 1px solid rgba(255,255,255,0.15); padding-top: 12px;
@@ -135,27 +114,30 @@ html, body { width: 100vw; height: 100%; overflow-x: hidden; }
 .building:nth-child(3) { height: 42px; }
 .building:nth-child(4) { height: 60px; }
 .building:nth-child(5) { height: 30px; }
+.building:nth-child(6) { height: 46px; }
 
-/* RIGHT — form */
+/* RIGHT — wider form panel */
 .rider-right {
-  width: 400px; flex-shrink: 0;
+  width: 480px; flex-shrink: 0;          /* wider than old 400px */
   background: var(--c-white); border-radius: 18px;
-  padding: 32px; box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+  padding: 32px 36px; box-shadow: 0 20px 60px rgba(0,0,0,0.15);
   overflow-y: auto; max-height: calc(100vh - 130px);
 }
+[data-theme="dark"] .rider-right { background: var(--c-bg); }
+
 .form-container h2 {
   font-size: 20px; font-weight: 800; color: var(--c-gray-900);
   margin-bottom: 22px; letter-spacing: -0.4px;
 }
 
+/* Two-column name row */
+.rider-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
 .input-group { margin-bottom: 14px; }
 .input-label { display: block; font-size: 12px; font-weight: 600; color: var(--c-gray-700); margin-bottom: 5px; }
 
 .input-wrapper-r { position: relative; display: flex; align-items: center; }
-.input-icon-r {
-  position: absolute; left: 12px; color: var(--c-gray-400); pointer-events: none;
-  transition: color var(--t);
-}
+.input-icon-r { position: absolute; left: 12px; color: var(--c-gray-400); pointer-events: none; transition: color var(--t); }
 .input-group.focused .input-icon-r { color: var(--c-primary); }
 
 .input-field {
@@ -171,18 +153,36 @@ html, body { width: 100vw; height: 100%; overflow-x: hidden; }
   border-color: var(--c-primary); background: var(--c-white);
   box-shadow: 0 0 0 3px var(--shadow-primary-ring);
 }
-/* select arrow */
+[data-theme="dark"] .input-field { background: var(--c-gray-100); color: var(--c-gray-900); }
+[data-theme="dark"] .input-field:focus { background: var(--c-gray-50); }
+
 .select-arr { position: absolute; right: 12px; color: var(--c-gray-400); pointer-events: none; }
 
 /* Phone */
 .phone-wrapper { display: flex; }
 .country-code {
   padding: 11px 12px;
-  background: var(--gray-100); border: 2px solid var(--c-gray-200);
+  background: var(--c-gray-100); border: 2px solid var(--c-gray-200);
   border-right: none; border-radius: var(--radius) 0 0 var(--radius);
   font-size: 13px; font-weight: 600; color: var(--c-gray-700);
 }
-.phone-field { border-radius: 0 var(--radius) var(--radius) 0 !important; }
+.phone-field {
+  border-radius: 0 var(--radius) var(--radius) 0 !important;
+  padding-left: 12px !important;
+}
+
+/* ── City map picker ── */
+.map-toggle-btn {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--c-primary-light); color: var(--c-primary);
+  border: 1.5px solid var(--c-primary); border-radius: 8px;
+  padding: 7px 14px; font-size: 12px; font-weight: 700;
+  cursor: pointer; font-family: var(--font);
+  transition: all var(--t); margin-top: 7px; margin-bottom: 8px;
+}
+.map-toggle-btn:hover { background: var(--c-primary); color: white; }
+.city-map-wrapper { margin-bottom: 4px; }
+.map-hint { font-size: 11px; color: var(--c-gray-400); margin-bottom: 7px; }
 
 /* Age question */
 .question-box {
@@ -190,6 +190,7 @@ html, body { width: 100vw; height: 100%; overflow-x: hidden; }
   border: 2px solid var(--c-gray-200); border-radius: var(--radius);
   background: var(--c-gray-50);
 }
+[data-theme="dark"] .question-box { background: var(--c-gray-100); }
 .question-header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
 .question-text { font-size: 14px; font-weight: 600; color: var(--c-gray-700); }
 .radio-options { display: flex; gap: 12px; }
@@ -201,9 +202,7 @@ html, body { width: 100vw; height: 100%; overflow-x: hidden; }
   transition: all var(--t);
 }
 .radio-label input[type="radio"] { accent-color: var(--c-primary); cursor: pointer; }
-.radio-label:has(input:checked) {
-  border-color: var(--c-primary); background: var(--c-primary-light); color: var(--c-primary);
-}
+.radio-label:has(input:checked) { border-color: var(--c-primary); background: var(--c-primary-light); color: var(--c-primary); }
 
 /* Privacy checkbox */
 .checkbox-box { padding: 10px 0; }
@@ -220,12 +219,13 @@ html, body { width: 100vw; height: 100%; overflow-x: hidden; }
   width: 100%; padding: 13px;
   background: linear-gradient(135deg, var(--c-primary) 0%, var(--c-primary-dark) 100%);
   color: var(--c-white); border: none; border-radius: var(--radius);
-  font-size: 15px; font-weight: 700; cursor: pointer; letter-spacing: 0.3px;
+  font-size: 15px; font-weight: 700; cursor: pointer;
   box-shadow: var(--shadow-primary);
   display: flex; align-items: center; justify-content: center; gap: 6px;
   transition: transform var(--t), box-shadow var(--t);
+  margin-bottom: 16px;
 }
-.submit-button:hover { transform: translateY(-2px); box-shadow: 0 8px 22px var(--shadow-primary-hover-color); }
+.submit-button:disabled { opacity: 0.72; cursor: not-allowed; transform: none !important; }
 
 /* Loading */
 .btn-loading { display: flex; gap: 5px; align-items: center; }
@@ -240,11 +240,28 @@ html, body { width: 100vw; height: 100%; overflow-x: hidden; }
   40%          { transform: scale(1);   opacity: 1;   }
 }
 
+/* Login link */
+.rider-login-link {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  padding-top: 16px; border-top: 1px solid var(--c-gray-200);
+  font-size: 14px; color: var(--c-gray-500);
+}
+.rider-signin-btn {
+  display: flex; align-items: center; gap: 5px;
+  background: none; border: 1.5px solid var(--c-primary);
+  color: var(--c-primary); border-radius: 8px;
+  padding: 7px 14px; font-size: 13px; font-weight: 700;
+  cursor: pointer; font-family: var(--font);
+  transition: all var(--t);
+}
+.rider-signin-btn:hover { background: var(--c-primary); color: white; }
+
 @media (max-width: 960px) {
   .rider-content { flex-direction: column; padding: 24px 20px; gap: 24px; }
   .rider-right { width: 100%; max-height: none; }
   .card-body { flex-direction: column; }
   .rider-image { display: none; }
+  .rider-form-row { grid-template-columns: 1fr; gap: 0; }
 }
 @media (max-width: 480px) {
   .rider-header { padding: 14px 20px; }

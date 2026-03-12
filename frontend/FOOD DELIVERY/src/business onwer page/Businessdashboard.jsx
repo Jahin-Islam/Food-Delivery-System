@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import './BusinessDashboard.css';
+import './Businessdashboard.css';
 import { COLORS } from '../constants.js';
 import { Search, Utensils, Bike, Star, Camera, Pencil, Trash2, Plus, AlertCircle } from 'lucide-react';
 import authService from '../Authservice.js';
@@ -106,28 +106,26 @@ const BusinessDashboard = ({
       } catch (e) { console.warn('restaurant details fetch failed', e); }
 
       setRestaurantDetails(details);
-      if (details?.items?.length) {
-        setMenuItems(details.items);
-        const cats = ['All', ...new Set(details.items.map(i => i.category_name).filter(Boolean))];
-        setCategories(cats);
-      } else {
-        setMenuItems([]);
-        setCategories(['All']);
-      }
+      setMenuItems(details?.items ?? []);
 
-      // Vendor-specific: categories, deals
+      // Always fetch categories from vendor API to get real category_id values
       if (isLoggedIn) {
         const [cats, disc] = await Promise.all([
           vendorApiService.getCategories().catch(() => []),
           vendorApiService.getDiscounts().catch(() => []),
         ]);
-        // Merge fetched categories into tabs (avoid duplicates)
-        const catNames = cats.map(c => c.name);
-        setCategories(prev => {
-          const merged = ['All', ...new Set([...prev.slice(1), ...catNames])];
-          return merged;
-        });
+        // Model fields: category_id (PK), category_name
+        const normalised = cats.map(c => ({
+          category_id:   c.category_id,
+          category_name: c.category_name ?? c.name ?? String(c.category_id),
+        }));
+        // 'All' is the string sentinel; the rest are { category_id, category_name } objects
+        setCategories(['All', ...normalised]);
         setDeals(disc);
+      } else {
+        // Logged-out fallback: name-only list from items
+        const names = [...new Set((details?.items ?? []).map(i => i.category_name).filter(Boolean))];
+        setCategories(['All', ...names.map(n => ({ category_id: null, category_name: n }))]);
       }
     } catch (err) {
       console.error('fetchAll error:', err);
@@ -145,12 +143,12 @@ const BusinessDashboard = ({
   const filteredItems = menuItems.filter(item => {
     const q = searchQuery.toLowerCase();
     const matchSearch = item.name.toLowerCase().includes(q) || item.description?.toLowerCase().includes(q);
-    const matchCat = selectedCategory === 'All' || item.category_name === selectedCategory;
+    const matchCat = selectedCategory === 'All' || item.category_name === (selectedCategory?.category_name ?? selectedCategory);
     return matchSearch && matchCat;
   });
 
   const groupedItems = filteredItems.reduce((acc, item) => {
-    const cat = item.category_name || 'Other';
+    const cat = item.category_name || 'Other'; // cat is always a string (the name)
     if (!acc[cat]) acc[cat] = [];
     acc[cat].push(item);
     return acc;
@@ -160,6 +158,7 @@ const BusinessDashboard = ({
 
   const openAddItem = (category) => {
     setEditingItem(null);
+    // category is a { category_id, category_name } object from our normalised list
     setSelectedCategoryForAdd(category);
     setNewItemData({ name: '', description: '', price: '', discount_ammount: '',
       discount_description: '', is_available: true, image_file: null, image_preview: null });
@@ -168,6 +167,7 @@ const BusinessDashboard = ({
 
   const openEditItem = (item) => {
     setEditingItem(item);
+    // Restore full category object so submit sends the real category_id
     setSelectedCategoryForAdd(item.category_name);
     setNewItemData({
       name: item.name, description: item.description ?? '',
@@ -201,21 +201,24 @@ const BusinessDashboard = ({
     }
     setSubmitting(true);
     try {
-      const payload = {
-        name: newItemData.name,
+      const basePayload = {
         description: newItemData.description,
         price: parseFloat(newItemData.price),
-        discount_ammount: newItemData.discount_ammount ? parseFloat(newItemData.discount_ammount) : 0,
+        discount_amount: newItemData.discount_ammount ? parseFloat(newItemData.discount_ammount) : 0,
         discount_description: newItemData.discount_description,
         is_available: newItemData.is_available ? 1 : 0,
-        category_id: selectedCategoryForAdd,
+        category_id: selectedCategoryForAdd?.category_id ?? selectedCategoryForAdd,
         image: newItemData.image_file ?? undefined,
       };
 
       if (editingItem) {
+        // PUT: backend field_map uses 'name'
+        const payload = { ...basePayload, name: newItemData.name };
         await vendorApiService.updateItem(editingItem.food_id, payload);
         showToast('Item updated successfully!');
       } else {
+        // POST: backend expects 'item_name'
+        const payload = { ...basePayload, item_name: newItemData.name };
         await vendorApiService.addItem(payload);
         showToast('Item added successfully!');
       }
@@ -256,7 +259,7 @@ const BusinessDashboard = ({
     if (!newCategoryName.trim()) { showToast('Category name is required', 'error'); return; }
     setSubmitting(true);
     try {
-      await vendorApiService.addCategory({ name: newCategoryName.trim() });
+      await vendorApiService.addCategory({ category_name: newCategoryName.trim() });
       showToast('Category added!');
       setShowAddCategoryModal(false);
       setNewCategoryName('');
@@ -275,9 +278,10 @@ const BusinessDashboard = ({
         // We need the category id — re-fetch to get it
         try {
           const cats = await vendorApiService.getCategories();
-          const found = cats.find(c => c.name === cat);
+          // Model PK is category_id; display name field is category_name
+          const found = cats.find(c => (c.category_name ?? c.name) === cat);
           if (!found) { showToast('Category not found', 'error'); return; }
-          await vendorApiService.deleteCategory(found.id);
+          await vendorApiService.deleteCategory(found.category_id ?? found.id);
           showToast('Category deleted');
           await fetchAll();
         } catch (e) { showToast('Failed to delete category', 'error'); }
@@ -504,15 +508,20 @@ const BusinessDashboard = ({
         {/* Category tabs */}
         <div className="business-menu-categories">
           <div className="business-categories-scroll">
-            {categories.map(cat => (
-              <div key={cat} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            {categories.map(cat => {
+              const catName = cat?.category_name ?? cat;
+              const catKey  = cat?.category_id != null ? cat.category_id : catName;
+              const isActive = selectedCategory === cat ||
+                (selectedCategory?.category_id != null && selectedCategory?.category_id === cat?.category_id);
+              return (
+              <div key={catKey} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                 <button
-                  className={`business-category-btn ${selectedCategory === cat ? 'active' : ''}`}
+                  className={`business-category-btn ${isActive ? 'active' : ''}`}
                   onClick={() => setSelectedCategory(cat)}>
-                  {cat}
+                  {catName}
                 </button>
-                {cat !== 'All' && (
-                  <button onClick={() => handleDeleteCategory(cat)}
+                {catName !== 'All' && (
+                  <button onClick={() => handleDeleteCategory(catName)}
                     style={{ background: 'none', border: 'none', cursor: 'pointer',
                       color: 'var(--gray-400)', padding: '2px 4px', borderRadius: 4,
                       display: 'flex', alignItems: 'center' }}
@@ -521,7 +530,8 @@ const BusinessDashboard = ({
                   </button>
                 )}
               </div>
-            ))}
+            );
+            })}
             <button className="business-add-category-btn" onClick={() => setShowAddCategoryModal(true)}>
               + Add Category
             </button>
@@ -591,9 +601,9 @@ const BusinessDashboard = ({
           ))}
 
           {/* Empty categories (no items yet) */}
-          {categories.slice(1).filter(cat => !Object.keys(groupedItems).includes(cat)).map(cat => (
-            <div key={cat} className="business-category-section">
-              <h3 className="business-category-title">{cat}</h3>
+          {categories.slice(1).filter(cat => !Object.keys(groupedItems).includes(cat?.category_name ?? cat)).map(cat => (
+            <div key={cat?.category_id ?? cat?.category_name ?? cat} className="business-category-section">
+              <h3 className="business-category-title">{cat?.category_name ?? cat}</h3>
               <p className="business-category-subtitle">0 items</p>
               <div className="business-items-grid">
                 <button className="business-add-item-card" onClick={() => openAddItem(cat)}>
@@ -621,7 +631,7 @@ const BusinessDashboard = ({
           <div className="add-item-modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h2 className="modal-title">
-                {editingItem ? `Edit "${editingItem.name}"` : `Add Item to ${selectedCategoryForAdd}`}
+                {editingItem ? `Edit "${editingItem.name}"` : `Add Item to ${selectedCategoryForAdd?.category_name ?? selectedCategoryForAdd}`}
               </h2>
               <button className="modal-close-btn" onClick={closeAddItemModal}>×</button>
             </div>

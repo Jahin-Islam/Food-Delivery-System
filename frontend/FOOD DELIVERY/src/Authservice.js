@@ -6,7 +6,7 @@
 // - http://127.0.0.1:8000/api/auth/register/vendor/ (POST - register restaurant partner)
 // - http://127.0.0.1:8000/api/auth/logout/         (POST - logout)
 // - http://127.0.0.1:8000/api/auth/token/refresh/  (POST - refresh token)
-// - http://127.0.0.1:8000/api/auth/user/           (GET - get user details)
+// - http://127.0.0.1:8000/api/auth/profile/        (GET - get user details)
 
 class AuthService {
   constructor() {
@@ -116,6 +116,18 @@ class AuthService {
       const response = await this.authenticatedFetch(`${this.API_BASE_URL}/profile/`);
       if (response) {
         this.setUser(response);
+        // Extract restaurant data from profile for RESTAURANT role users
+        if (response.restaurant_info && response.restaurant_info.id) {
+          this.setRestaurantData({
+            id: response.restaurant_info.id,
+            name: response.restaurant_info.restaurant_name,
+            category: response.restaurant_info.category,
+            phone: response.restaurant_info.contact_phone,
+            opening_time: response.restaurant_info.opening_time,
+            closing_time: response.restaurant_info.closing_time,
+            image_url: response.restaurant_info.restaurant_image,
+          });
+        }
         return response;
       }
       return null;
@@ -442,23 +454,19 @@ class AuthService {
       }
 
       const data = await this.safeJsonParse(response);
-      
-      // Auto-login after registration
-      if (data.access && data.refresh) {
-        this.setTokens(data.access, data.refresh);
-        
-        if (data.user) {
-          this.setUser(data.user);
-        }
-        
-        if (data.restaurant) {
-          this.setRestaurantData(data.restaurant);
-        }
-        
-        // If user data not provided, fetch it
-        if (!data.user) {
-          await this.fetchUserDetails();
-        }
+
+      // Backend only returns {"message": "..."} with no tokens.
+      // Auto-login so the caller gets a fully authenticated session.
+      try {
+        await this.login(partnerData.email, partnerData.password, 'email');
+      } catch (loginErr) {
+        // Registration worked but auto-login failed.
+        // Surface a clear message so the user knows what happened.
+        console.error('Auto-login after registration failed:', loginErr);
+        throw new Error(
+          'Account created! But auto-login failed: ' + loginErr.message +
+          '. Please go to login and sign in manually.'
+        );
       }
 
       return data;

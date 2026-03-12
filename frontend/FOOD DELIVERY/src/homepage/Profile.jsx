@@ -4,10 +4,11 @@ import { User, Mail, Phone, Lock, Shield, Trash2, CheckCircle, XCircle, Edit2, X
 import toast, { Toaster } from 'react-hot-toast';
 import './Profile.css';
 import Header from './Header.jsx';
+import AllCarts from './AllCarts.jsx';
 import authService from '../Authservice.js';
 import { COLORS, MOTION } from '../constants.js';
 
-const Profile = ({ isLoggedIn, user, onBack, onLoginClick, onSignUpClick, onLogout, cartItems = [] }) => {
+const Profile = ({ isLoggedIn, user, onBack, onLoginClick, onSignUpClick, onLogout, cartItems = [], onProfileClick, onOrdersClick, onLogoClick, onCheckout }) => {
   const [showCart,            setShowCart]            = useState(false);
   const [formData,            setFormData]            = useState({ first_name: '', last_name: '', phone: '', email: '' });
   const [passwordData,        setPasswordData]        = useState({ current_password: '', new_password: '' });
@@ -80,7 +81,9 @@ const Profile = ({ isLoggedIn, user, onBack, onLoginClick, onSignUpClick, onLogo
       }} />
       <Header isLoggedIn={isLoggedIn} user={user} cartItems={cartItems}
         onLoginClick={onLoginClick} onSignUpClick={onSignUpClick}
-        onCartClick={() => setShowCart(!showCart)} onLogout={onLogout} onBack={onBack} />
+        onCartClick={() => setShowCart(!showCart)} onLogout={onLogout}
+        onProfileClick={onProfileClick} onOrdersClick={onOrdersClick}
+        onLogoClick={onLogoClick} />
 
       <div className="profile-content">
         {/* Avatar card */}
@@ -226,6 +229,21 @@ const Profile = ({ isLoggedIn, user, onBack, onLoginClick, onSignUpClick, onLogo
           </button>
         </motion.div>
       </div>
+
+      {/* All Carts Sidebar */}
+      <AllCarts
+        isOpen={showCart}
+        onClose={() => setShowCart(false)}
+        cartItems={cartItems}
+        onCheckout={(restaurantId) => {
+          setShowCart(false);
+          if (onCheckout) onCheckout(restaurantId);
+        }}
+        onNavigateToRestaurant={(restaurantId) => {
+          setShowCart(false);
+          if (onBack) onBack(); // go back to home/restaurant list
+        }}
+      />
     </div>
   );
 };

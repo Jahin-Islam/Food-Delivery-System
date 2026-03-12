@@ -1,5 +1,5 @@
 /* ============================================================
-   HEADER  —  CSS variables + polish, all original classes kept
+   HEADER — all images replaced with Lucide icons
    ============================================================ */
 
 /* ── Top Banner ─────────────────────────────────────────────── */
@@ -9,21 +9,15 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 20px;
+  gap: 12px;
   color: white;
   font-weight: 600;
   font-size: 13px;
   letter-spacing: 0.3px;
 }
 
-.banner-icon::before {
-  content: "";
-  font-size: 20px;
-  margin-right: 8px;
-}
-
 .banner-btn {
-  background: var(--white);
+  background: white;
   color: var(--c-primary);
   border: none;
   padding: 7px 16px;
@@ -35,7 +29,6 @@
   transition: all var(--t);
   box-shadow: 0 2px 6px rgba(0,0,0,0.12);
 }
-
 .banner-btn:hover {
   transform: translateY(-2px);
   box-shadow: 0 5px 14px rgba(0,0,0,0.2);
@@ -43,7 +36,7 @@
 
 /* ── Header Shell ───────────────────────────────────────────── */
 .header {
-  background: var(--white);
+  background: var(--c-white, #fff);
   position: sticky;
   top: 0;
   z-index: 1000;
@@ -62,7 +55,7 @@
 .header-left {
   display: flex;
   align-items: center;
-  gap: 24px;
+  gap: 20px;
 }
 
 .logo-section {
@@ -72,35 +65,25 @@
   cursor: pointer;
 }
 
-/* panda emoji lives inside this button via JSX */
+/* Logo icon button — now holds a Lucide Utensils icon */
 .logo-icon {
-  width: 36px;
-  height: 36px;
+  width: 38px;
+  height: 38px;
   background: linear-gradient(135deg, var(--c-primary) 0%, #ff1493 100%);
   border: none;
-  border-radius: 10px;
+  border-radius: 11px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 20px;
-  overflow: hidden;
   padding: 0;
   transition: transform var(--t), box-shadow var(--t);
-  box-shadow: 0 2px 8px var(--shadow-primary-subtle);
+  box-shadow: 0 2px 8px rgba(215,15,100,0.3);
+  color: white;
 }
-
-.logo-icon img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-  border-radius: 10px;
-}
-
 .logo-icon:hover {
   transform: scale(1.08) rotate(-4deg);
-  box-shadow: var(--shadow-primary);
+  box-shadow: 0 4px 16px rgba(215,15,100,0.45);
 }
 
 .logo-text {
@@ -110,55 +93,43 @@
   letter-spacing: -0.5px;
 }
 
+/* Address button — MapPin icon inside */
 .address-button {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   padding: 9px 14px;
-  border: 1.5px solid var(--c-gray-200);
-  background: var(--c-gray-50);
+  border: 1.5px solid var(--c-gray-200, #e5e7eb);
+  background: var(--c-gray-50, #f9fafb);
   border-radius: 10px;
   cursor: pointer;
   transition: all var(--t);
 }
-
 .address-button:hover {
   border-color: var(--c-primary);
-  background: var(--c-primary-bg);
-  box-shadow: 0 0 0 3px var(--shadow-primary-ring);
+  background: var(--c-primary-bg, #fff0f6);
+  box-shadow: 0 0 0 3px rgba(215,15,100,0.08);
 }
 
-.logo-image {
-  width: 20px;
-  height: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.address-pin-icon {
+  color: var(--c-primary);
   flex-shrink: 0;
 }
 
-.logo-image img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
-
-.address-text {
-  text-align: left;
-}
-
+.address-text { text-align: left; }
 .address-label {
   font-size: 10px;
-  color: var(--c-gray-400);
+  color: var(--c-gray-400, #9ca3af);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
-
 .address-full {
   font-size: 13px;
   font-weight: 600;
-  color: var(--c-gray-800);
+  color: var(--c-gray-800, #1f2937);
+  display: flex;
+  align-items: center;
 }
 
 /* ── Right ──────────────────────────────────────────────────── */
@@ -172,47 +143,49 @@
 .header-btn {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 6px;
   padding: 9px 15px;
-  border: 1.5px solid var(--c-gray-200);
-  background: var(--white);
+  border: 1.5px solid var(--c-gray-200, #e5e7eb);
+  background: var(--c-white, #fff);
   border-radius: 10px;
   font-size: 13px;
   font-weight: 600;
-  color: var(--c-gray-700);
+  color: var(--c-gray-700, #374151);
   cursor: pointer;
   transition: all var(--t);
   white-space: nowrap;
   font-family: var(--font);
 }
-
 .header-btn:hover {
   border-color: var(--c-primary);
   color: var(--c-primary);
-  background: var(--c-primary-bg);
-  box-shadow: 0 0 0 3px var(--shadow-primary-ring);
+  background: var(--c-primary-bg, #fff0f6);
+  box-shadow: 0 0 0 3px rgba(215,15,100,0.08);
+}
+
+/* Icon colour inside header buttons matches button colour on hover */
+.header-btn svg {
+  flex-shrink: 0;
+  transition: color var(--t);
 }
 
 .signup-btn {
   background: linear-gradient(135deg, var(--c-primary) 0%, #14a9ff 100%);
-  color: white;
+  color: white !important;
   border: none;
-  box-shadow: var(--shadow-primary);
+  box-shadow: 0 2px 10px rgba(215,15,100,0.3);
   font-weight: 700;
 }
-
 .signup-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px var(--shadow-primary-hover-color);
+  box-shadow: 0 6px 20px rgba(215,15,100,0.45);
   background: linear-gradient(135deg, var(--c-primary) 0%, #ff1493 100%);
-  color: white;
+  color: white !important;
   border: none;
 }
 
-.cart-button {
-  position: relative;
-}
-
+/* Cart badge */
+.cart-button { position: relative; }
 .cart-badge {
   position: absolute;
   top: 2px;
@@ -229,109 +202,13 @@
   border: 2px solid white;
   animation: badgePop 0.2s ease;
 }
-
 @keyframes badgePop {
   0%   { transform: scale(0.5); }
   70%  { transform: scale(1.2); }
   100% { transform: scale(1); }
 }
 
-/* ── Nav Tabs ───────────────────────────────────────────────── */
-.nav-tabs {
-  background: var(--white);
-  border-bottom: 1px solid #ebebeb;
-}
-
-.nav-tabs-content {
-  display: flex;
-  gap: 4px;
-  padding: 0 40px;
-}
-
-.nav-tab {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 13px 18px;
-  background: var(--white);
-  border: none;
-  border-bottom: 3px solid transparent;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--c-gray-500);
-  cursor: pointer;
-  transition: all var(--t);
-  font-family: var(--font);
-}
-
-.nav-tab:hover {
-  color: var(--c-primary);
-  background: var(--c-primary-bg);
-}
-
-.nav-tab.active {
-  color: var(--c-primary);
-  border-bottom-color: var(--c-primary);
-}
-
-/* ── Responsive ─────────────────────────────────────────────── */
-@media (max-width: 968px) {
-  .top-banner {
-    padding: 10px 20px;
-    font-size: 11px;
-    flex-wrap: wrap;
-  }
-
-  .header-content {
-    padding: 12px 20px;
-    flex-wrap: wrap;
-    gap: 12px;
-  }
-
-  .header-left  { gap: 12px; }
-
-  .address-button { padding: 8px 12px; }
-
-  .address-full { font-size: 12px; }
-
-  .header-right {
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-
-  .header-btn {
-    padding: 8px 12px;
-    font-size: 12px;
-  }
-
-  .nav-tabs-content { padding: 0 20px; }
-
-  .nav-tab {
-    padding: 12px 16px;
-    font-size: 13px;
-  }
-}
-
-@media (max-width: 480px) {
-  .top-banner   { font-size: 10px; }
-
-  .banner-btn {
-    padding: 6px 12px;
-    font-size: 11px;
-  }
-
-  .logo-text { font-size: 18px; }
-
-  .header-btn span:not(.cart-badge):not(.logo-image) { display: none; }
-
-  .header-btn .logo-image { display: flex; }
-
-  .nav-tab span:not(.logo-image) { display: none; }
-
-  .nav-tab { padding: 12px; }
-}
-
-/* ── Dark Mode Toggle Button ─────────────────────────────────── */
+/* ── Dark Mode Toggle ────────────────────────────────────────── */
 .dark-toggle-btn {
   width: 40px !important;
   height: 40px !important;
@@ -343,14 +220,73 @@
   justify-content: center !important;
 }
 
-[data-theme="dark"] .dark-toggle-btn {
-  background: var(--gray-200) !important;
-  border-color: var(--gray-300) !important;
-  color: var(--gray-700) !important;
+/* ── Nav Tabs ───────────────────────────────────────────────── */
+.nav-tabs {
+  background: var(--c-white, #fff);
+  border-bottom: 1px solid #ebebeb;
+}
+.nav-tabs-content {
+  display: flex;
+  gap: 4px;
+  padding: 0 40px;
 }
 
+.nav-tab {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 13px 18px;
+  background: var(--c-white, #fff);
+  border: none;
+  border-bottom: 3px solid transparent;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--c-gray-500, #6b7280);
+  cursor: pointer;
+  transition: all var(--t);
+  font-family: var(--font);
+}
+.nav-tab svg { flex-shrink: 0; }
+.nav-tab:hover {
+  color: var(--c-primary);
+  background: var(--c-primary-bg, #fff0f6);
+}
+.nav-tab.active {
+  color: var(--c-primary);
+  border-bottom-color: var(--c-primary);
+}
+
+/* ── Responsive ─────────────────────────────────────────────── */
+@media (max-width: 968px) {
+  .top-banner    { padding: 10px 20px; font-size: 11px; flex-wrap: wrap; }
+  .header-content { padding: 12px 20px; flex-wrap: wrap; gap: 12px; }
+  .header-left   { gap: 10px; }
+  .address-button { padding: 8px 10px; }
+  .address-full  { font-size: 12px; }
+  .header-right  { flex-wrap: wrap; gap: 6px; }
+  .header-btn    { padding: 8px 12px; font-size: 12px; }
+  .nav-tabs-content { padding: 0 20px; }
+  .nav-tab       { padding: 12px 14px; font-size: 13px; }
+}
+
+@media (max-width: 480px) {
+  .top-banner    { font-size: 10px; }
+  .banner-btn    { padding: 6px 12px; font-size: 11px; }
+  .logo-text     { font-size: 18px; }
+  /* Hide button text labels on tiny screens, keep icons */
+  .header-btn span:not(.cart-badge) { display: none; }
+  .nav-tab span  { display: none; }
+  .nav-tab       { padding: 12px; }
+}
+
+/* ── Dark mode overrides ────────────────────────────────────── */
+[data-theme="dark"] .dark-toggle-btn {
+  background: var(--c-gray-200, #e5e7eb) !important;
+  border-color: var(--c-gray-300, #d1d5db) !important;
+  color: var(--c-gray-700, #374151) !important;
+}
 [data-theme="dark"] .dark-toggle-btn:hover {
-  background: var(--primary-light) !important;
-  border-color: var(--primary) !important;
-  color: var(--primary) !important;
+  background: var(--c-primary-bg, #fff0f6) !important;
+  border-color: var(--c-primary) !important;
+  color: var(--c-primary) !important;
 }

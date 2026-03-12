@@ -106,7 +106,7 @@ class CartApiService {
         const foodId = item.item_id ?? item.food_id;
         console.log(`    item: food_id=${foodId} name=${item.name} qty=${item.quantity}`);
         items.push({
-          id: `${foodId}-${restaurantId}`,
+          id: `${foodId}-${restaurantId}`,   // stable — matches what App uses for update/remove
           foodId,
           food_id: foodId,
           name: item.name,
@@ -115,6 +115,7 @@ class CartApiService {
           image: item.image_url ?? '',
           restaurantId,
           restaurant: restaurantName,
+          restaurantImage: cart.restaurant?.image_url ?? cart.restaurant?.logo ?? cart.restaurant?.image ?? '',
         });
       }
     }
