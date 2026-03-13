@@ -34,7 +34,7 @@ class AuthService {
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('user');
-    localStorage.removeItem('restaurantData'); // Clear restaurant data on logout
+    localStorage.removeItem('restaurantData');
   }
 
   isAuthenticated() {
@@ -75,10 +75,8 @@ class AuthService {
     localStorage.removeItem('restaurantData');
   }
 
-  // Check if user is a restaurant owner
   isRestaurantOwner() {
     const user = this.getUser();
-    // Backend role is 'RESTAURANT' (from views.py: request.user.role != 'RESTAURANT')
     return user?.role === 'RESTAURANT'
       || user?.role === 'vendor'
       || user?.user_type === 'vendor'
@@ -89,16 +87,13 @@ class AuthService {
   // ============================================
   // HELPER: Safe JSON parsing
   // ============================================
-  
+
   async safeJsonParse(response) {
     const text = await response.text();
-    
-    // Check if response is HTML (error page)
     if (text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html')) {
       console.error('Received HTML instead of JSON. Response:', text.substring(0, 200));
       throw new Error('Server returned an error page. Please check if the backend is running.');
     }
-    
     try {
       return JSON.parse(text);
     } catch (error) {
@@ -116,7 +111,6 @@ class AuthService {
       const response = await this.authenticatedFetch(`${this.API_BASE_URL}/profile/`);
       if (response) {
         this.setUser(response);
-        // Extract restaurant data from profile for RESTAURANT role users
         if (response.restaurant_info && response.restaurant_info.id) {
           this.setRestaurantData({
             id: response.restaurant_info.id,
@@ -150,9 +144,7 @@ class AuthService {
     try {
       const response = await fetch(`${this.API_BASE_URL}/token/refresh/`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ refresh: refreshToken }),
       });
 
@@ -183,7 +175,6 @@ class AuthService {
       throw new Error('No access token available');
     }
 
-    // First attempt with current token
     let response = await fetch(url, {
       ...options,
       headers: {
@@ -193,12 +184,9 @@ class AuthService {
       },
     });
 
-    // If token expired (401), refresh and retry
     if (response.status === 401) {
       try {
         accessToken = await this.refreshAccessToken();
-        
-        // Retry with new token
         response = await fetch(url, {
           ...options,
           headers: {
@@ -208,7 +196,6 @@ class AuthService {
           },
         });
       } catch (error) {
-        // Refresh failed, user needs to log in again
         console.error('Token refresh failed:', error);
         this.logout();
         throw error;
@@ -225,33 +212,16 @@ class AuthService {
   }
 
   // ============================================
-  // LOGIN
+  // LOGIN — email only
   // ============================================
 
-  async login(identifier, password, loginType = 'email') {
+  async login(identifier, password) {
     try {
-      // Build payload based on login type
-      // Format phone number for backend (+880 prefix)
-      let formattedIdentifier = identifier;
-      if (loginType === 'phone') {
-        let phone = identifier.toString().trim();
-        if (phone.startsWith('0')) {
-          phone = '+880' + phone.slice(1);   // 01712345678 → +8801712345678
-        } else if (!phone.startsWith('+')) {
-          phone = '+880' + phone;             // 1712345678  → +8801712345678
-        }
-        formattedIdentifier = phone;
-      }
-
-      const payload = loginType === 'phone'
-        ? { phone_number: formattedIdentifier, password }
-        : { email: formattedIdentifier, password };
+      const payload = { email: identifier.trim(), password };
 
       const response = await fetch(`${this.API_BASE_URL}/login/`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
 
@@ -260,14 +230,11 @@ class AuthService {
         try {
           const errorData = await this.safeJsonParse(response);
           console.error('Backend error response:', errorData);
-          // Try every possible error field from Django
-          errorMessage = errorData.detail 
-            || errorData.message 
+          errorMessage = errorData.detail
+            || errorData.message
             || errorData.non_field_errors?.[0]
             || errorData.email?.[0]
-            || errorData.phone_number?.[0]
-            || errorData.phone?.[0]
-            || errorData.username?.[0]
+            || errorData.password?.[0]
             || JSON.stringify(errorData);
         } catch (e) {
           errorMessage = `Login failed with status ${response.status}`;
@@ -276,20 +243,17 @@ class AuthService {
       }
 
       const data = await this.safeJsonParse(response);
-      
+
       // Store tokens
       this.setTokens(data.access, data.refresh);
-      
+
       // Store user data
       if (data.user) {
         this.setUser(data.user);
-        
-        // If user is a vendor, store restaurant data
         if (data.restaurant) {
           this.setRestaurantData(data.restaurant);
         }
       } else {
-        // Fetch user details if not provided
         await this.fetchUserDetails();
       }
 
@@ -306,7 +270,6 @@ class AuthService {
 
   async logout() {
     try {
-      // Optional: Call backend logout endpoint
       const refreshToken = this.getRefreshToken();
       if (refreshToken) {
         await fetch(`${this.API_BASE_URL}/logout/`, {
@@ -316,12 +279,9 @@ class AuthService {
             'Authorization': `Bearer ${this.getAccessToken()}`,
           },
           body: JSON.stringify({ refresh: refreshToken }),
-        }).catch(() => {
-          // Ignore errors on logout endpoint
-        });
+        }).catch(() => {});
       }
     } finally {
-      // Always clear local data
       this.clearTokens();
       this.clearUser();
       this.clearRestaurantData();
@@ -336,9 +296,7 @@ class AuthService {
     try {
       const response = await fetch(`${this.API_BASE_URL}/register/`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(userData),
       });
 
@@ -346,17 +304,10 @@ class AuthService {
         let errorMessage = 'Registration failed';
         try {
           const errorData = await this.safeJsonParse(response);
-          
-          // Handle field-specific errors
-          if (errorData.email) {
-            errorMessage = `Email: ${errorData.email[0]}`;
-          } else if (errorData.password) {
-            errorMessage = `Password: ${errorData.password[0]}`;
-          } else if (errorData.detail) {
-            errorMessage = errorData.detail;
-          } else if (errorData.message) {
-            errorMessage = errorData.message;
-          }
+          if (errorData.email)         errorMessage = `Email: ${errorData.email[0]}`;
+          else if (errorData.password)  errorMessage = `Password: ${errorData.password[0]}`;
+          else if (errorData.detail)    errorMessage = errorData.detail;
+          else if (errorData.message)   errorMessage = errorData.message;
         } catch (e) {
           errorMessage = `Registration failed with status ${response.status}`;
         }
@@ -364,17 +315,11 @@ class AuthService {
       }
 
       const data = await this.safeJsonParse(response);
-      
-      // Auto-login after registration if tokens are provided
       if (data.access && data.refresh) {
         this.setTokens(data.access, data.refresh);
-        if (data.user) {
-          this.setUser(data.user);
-        } else {
-          await this.fetchUserDetails();
-        }
+        if (data.user) this.setUser(data.user);
+        else await this.fetchUserDetails();
       }
-
       return data;
     } catch (error) {
       console.error('Registration error:', error);
@@ -388,37 +333,28 @@ class AuthService {
 
   async registerRestaurantPartner(partnerData) {
     try {
-      // Prepare data for vendor registration
-      const password = partnerData.password || 'TempPassword123!';
+      const password  = partnerData.password  || 'TempPassword123!';
       const password2 = partnerData.password2 || password;
 
-      // Format phone: if user typed 01712345678 (11 digits) or 1712345678 (10 digits),
-      // send as +8801712345678 to backend
       let phone = partnerData.phone || '';
-      if (phone.startsWith('0')) {
-        phone = '+880' + phone.slice(1); // 01712345678 → +8801712345678
-      } else if (!phone.startsWith('+')) {
-        phone = '+880' + phone;          // 1712345678  → +8801712345678
-      }
+      if (phone.startsWith('0'))   phone = '+880' + phone.slice(1);
+      else if (!phone.startsWith('+')) phone = '+880' + phone;
 
       const vendorData = {
-        email: partnerData.email,
-        password: password,
-        password2: password2,            // ← actual confirm password
-        first_name: partnerData.ownerFirstName,
-        last_name: partnerData.ownerLastName,
-        phone_number: phone,             // ← formatted with +880
-        role: 'RESTAURANT',
-        // Restaurant specific data
-        restaurant_name: partnerData.businessName,
+        email:               partnerData.email,
+        password,
+        password2,
+        first_name:          partnerData.ownerFirstName,
+        last_name:           partnerData.ownerLastName,
+        phone_number:        phone,
+        role:                'RESTAURANT',
+        restaurant_name:     partnerData.businessName,
         restaurant_category: partnerData.businessType,
       };
 
       const response = await fetch(`${this.API_BASE_URL}/register/`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(vendorData),
       });
 
@@ -427,26 +363,14 @@ class AuthService {
         try {
           const errorData = await this.safeJsonParse(response);
           console.error('Registration error response:', errorData);
-          
-          // Extract first meaningful error from any field
-          if (errorData.email) {
-            errorMessage = `Email: ${Array.isArray(errorData.email) ? errorData.email[0] : errorData.email}`;
-          } else if (errorData.phone_number) {
-            errorMessage = `Phone: ${Array.isArray(errorData.phone_number) ? errorData.phone_number[0] : errorData.phone_number}`;
-          } else if (errorData.password) {
-            errorMessage = `Password: ${Array.isArray(errorData.password) ? errorData.password[0] : errorData.password}`;
-          } else if (errorData.password2) {
-            errorMessage = `Confirm Password: ${Array.isArray(errorData.password2) ? errorData.password2[0] : errorData.password2}`;
-          } else if (errorData.restaurant_name) {
-            errorMessage = `Business Name: ${Array.isArray(errorData.restaurant_name) ? errorData.restaurant_name[0] : errorData.restaurant_name}`;
-          } else if (errorData.detail) {
-            errorMessage = errorData.detail;
-          } else if (errorData.message) {
-            errorMessage = errorData.message;
-          } else {
-            // Show all errors so we can debug
-            errorMessage = JSON.stringify(errorData);
-          }
+          if (errorData.email)            errorMessage = `Email: ${Array.isArray(errorData.email) ? errorData.email[0] : errorData.email}`;
+          else if (errorData.phone_number) errorMessage = `Phone: ${Array.isArray(errorData.phone_number) ? errorData.phone_number[0] : errorData.phone_number}`;
+          else if (errorData.password)     errorMessage = `Password: ${Array.isArray(errorData.password) ? errorData.password[0] : errorData.password}`;
+          else if (errorData.password2)    errorMessage = `Confirm Password: ${Array.isArray(errorData.password2) ? errorData.password2[0] : errorData.password2}`;
+          else if (errorData.restaurant_name) errorMessage = `Business Name: ${Array.isArray(errorData.restaurant_name) ? errorData.restaurant_name[0] : errorData.restaurant_name}`;
+          else if (errorData.detail)       errorMessage = errorData.detail;
+          else if (errorData.message)      errorMessage = errorData.message;
+          else                             errorMessage = JSON.stringify(errorData);
         } catch (e) {
           errorMessage = `Registration failed with status ${response.status}`;
         }
@@ -455,13 +379,9 @@ class AuthService {
 
       const data = await this.safeJsonParse(response);
 
-      // Backend only returns {"message": "..."} with no tokens.
-      // Auto-login so the caller gets a fully authenticated session.
       try {
         await this.login(partnerData.email, partnerData.password, 'email');
       } catch (loginErr) {
-        // Registration worked but auto-login failed.
-        // Surface a clear message so the user knows what happened.
         console.error('Auto-login after registration failed:', loginErr);
         throw new Error(
           'Account created! But auto-login failed: ' + loginErr.message +
@@ -486,27 +406,22 @@ class AuthService {
 
     if (accessToken) {
       try {
-        // If we don't have user data, fetch it
-        if (!user) {
-          await this.fetchUserDetails();
-        }
-        return { 
-          isAuthenticated: true, 
+        if (!user) await this.fetchUserDetails();
+        return {
+          isAuthenticated: true,
           user: this.getUser(),
           restaurant: this.getRestaurantData()
         };
       } catch (error) {
-        // Token invalid, try to refresh
         try {
           await this.refreshAccessToken();
           await this.fetchUserDetails();
-          return { 
-            isAuthenticated: true, 
+          return {
+            isAuthenticated: true,
             user: this.getUser(),
             restaurant: this.getRestaurantData()
           };
         } catch (refreshError) {
-          // Refresh failed, clear everything
           this.clearTokens();
           this.clearUser();
           this.clearRestaurantData();
@@ -519,6 +434,5 @@ class AuthService {
   }
 }
 
-// Create and export a singleton instance
 const authService = new AuthService();
 export default authService;

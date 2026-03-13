@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import './Businessdashboard.css';
+import './BusinessHeader.css';
 import { COLORS } from '../constants.js';
 import { Search, Utensils, Bike, Star, Camera, Pencil, Trash2, Plus, AlertCircle } from 'lucide-react';
 import authService from '../Authservice.js';
 import vendorApiService from '../Vendorapiservice.js';
+import BusinessHeader from './BusinessHeader.jsx';
 
 // ─── Small Toast notification ─────────────────────────────────────────────────
 const Toast = ({ message, type, onClose }) => {
@@ -58,7 +60,6 @@ const BusinessDashboard = ({
   const [deals, setDeals] = useState([]);
   const [restaurantDetails, setRestaurantDetails] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [showProfileDropdown, setShowProfileDropdown] = useState(false);
 
   // Toast
   const [toast, setToast] = useState(null);
@@ -93,19 +94,32 @@ const BusinessDashboard = ({
     if (!restaurant?.id) { setLoading(false); return; }
     setLoading(true);
     try {
-      // Restaurant details (public endpoint)
+      // Restaurant details (public endpoint) with 8s timeout
       let details = null;
       try {
         const endpoint = `http://127.0.0.1:8000/api/v1/restaurants/${restaurant.id}/`;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
+        let resp = null;
         if (isLoggedIn) {
-          details = await authService.authenticatedFetch(endpoint);
+          resp = await authService.authenticatedFetch(endpoint, { signal: controller.signal });
+          details = resp;
         } else {
-          const r = await fetch(endpoint);
+          const r = await fetch(endpoint, { signal: controller.signal });
           if (r.ok) details = await r.json();
         }
-      } catch (e) { console.warn('restaurant details fetch failed', e); }
+        clearTimeout(timeoutId);
+      } catch (e) {
+        if (e.name === 'AbortError') {
+          console.warn('Restaurant fetch timed out — showing with available data');
+        } else {
+          console.warn('restaurant details fetch failed', e);
+        }
+        // Fall back to the prop data so the dashboard still renders
+        details = restaurant;
+      }
 
-      setRestaurantDetails(details);
+      setRestaurantDetails(details ?? restaurant);
       setMenuItems(details?.items ?? []);
 
       // Always fetch categories from vendor API to get real category_id values
@@ -356,10 +370,11 @@ const BusinessDashboard = ({
   // ─── LOADING STATE ─────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="business-dashboard">
-        <div style={{ padding: '80px', textAlign: 'center' }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>🐼</div>
-          <p style={{ color: '#6b7280', fontSize: 16 }}>Loading restaurant details…</p>
+      <div className="business-dashboard" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ width: 52, height: 52, border: `3px solid var(--primary-light)`, borderTopColor: 'var(--primary)', borderRadius: '50%', margin: '0 auto 20px', animation: 'spin 0.8s linear infinite' }} />
+          <p style={{ color: 'var(--gray-500)', fontSize: 15, fontWeight: 600 }}>Loading restaurant…</p>
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </div>
       </div>
     );
@@ -376,60 +391,15 @@ const BusinessDashboard = ({
       {confirm && <ConfirmDialog message={confirm.message} onConfirm={confirm.onConfirm} onCancel={() => setConfirm(null)} />}
 
       {/* ── Header ── */}
-      <header className="business-header">
-        <div className="business-header-content">
-          <div className="business-header-left">
-            <div className="business-logo-section">
-              <button className="logo-icon" aria-label="foodpanda business">
-                <img src="/images/accessories/panda.png" alt="panda"
-                  onError={e => { e.currentTarget.style.display = 'none'; e.currentTarget.parentNode.textContent = '🐼'; }} />
-              </button>
-              <div className="business-logo-text">
-                <span className="logo-main">foodpanda</span>
-                <span className="logo-sub">business</span>
-              </div>
-            </div>
-            <button className="business-address-button">
-              <span className="logo-image"><img src="/images/accessories/gps.png" alt="GPS" /></span>
-              <div className="address-text">
-                <div className="address-label">Restaurant Location</div>
-                <div className="address-full">{displayRestaurant?.address || 'Dhaka, Bangladesh'}</div>
-              </div>
-            </button>
-          </div>
-          <div className="business-header-right">
-            <button className="business-header-btn language-btn">
-              <span className="logo-image"><img src="/images/accessories/world.png" alt="Language" /></span>
-              <span>EN</span>
-            </button>
-            <button className="business-header-btn profile-btn"
-              onClick={() => setShowProfileDropdown(p => !p)}>
-              <span className="logo-image"><img src="/images/accessories/profile.png" alt="Profile" /></span>
-              <span>{user?.first_name || 'PROFILE'}</span>
-            </button>
-          </div>
-        </div>
-
-        <div className="business-nav-tabs">
-          <div className="business-nav-tabs-content">
-            <button className={`business-nav-tab ${activeTab === 'menu' ? 'active' : ''}`}
-              onClick={() => setActiveTab('menu')}>
-              <span className="logo-image"><img src="/images/accessories/delivery.png" alt="Menu" /></span>
-              Menu
-            </button>
-            <button className={`business-nav-tab ${activeTab === 'orders' ? 'active' : ''}`}
-              onClick={() => onNavigateToOrders?.()}>
-              <span className="logo-image"><img src="/images/accessories/cart.png" alt="Orders" /></span>
-              Orders
-            </button>
-            <button className={`business-nav-tab ${activeTab === 'order-history' ? 'active' : ''}`}
-              onClick={() => setActiveTab('order-history')}>
-              <span className="logo-image"><img src="/images/accessories/heart.png" alt="Order History" /></span>
-              Order History
-            </button>
-          </div>
-        </div>
-      </header>
+      <BusinessHeader
+        activePage="menu"
+        user={user}
+        restaurant={displayRestaurant}
+        onLogout={onLogout}
+        onNavigateToMenu={() => {}}
+        onNavigateToOrders={() => onNavigateToOrders?.()}
+        onNavigateToHistory={() => {}}
+      />
 
       {/* ── Restaurant Banner ── */}
       <div className="business-restaurant-banner">

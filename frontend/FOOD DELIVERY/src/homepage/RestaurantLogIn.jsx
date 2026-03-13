@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
-  Eye, EyeOff, Mail, Lock, Phone, BarChart2,
+  Eye, EyeOff, Mail, Lock, BarChart2,
   Megaphone, Settings, Globe, ArrowRight,
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
@@ -12,61 +12,39 @@ import { COLORS, BRAND } from '../constants.js';
 const FEATURES = [
   { Icon: BarChart2, text: 'Track performance and get invaluable insights to improve customer loyalty and sales.' },
   { Icon: Megaphone, text: 'Offer discounts and launch ad campaigns to attract new customers.' },
-  { Icon: Settings,  text: 'Manage your menu and opening times more easily, so they\'re always up to date.' },
+  { Icon: Settings,  text: "Manage your menu and opening times more easily, so they're always up to date." },
 ];
 
 const RestaurantLogin = ({ onSwitchToSignUp, onLoginSuccess }) => {
-  const [loginMode,        setLoginMode]        = useState('email');
-  const [formData,         setFormData]         = useState({ email: '', password: '', phone: '', phonePassword: '' });
-  const [showPassword,     setShowPassword]     = useState(false);
-  const [showPhonePassword,setShowPhonePassword]= useState(false);
-  const [loading,          setLoading]          = useState(false);
-  const [focused,          setFocused]          = useState(null);
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
+  const [email,        setEmail]        = useState('');
+  const [password,     setPassword]     = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading,      setLoading]      = useState(false);
+  const [focused,      setFocused]      = useState(null);
 
   const handleSubmit = async (e) => {
     e?.preventDefault();
-    const isPhone   = loginMode === 'phone';
-    const identifier = isPhone ? formData.phone : formData.email;
-    const password   = isPhone ? formData.phonePassword : formData.password;
-
+    const identifier = email;
     if (!identifier || !password) { toast.error('Please fill in all fields'); return; }
 
     setLoading(true);
     try {
-      const response = await authService.login(identifier, password, isPhone ? 'phone' : 'email');
+      const response = await authService.login(identifier, password, 'email');
 
-      // ── Role check ──────────────────────────────────────────────────
-      // Backend returns role inside user object
       const user = authService.getUser();
       let role = (
-        user?.role ||
-        user?.user_type ||
-        response?.role ||
-        response?.user?.role ||
-        response?.user?.user_type ||
-        ''
+        user?.role || user?.user_type ||
+        response?.role || response?.user?.role || response?.user?.user_type || ''
       ).toString().toUpperCase();
 
       const hasRestaurantData = !!(response?.restaurant || authService.getRestaurantData());
-
       let isVendor = role === 'RESTAURANT' || role === 'VENDOR' || hasRestaurantData;
 
-      // If not clear yet, fetch user profile to double-check
       if (!isVendor) {
         try {
-          const userDetails = await authService.fetchUserDetails();
-          const detailedRole = (
-            userDetails?.role ||
-            userDetails?.user_type ||
-            authService.getUser()?.role ||
-            ''
-          ).toString().toUpperCase();
-          isVendor = detailedRole === 'RESTAURANT' || detailedRole === 'VENDOR' || !!authService.getRestaurantData();
+          const details = await authService.fetchUserDetails();
+          const dr = (details?.role || details?.user_type || authService.getUser()?.role || '').toString().toUpperCase();
+          isVendor = dr === 'RESTAURANT' || dr === 'VENDOR' || !!authService.getRestaurantData();
         } catch {}
       }
 
@@ -91,8 +69,6 @@ const RestaurantLogin = ({ onSwitchToSignUp, onLoginSuccess }) => {
       setLoading(false);
     }
   };
-
-  const fg = (id) => `form-group ${focused === id ? 'focused' : ''}`;
 
   return (
     <div className="restaurant-login-container">
@@ -151,67 +127,38 @@ const RestaurantLogin = ({ onSwitchToSignUp, onLoginSuccess }) => {
           initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}>
 
-          <h2 className="login-title">
-            {loginMode === 'email' ? 'Log in with your email' : 'Log in with your phone'}
-          </h2>
-
-          {/* Mode toggle */}
-          <div className="login-mode-toggle">
-            <button className={`mode-toggle-btn ${loginMode === 'email' ? 'active' : ''}`}
-              onClick={() => setLoginMode('email')} type="button">Email</button>
-            <button className={`mode-toggle-btn ${loginMode === 'phone' ? 'active' : ''}`}
-              onClick={() => setLoginMode('phone')} type="button">Phone Number</button>
-          </div>
+          <h2 className="login-title">Log in to your account</h2>
 
           <form className="login-form" onSubmit={handleSubmit} noValidate>
-            {loginMode === 'email' ? (
-              <>
-                <div className={fg('email')}>
-                  <div className="input-wrapper">
-                    <Mail size={15} className="input-icon" />
-                    <input type="email" name="email" placeholder="Email"
-                      value={formData.email} onChange={handleChange}
-                      onFocus={() => setFocused('email')} onBlur={() => setFocused(null)} />
-                  </div>
-                </div>
 
-                <div className={fg('password')}>
-                  <div className="input-wrapper password-wrapper">
-                    <Lock size={15} className="input-icon" />
-                    <input type={showPassword ? 'text' : 'password'} name="password"
-                      placeholder="Password" value={formData.password} onChange={handleChange}
-                      onFocus={() => setFocused('password')} onBlur={() => setFocused(null)} />
-                    <button type="button" className="toggle-password"
-                      onClick={() => setShowPassword(p => !p)}>
-                      {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
-                    </button>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="form-group">
-                  <div className="phone-input-wrapper">
-                    <span className="country-code">+880</span>
-                    <input type="tel" name="phone" placeholder="1712345678"
-                      value={formData.phone} onChange={handleChange} className="phone-field" />
-                  </div>
-                </div>
+            <div className={`form-group ${focused === 'email' ? 'focused' : ''}`}>
+              <div className="input-wrapper">
+                <Mail size={15} className="input-icon" />
+                <input type="email" placeholder="Email" value={email}
+                  onChange={e => setEmail(e.target.value)} autoComplete="email"
+                  onFocus={() => setFocused('email')} onBlur={() => setFocused(null)} />
+              </div>
+            </div>
 
-                <div className={fg('phonePassword')}>
-                  <div className="input-wrapper password-wrapper">
-                    <Lock size={15} className="input-icon" />
-                    <input type={showPhonePassword ? 'text' : 'password'} name="phonePassword"
-                      placeholder="Password" value={formData.phonePassword} onChange={handleChange}
-                      onFocus={() => setFocused('phonePassword')} onBlur={() => setFocused(null)} />
-                    <button type="button" className="toggle-password"
-                      onClick={() => setShowPhonePassword(p => !p)}>
-                      {showPhonePassword ? <EyeOff size={15} /> : <Eye size={15} />}
-                    </button>
-                  </div>
-                </div>
-              </>
-            )}
+            {/* Single password field — shared by both modes */}
+            <div className={`form-group ${focused === 'password' ? 'focused' : ''}`}>
+              <div className="input-wrapper password-wrapper">
+                <Lock size={15} className="input-icon" />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="Password"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  autoComplete="current-password"
+                  onFocus={() => setFocused('password')}
+                  onBlur={() => setFocused(null)}
+                />
+                <button type="button" className="toggle-password"
+                  onClick={() => setShowPassword(p => !p)}>
+                  {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                </button>
+              </div>
+            </div>
 
             <div className="forgot-password-link">
               <a href="#" onClick={e => e.preventDefault()}>Forgot password?</a>
@@ -221,7 +168,7 @@ const RestaurantLogin = ({ onSwitchToSignUp, onLoginSuccess }) => {
               whileHover={!loading ? { y: -2 } : {}} whileTap={!loading ? { y: 0 } : {}}>
               {loading
                 ? <span className="btn-loading"><span/><span/><span/></span>
-                : <> Log in <ArrowRight size={15} style={{ marginLeft: 6 }} /> </>}
+                : <>Log in <ArrowRight size={15} style={{ marginLeft: 6 }} /></>}
             </motion.button>
 
             <p className="privacy-text">
