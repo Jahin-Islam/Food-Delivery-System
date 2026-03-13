@@ -1,0 +1,142 @@
+/* ============================================================
+   RIDER MAP — delivery map panel
+   ============================================================ */
+
+.rmap-container {
+  background: var(--c-white);
+  border-radius: var(--radius);
+  border: 1.5px solid var(--c-gray-200);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+/* Map area */
+.rmap-map-wrap {
+  position: relative;
+  height: 340px;
+  width: 100%;
+  background: var(--c-gray-100);
+}
+
+/* Loading state */
+.rmap-loading {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--c-gray-500);
+  font-size: 14px;
+  font-weight: 600;
+}
+.rmap-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--c-gray-200);
+  border-top-color: var(--c-primary);
+  border-radius: 50%;
+  animation: rmapSpin 0.8s linear infinite;
+}
+@keyframes rmapSpin { to { transform: rotate(360deg); } }
+
+/* GPS warning banner */
+.rmap-gps-warn {
+  position: absolute;
+  bottom: 56px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #fef3c7;
+  color: #92400e;
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  z-index: 900;
+  pointer-events: none;
+}
+
+/* ── Info strip ── */
+.rmap-info-strip {
+  border-top: 1px solid var(--c-gray-100);
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Pickup / drop-off leg row */
+.rmap-leg {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--c-gray-50);
+  border-radius: 10px;
+  border: 1px solid var(--c-gray-100);
+}
+.rmap-leg-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2.5px solid white;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+  flex-shrink: 0;
+}
+.rmap-leg-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.rmap-leg-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--c-gray-400);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.rmap-leg-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--c-gray-900);
+}
+.rmap-leg-stats {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+.rmap-leg-dist {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--c-primary);
+}
+.rmap-leg-eta {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--c-gray-400);
+}
+
+/* Route total row */
+.rmap-route-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px 0;
+  border-top: 1px dashed var(--c-gray-200);
+  font-size: 13px;
+  color: var(--c-gray-500);
+}
+.rmap-route-total b { color: var(--c-gray-900); }
+
+/* Idle state */
+.rmap-idle {
+  padding: 6px 4px;
+  font-size: 13px;
+  color: var(--c-gray-500);
+  text-align: center;
+  font-weight: 500;
+}

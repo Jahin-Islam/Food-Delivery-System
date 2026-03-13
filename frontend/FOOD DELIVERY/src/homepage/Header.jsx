@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sun, Moon } from 'lucide-react';
+import {
+  Sun, Moon, MapPin, Globe, ShoppingCart, Heart,
+  User, Truck, PackageOpen, Navigation, Store, Building2,
+  ChevronDown, Utensils
+} from 'lucide-react';
 import './Header.css';
 import ProfileDropdown from './Profiledropdown.jsx';
 
@@ -16,6 +20,11 @@ const Header = ({
   onRestaurantSignUpClick,
   onProfileClick,
   onOrdersClick,
+  onLogoClick,
+  onDeliveryClick,
+  onPickupClick,
+  onNearMeClick,
+  activeTab = 'delivery',
 }) => {
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const [isDark, setIsDark] = useState(() => localStorage.getItem('theme') === 'dark');
@@ -30,12 +39,9 @@ const Header = ({
     }
   }, [isDark]);
 
-  const handleProfileClick = () => {
-    setShowProfileDropdown(!showProfileDropdown);
-  };
-
   return (
     <>
+      {/* ── Top Banner ────────────────────────────────────────────── */}
       <AnimatePresence>
         {showBanner && !isLoggedIn && (
           <motion.div
@@ -45,7 +51,8 @@ const Header = ({
             exit={{ opacity: 0, y: -32 }}
             transition={{ duration: 0.3 }}
           >
-            <div className="banner-icon" />
+            <Store size={16} strokeWidth={2} />
+            <span>Own a restaurant? Join us today!</span>
             <button className="banner-btn" onClick={onRestaurantSignUpClick}>
               SIGN UP FOR A BUSINESS ACCOUNT
             </button>
@@ -60,34 +67,38 @@ const Header = ({
         transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
       >
         <div className="header-content">
+
+          {/* ── Left: Logo + Address ─────────────────────────────── */}
           <div className="header-left">
-            <div className="logo-section">
-              <button className="logo-icon" aria-label="foodpanda home">
-                <img
-                  src="/images/accessories/panda.png"
-                  alt="panda"
-                  onError={(e) => {
-                    e.currentTarget.style.display = 'none';
-                    e.currentTarget.parentNode.style.fontSize = '22px';
-                    e.currentTarget.parentNode.textContent = '🐼';
-                  }}
-                />
+            <div
+              className="logo-section"
+              onClick={onLogoClick}
+              style={{ cursor: onLogoClick ? 'pointer' : 'default' }}
+            >
+              {/* Lucide icon replaces panda image */}
+              <button className="logo-icon" aria-label="foodpanda home" onClick={onLogoClick}>
+                <Utensils size={20} strokeWidth={2.5} color="white" />
               </button>
               <span className="logo-text">foodpanda</span>
             </div>
+
+            {/* Address button — GPS image → MapPin icon */}
             <button className="address-button">
-              <span className="logo-image">
-                <img src="../../public/images/accessories/gps.png" alt="GPS" />
-              </span>
+              <MapPin size={18} strokeWidth={2} className="address-pin-icon" />
               <div className="address-text">
-                <div className="address-label">New address</div>
-                <div className="address-full">Road 71, Dhaka, Bangladesh</div>
+                <div className="address-label">Deliver to</div>
+                <div className="address-full">
+                  Road 71, Dhaka, Bangladesh
+                  <ChevronDown size={13} strokeWidth={2.5} style={{ marginLeft: 4, verticalAlign: 'middle' }} />
+                </div>
               </div>
             </button>
           </div>
 
+          {/* ── Right: Actions ───────────────────────────────────── */}
           <div className="header-right">
-            {/* 🌙 Dark Mode Toggle */}
+
+            {/* Dark mode toggle */}
             <motion.button
               className="header-btn dark-toggle-btn"
               onClick={() => setIsDark(prev => !prev)}
@@ -100,51 +111,96 @@ const Header = ({
                   <motion.span key="sun"
                     initial={{ rotate: -90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: 90, opacity: 0 }}
                     transition={{ duration: 0.18 }} style={{ display: 'flex', alignItems: 'center' }}
-                  ><Sun size={17} strokeWidth={2} /></motion.span>
+                  >
+                    <Sun size={17} strokeWidth={2} />
+                  </motion.span>
                 ) : (
                   <motion.span key="moon"
                     initial={{ rotate: 90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: -90, opacity: 0 }}
                     transition={{ duration: 0.18 }} style={{ display: 'flex', alignItems: 'center' }}
-                  ><Moon size={17} strokeWidth={2} /></motion.span>
+                  >
+                    <Moon size={17} strokeWidth={2} />
+                  </motion.span>
                 )}
               </AnimatePresence>
             </motion.button>
 
             {!isLoggedIn ? (
               <>
-                <motion.button className="header-btn" onClick={onLoginClick} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}>
+                <motion.button
+                  className="header-btn"
+                  onClick={onLoginClick}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.97 }}
+                >
                   Log in
                 </motion.button>
-                <motion.button className="header-btn signup-btn" onClick={onSignUpClick} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}>
+                <motion.button
+                  className="header-btn signup-btn"
+                  onClick={onSignUpClick}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.97 }}
+                >
                   Sign up for free delivery
                 </motion.button>
               </>
             ) : (
               <>
-                <motion.button className="header-btn language-btn" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}>
-                  <span className="logo-image"><img src="../../public/images/accessories/world.png" alt="Language" /></span>
+                {/* Language — world image → Globe icon */}
+                <motion.button
+                  className="header-btn language-btn"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.97 }}
+                >
+                  <Globe size={16} strokeWidth={2} />
                   <span>EN</span>
                 </motion.button>
-                <motion.button className="header-btn cart-button" onClick={onCartClick} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}>
-                  <span className="logo-image"><img src="../../public/images/accessories/cart.png" alt="Cart" /></span>
+
+                {/* Cart — cart image → ShoppingCart icon */}
+                <motion.button
+                  className="header-btn cart-button"
+                  onClick={onCartClick}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.97 }}
+                >
+                  <ShoppingCart size={17} strokeWidth={2} />
                   <AnimatePresence>
                     {cartItems && cartItems.length > 0 && (
-                      <motion.span className="cart-badge" key={cartItems.length}
+                      <motion.span
+                        className="cart-badge"
+                        key={cartItems.length}
                         initial={{ scale: 0.4 }} animate={{ scale: 1 }} exit={{ scale: 0 }}
                         transition={{ type: 'spring', stiffness: 400, damping: 20 }}
-                      >{cartItems.length}</motion.span>
+                      >
+                        {cartItems.length}
+                      </motion.span>
                     )}
                   </AnimatePresence>
                   <span>CART</span>
                 </motion.button>
-                <motion.button className="header-btn favourite-btn" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}>
-                  <span className="logo-image"><img src="../../public/images/accessories/heart.png" alt="Favourites" /></span>
+
+                {/* Favourites — heart image → Heart icon */}
+                <motion.button
+                  className="header-btn favourite-btn"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.97 }}
+                >
+                  <Heart size={16} strokeWidth={2} />
                   <span>FAVOURITES</span>
                 </motion.button>
-                <motion.button className="header-btn profile-btn" onClick={handleProfileClick} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}>
-                  <span className="logo-image"><img src="../../public/images/accessories/profile.png" alt="Profile" /></span>
+
+                {/* Profile — profile image → User icon */}
+                <motion.button
+                  className="header-btn profile-btn"
+                  onClick={() => setShowProfileDropdown(p => !p)}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.97 }}
+                >
+                  <User size={16} strokeWidth={2} />
                   <span>{user?.first_name || 'PROFILE'}</span>
+                  <ChevronDown size={13} strokeWidth={2.5} />
                 </motion.button>
+
                 <ProfileDropdown
                   isOpen={showProfileDropdown}
                   onClose={() => setShowProfileDropdown(false)}
@@ -158,20 +214,37 @@ const Header = ({
           </div>
         </div>
 
+        {/* ── Nav Tabs ─────────────────────────────────────────────── */}
         <div className="nav-tabs">
           <div className="nav-tabs-content">
-            <button className="nav-tab active">
-              <span className="logo-image"><img src="../../public/images/accessories/delivery.png" alt="Delivery" /></span>
+
+            {/* Delivery — delivery image → Truck icon */}
+            <button
+              className={`nav-tab ${activeTab === 'delivery' ? 'active' : ''}`}
+              onClick={onDeliveryClick ?? onLogoClick}
+            >
+              <Truck size={16} strokeWidth={2} />
               <span>Delivery</span>
             </button>
-            <button className="nav-tab">
-              <span className="logo-image"><img src="../../public/images/accessories/pick-up.png" alt="Pick-up" /></span>
+
+            {/* Pick-up — pick-up image → PackageOpen icon */}
+            <button
+              className={`nav-tab ${activeTab === 'pickup' ? 'active' : ''}`}
+              onClick={onPickupClick}
+            >
+              <PackageOpen size={16} strokeWidth={2} />
               <span>Pick-up</span>
             </button>
-            <button className="nav-tab">
-              <span className="logo-image"><img src="../../public/images/accessories/restaurant.png" alt="Restaurant" /></span>
-              <span>Restaurant</span>
+
+            {/* Restaurants Near Me — restaurant image → Navigation icon */}
+            <button
+              className={`nav-tab ${activeTab === 'nearme' ? 'active' : ''}`}
+              onClick={onNearMeClick}
+            >
+              <Navigation size={16} strokeWidth={2} />
+              <span>Restaurants Near Me</span>
             </button>
+
           </div>
         </div>
       </motion.header>

@@ -3,24 +3,18 @@ from django.db import connection
 from rest_framework import mixins, generics, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework.permissions import AllowAny
 from ..models import Discount, Restaurant, Serve
 from .serializers import DiscountSerializer, RestaurantSerializer, ResturantDetailedSerializer
 from items.serializers import ItemSerializer
 from items.models import MenuItem, Category
-from cloudinary import CloudinaryImage
-# Create your views here.
 
 
 def dictfetchall(cursor):
-    ##### For Multiple Row Data ####
     columns = [col[0] for col in cursor.description]
-    return [
-        dict(zip(columns, row))
-        for row in cursor.fetchall()
-    ]
+    return [dict(zip(columns, row)) for row in cursor.fetchall()]
 
 def dictfetchone(cursor):
-    #### For Getting Single Row Data #######
     row = cursor.fetchone()
     if row is None:
         return None
@@ -29,6 +23,8 @@ def dictfetchone(cursor):
 
 
 class RestaurantView(mixins.ListModelMixin, generics.GenericAPIView):
+    permission_classes = [AllowAny]   # ← public endpoint, no login needed
+
     query = """
      SELECT *
     FROM (
@@ -40,6 +36,8 @@ class RestaurantView(mixins.ListModelMixin, generics.GenericAPIView):
         res.closing_time,
         res.min_order,
         addr.street_address,
+        addr.latitude,
+        addr.longitude,
         disc.percentage, 
         disc.min_order AS min_order_for_discount, 
         disc.description AS discount_desc,
@@ -62,21 +60,27 @@ class RestaurantView(mixins.ListModelMixin, generics.GenericAPIView):
 
 
 class RestaurantDetailedView(APIView):
+    permission_classes = [AllowAny]   # ← public endpoint, no login needed
+
     def get(self, request, pk):
         with connection.cursor() as cursor:
             res_find_query = """
-                    SELECT *
-                    FROM resturants_Restaurant
-                    WHERE id = %s
+                    SELECT 
+                    res.*,
+                    addr.street_address,
+                    addr.latitude,
+                    addr.longitude
+                    FROM resturants_Restaurant res
+                    LEFT JOIN addresses_address addr ON addr.address_id = res.address_id
+                    WHERE res.id = %s
                 """
             cursor.execute(res_find_query, [pk])
             restaurant = dictfetchone(cursor)
 
             if not restaurant:
                 return Response({
-                    "detail" : "Not found."
+                    "detail": "Not found."
                 }, status=status.HTTP_404_NOT_FOUND)
-            
 
             item_find_query = """
                 SELECT 
@@ -87,7 +91,6 @@ class RestaurantDetailedView(APIView):
                 LEFT JOIN items_category c ON mi.category_id = c.category_id
                 WHERE mi.restaurant_id = %s
                 """
-             
             cursor.execute(item_find_query, [pk])
             items = dictfetchall(cursor)
 
@@ -103,4 +106,3 @@ class RestaurantDetailedView(APIView):
             restaurant['discounts'] = discounts
 
             return Response(restaurant, status=status.HTTP_200_OK)
-            

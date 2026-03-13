@@ -1,23 +1,25 @@
-export default function SortOption() {
+export default function SortOption({ sortBy = 'relevance', onSortChange }) {
+    const options = [
+        { value: 'relevance',     label: 'Relevance' },
+        { value: 'top_rated',     label: 'Top rated' },
+        { value: 'distance',      label: 'Distance' },
+        { value: 'fast_delivery', label: 'Fastest delivery' },
+    ];
+
     return (
         <div className="filter-section">
             <p className="filter-label">Sort by</p>
-            <label className="filter-option">
-                <input type="radio" name="sort" defaultChecked />
-                <span>Relevance</span>
-            </label>
-            <label className="filter-option">
-                <input type="radio" name="sort" />
-                <span>Fastest delivery</span>
-            </label>
-            <label className="filter-option">
-                <input type="radio" name="sort" />
-                <span>Distance</span>
-            </label>
-            <label className="filter-option">
-                <input type="radio" name="sort" />
-                <span>Top rated</span>
-            </label>
+            {options.map(opt => (
+                <label className="filter-option" key={opt.value}>
+                    <input
+                        type="radio"
+                        name="sort"
+                        checked={sortBy === opt.value}
+                        onChange={() => onSortChange?.(opt.value)}
+                    />
+                    <span>{opt.label}</span>
+                </label>
+            ))}
         </div>
     );
 }

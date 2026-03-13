@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import './RestaurantCart.css';
+import './Restaurantcart.css';
 import { COLORS, SHADOWS } from '../constants.js';
 import { ShoppingCart, Trash2, UtensilsCrossed, Utensils, Coffee } from 'lucide-react';
 

@@ -3,6 +3,7 @@ import './Checkout.css';
 import { COLORS, SHADOWS } from '../constants.js';
 import Header from './Header.jsx';
 import AllCarts from './AllCarts.jsx';
+import DeliveryMapPicker from './DeliveryMapPicker.jsx';
 import { MapPin, Home, Briefcase, Heart, Plus } from 'lucide-react';
 
 const Checkout = ({ 
@@ -16,13 +17,17 @@ const Checkout = ({
   onLogout,
   onPlaceOrder,
   allCartItems = [],
-  onCheckout
+  onCheckout,
+  onProfileClick,
+  onOrdersClick,
+  onLogoClick,
 }) => {
   const [deliveryAddress, setDeliveryAddress] = useState('Road 71, Dhaka');
   const [streetNumber, setStreetNumber] = useState('');
   const [apartment, setApartment] = useState('');
   const [note, setNote] = useState('');
   const [addressLabel, setAddressLabel] = useState('home');
+  const [deliveryLatLng, setDeliveryLatLng] = useState({ lat: null, lng: null });
   const [contactlessDelivery, setContactlessDelivery] = useState(false);
   const [deliveryOption, setDeliveryOption] = useState('standard');
   const [firstName, setFirstName] = useState(user?.first_name || '');
@@ -75,6 +80,8 @@ const Checkout = ({
 
   const handleNavigateToRestaurant = (restaurantId) => {
     setShowCart(false);
+    // Navigate back — App will handle showing the right restaurant
+    if (onBack) onBack();
   };
 
   return (
@@ -87,6 +94,9 @@ const Checkout = ({
         onSignUpClick={onSignUpClick}
         onCartClick={() => setShowCart(!showCart)}
         onLogout={onLogout}
+        onProfileClick={onProfileClick}
+        onOrdersClick={onOrdersClick}
+        onLogoClick={onLogoClick}
         showBanner={false}
       />
 
@@ -100,19 +110,15 @@ const Checkout = ({
               <button className="edit-btn">Edit</button>
             </div>
 
-            <div className="map-container">
-              <div className="map-placeholder">
-                <div className="map-pin" style={{display:'flex',justifyContent:'center'}}>
-                  <MapPin size={48} color={COLORS.primary} />
-                </div>
-                <p className="map-text">Map View</p>
-              </div>
-              <div className="address-display">
-                <span className="location-icon" style={{display:'flex',alignItems:'center'}}>
-                  <MapPin size={18} color={COLORS.primary} />
-                </span>
-                <span className="address-text">{deliveryAddress}</span>
-              </div>
+            <div className="map-container" style={{ height: 'auto', background: 'none', border: 'none', display: 'block', padding: 0 }}>
+              <DeliveryMapPicker
+                initialLat={user?.delivery_addresses?.[0]?.latitude ?? undefined}
+                initialLng={user?.delivery_addresses?.[0]?.longitude ?? undefined}
+                onLocationSelect={({ lat, lng, address }) => {
+                  setDeliveryLatLng({ lat, lng });
+                  setDeliveryAddress(address);
+                }}
+              />
             </div>
 
             <div className="address-details">

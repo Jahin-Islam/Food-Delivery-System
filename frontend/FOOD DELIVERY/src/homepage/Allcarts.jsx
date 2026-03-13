@@ -1,5 +1,5 @@
 import React from 'react';
-import './AllCarts.css';
+import './Allcarts.css';
 import { COLORS, SHADOWS } from '../constants.js';
 import { ShoppingCart, Utensils, Coins, X } from 'lucide-react';
 
@@ -11,6 +11,7 @@ const AllCarts = ({ isOpen, onClose, cartItems = [], onCheckout, onNavigateToRes
       acc[restaurantName] = {
         restaurantName,
         restaurantId: item.restaurantId,
+        restaurantImage: item.restaurantImage || '',
         items: [],
         subtotal: 0,
         savings: 0
@@ -69,14 +70,16 @@ const AllCarts = ({ isOpen, onClose, cartItems = [], onCheckout, onNavigateToRes
                   >
                     <div className="restaurant-info">
                       <div className="restaurant-icon">
-                        <img 
-                          src={cart.items[0]?.restaurantImage || ''} 
-                          alt={cart.restaurantName}
-                          onError={(e) => {
-                            e.target.style.display = 'none';
-                            e.target.parentElement.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg>';
-                          }}
-                        />
+                        {cart.restaurantImage ? (
+                          <img
+                            src={cart.restaurantImage}
+                            alt={cart.restaurantName}
+                            style={{width:'100%',height:'100%',objectFit:'cover',borderRadius:'inherit'}}
+                            onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                          />
+                        ) : (
+                          <Utensils size={22} color={COLORS.primary} />
+                        )}
                       </div>
                       <div>
                         <h4 className="restaurant-name">{cart.restaurantName}</h4>

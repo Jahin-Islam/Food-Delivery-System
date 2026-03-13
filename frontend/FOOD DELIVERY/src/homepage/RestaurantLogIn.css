@@ -1,5 +1,5 @@
 /* ============================================================
-   RESTAURANT LOGIN — Enhanced CSS
+   RESTAURANT LOGIN — with dark mode support
    ============================================================ */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { width: 100vw; height: 100%; overflow-x: hidden; }
@@ -31,68 +31,46 @@ html, body { width: 100vw; height: 100%; overflow-x: hidden; }
 }
 .restaurant-login-hero { position: relative; z-index: 1; max-width: 420px; width: 100%; }
 
-/* ── Illustration ── */
-.hero-illustration {
-  display: flex; align-items: center; justify-content: center;
-  margin-bottom: 36px;
-}
-.illustration-graphic {
-  position: relative; width: 200px; height: 160px;
-}
-/* Monitor frame */
+/* Illustration */
+.hero-illustration { display: flex; align-items: center; justify-content: center; margin-bottom: 36px; }
+.illustration-graphic { position: relative; width: 200px; height: 160px; }
 .illus-monitor {
   position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
   width: 140px; height: 95px;
-  background: rgba(255,255,255,0.18);
-  border: 2px solid rgba(255,255,255,0.35);
-  border-radius: 10px;
-  display: flex; align-items: center; justify-content: center;
-  overflow: hidden;
+  background: rgba(255,255,255,0.18); border: 2px solid rgba(255,255,255,0.35);
+  border-radius: 10px; display: flex; align-items: center; justify-content: center; overflow: hidden;
 }
 .illus-monitor-inner {
   width: 85%; height: 78%;
-  background: rgba(255,255,255,0.12);
-  border-radius: 6px;
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 6px;
+  background: rgba(255,255,255,0.12); border-radius: 6px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
 }
-.illus-bar {
-  height: 6px; border-radius: 3px;
-  background: rgba(255,255,255,0.5);
-}
+.illus-bar { height: 6px; border-radius: 3px; background: rgba(255,255,255,0.5); }
 .illus-bar.wide  { width: 65%; }
 .illus-bar.mid   { width: 45%; }
 .illus-bar.short { width: 30%; }
-/* Stand */
 .illus-stand {
   position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%);
   width: 40px; height: 22px;
-  background: rgba(255,255,255,0.18);
-  border-radius: 0 0 6px 6px;
+  background: rgba(255,255,255,0.18); border-radius: 0 0 6px 6px;
   border: 2px solid rgba(255,255,255,0.28);
 }
-/* Icons floating */
 .illus-icon {
   position: absolute;
-  background: rgba(255,255,255,0.22);
-  border: 1.5px solid rgba(255,255,255,0.35);
-  border-radius: 10px;
-  width: 36px; height: 36px;
+  background: rgba(255,255,255,0.22); border: 1.5px solid rgba(255,255,255,0.35);
+  border-radius: 10px; width: 36px; height: 36px;
   display: flex; align-items: center; justify-content: center;
 }
-.illus-icon.top-left  { top: 0;  left: 0; }
+.illus-icon.top-left  { top: 0; left: 0; }
 .illus-icon.top-right { top: 8px; right: 0; }
 
-/* Hero text */
 .hero-title { font-size: 22px; font-weight: 800; line-height: 1.35; margin-bottom: 24px; }
 .hero-features { display: flex; flex-direction: column; gap: 14px; }
 .feature-item {
   display: flex; align-items: flex-start; gap: 14px;
   padding: 14px 16px;
-  background: rgba(255,255,255,0.11);
-  border: 1px solid rgba(255,255,255,0.13);
-  border-radius: 10px;
-  transition: background var(--t);
+  background: rgba(255,255,255,0.11); border: 1px solid rgba(255,255,255,0.13);
+  border-radius: 10px; transition: background var(--t);
 }
 .feature-item:hover { background: rgba(255,255,255,0.17); }
 .feature-icon {
@@ -106,12 +84,14 @@ html, body { width: 100vw; height: 100%; overflow-x: hidden; }
 .restaurant-login-right {
   flex: 1;
   display: flex; flex-direction: column; justify-content: space-between;
-  padding: 28px 48px 28px; background: var(--c-white);
-  overflow-y: auto;
+  padding: 28px 48px; background: var(--c-white); overflow-y: auto;
 }
+
+/* Dark mode right panel */
+[data-theme="dark"] .restaurant-login-right { background: var(--c-bg); }
+
 .restaurant-login-header {
-  display: flex; justify-content: space-between; align-items: center;
-  margin-bottom: 24px;
+  display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;
 }
 .partner-logo { display: flex; align-items: baseline; gap: 3px; }
 .logo-panda   { font-size: 22px; font-weight: 800; color: var(--c-primary); }
@@ -127,19 +107,15 @@ html, body { width: 100vw; height: 100%; overflow-x: hidden; }
 
 .restaurant-login-card {
   flex: 1; display: flex; flex-direction: column; justify-content: center;
-  max-width: 380px; width: 100%; margin: 0 auto;
+  max-width: 420px; width: 100%; margin: 0 auto;
 }
 .login-title { font-size: 22px; font-weight: 800; color: var(--c-gray-900); margin-bottom: 24px; }
 
-.login-form { display: flex; flex-direction: column; gap: 0; }
+.login-form { display: flex; flex-direction: column; }
 
 .form-group { margin-bottom: 14px; }
-.form-group-label { font-size: 12px; font-weight: 600; color: var(--c-gray-700); margin-bottom: 5px; display: block; }
 .input-wrapper { position: relative; display: flex; align-items: center; }
-.input-icon {
-  position: absolute; left: 13px;
-  color: var(--c-gray-400); pointer-events: none; transition: color var(--t);
-}
+.input-icon { position: absolute; left: 13px; color: var(--c-gray-400); pointer-events: none; transition: color var(--t); }
 .form-group.focused .input-icon { color: var(--c-primary); }
 .form-group input {
   width: 100%; padding: 12px 42px 12px 40px;
@@ -153,6 +129,9 @@ html, body { width: 100vw; height: 100%; overflow-x: hidden; }
   border-color: var(--c-primary); background: var(--c-white);
   box-shadow: 0 0 0 3px var(--shadow-primary-ring);
 }
+[data-theme="dark"] .form-group input { background: var(--c-gray-100); color: var(--c-gray-900); }
+[data-theme="dark"] .form-group input:focus { background: var(--c-gray-50); }
+
 .password-wrapper { position: relative; }
 .toggle-password {
   position: absolute; right: 11px; top: 50%; transform: translateY(-50%);
@@ -167,7 +146,6 @@ html, body { width: 100vw; height: 100%; overflow-x: hidden; }
   font-size: 13px; font-weight: 600; color: var(--c-primary);
   text-decoration: none; cursor: pointer; transition: color var(--t);
 }
-.forgot-password-link a:hover { color: var(--c-primary-dark); }
 
 .login-btn {
   width: 100%; padding: 13px;
@@ -175,47 +153,44 @@ html, body { width: 100vw; height: 100%; overflow-x: hidden; }
   color: var(--c-white); border: none; border-radius: var(--radius);
   font-size: 15px; font-weight: 700; cursor: pointer;
   box-shadow: var(--shadow-primary);
-  transition: transform var(--t), box-shadow var(--t);
-  margin-bottom: 14px;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  transition: transform var(--t), box-shadow var(--t); margin-bottom: 14px;
 }
-.login-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 22px var(--shadow-primary-hover-color); }
+.login-btn:hover { transform: translateY(-2px); }
+.login-btn:disabled { opacity: 0.72; cursor: not-allowed; transform: none; }
 
-/* Divider */
-.login-divider {
-  display: flex; align-items: center; gap: 12px;
-  margin: 4px 0 14px; color: var(--c-gray-400); font-size: 12px;
+/* Phone */
+.phone-input-wrapper { display: flex; }
+.country-code {
+  padding: 12px 12px;
+  background: var(--c-gray-100); border: 2px solid var(--c-gray-200);
+  border-right: none; border-radius: var(--radius) 0 0 var(--radius);
+  font-size: 14px; font-weight: 600; color: var(--c-gray-700);
+  white-space: nowrap; display: flex; align-items: center;
 }
-.login-divider::before, .login-divider::after {
-  content: ''; flex: 1; height: 1px; background: var(--c-gray-200);
+.phone-field {
+  border-radius: 0 var(--radius) var(--radius) 0 !important;
+  padding-left: 12px !important; border-left: none !important;
+  padding-right: 12px !important;
 }
 
-/* Google button */
-.google-signin-btn {
-  width: 100%; padding: 11px 16px;
-  border: 2px solid var(--c-gray-200); border-radius: var(--radius);
-  background: var(--c-white); cursor: pointer;
-  display: flex; align-items: center; justify-content: space-between;
-  transition: border-color var(--t), box-shadow var(--t);
-  margin-bottom: 16px;
+/* Mode toggle */
+.login-mode-toggle {
+  display: flex; border: 2px solid var(--c-gray-200); border-radius: var(--radius);
+  overflow: hidden; margin-bottom: 20px;
 }
-.google-signin-btn:hover { border-color: var(--c-gray-400); box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
-.google-account-info { display: flex; align-items: center; gap: 10px; }
-.google-icon {
-  width: 32px; height: 32px; border-radius: 50%;
-  background: var(--gray-100); display: flex; align-items: center; justify-content: center;
+.mode-toggle-btn {
+  flex: 1; padding: 10px 0; border: none; background: var(--c-gray-50);
+  color: var(--c-gray-500); font-size: 14px; font-weight: 600; font-family: var(--font);
+  cursor: pointer; transition: background var(--t), color var(--t);
 }
-.signin-as { display: block; font-size: 13px; font-weight: 600; color: var(--c-gray-900); text-align: left; }
-.google-email { display: block; font-size: 11px; color: var(--c-gray-400); }
-.google-g-icon {
-  font-size: 16px; font-weight: 700;
-  background: linear-gradient(135deg, #4285F4, #EA4335);
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-}
+.mode-toggle-btn:first-child { border-right: 2px solid var(--c-gray-200); }
+.mode-toggle-btn.active { background: var(--c-primary); color: var(--c-white); }
+.mode-toggle-btn:hover:not(.active) { background: var(--c-gray-100); color: var(--c-gray-700); }
 
 .privacy-text { font-size: 12px; color: var(--c-gray-400); line-height: 1.5; }
 .privacy-text a { color: var(--c-primary); text-decoration: none; }
 
-/* Footer */
 .signup-footer {
   text-align: center; padding-top: 20px;
   border-top: 1px solid var(--c-gray-200);
@@ -224,8 +199,7 @@ html, body { width: 100vw; height: 100%; overflow-x: hidden; }
 .signup-footer a { color: var(--c-primary); font-weight: 700; text-decoration: none; cursor: pointer; }
 .signup-footer a:hover { text-decoration: underline; }
 
-/* Loading dots */
-.btn-loading { display: flex; gap: 5px; align-items: center; justify-content: center; }
+.btn-loading { display: flex; gap: 5px; align-items: center; }
 .btn-loading span {
   width: 7px; height: 7px; background: var(--c-white); border-radius: 50%;
   animation: dotPulse 0.8s ease-in-out infinite;
@@ -236,50 +210,6 @@ html, body { width: 100vw; height: 100%; overflow-x: hidden; }
   0%,80%,100% { transform: scale(0.7); opacity: 0.4; }
   40%          { transform: scale(1);   opacity: 1;   }
 }
-
-
-/* ── Phone input (matches signup style exactly) ── */
-.phone-input-wrapper { display: flex; }
-.country-code {
-  padding: 12px 12px;
-  background: var(--gray-100); border: 2px solid var(--c-gray-200);
-  border-right: none; border-radius: var(--radius) 0 0 var(--radius);
-  font-size: 14px; font-weight: 600; color: var(--c-gray-700);
-  white-space: nowrap; display: flex; align-items: center;
-}
-.phone-input-wrapper .phone-field {
-  border-radius: 0 var(--radius) var(--radius) 0 !important;
-  border-left: none !important;
-  padding-left: 12px !important;
-}
-
-/* ── Login mode toggle ── */
-.login-mode-toggle {
-  display: flex;
-  border: 2px solid var(--c-gray-200);
-  border-radius: var(--radius);
-  overflow: hidden;
-  margin-bottom: 20px;
-}
-.mode-toggle-btn {
-  flex: 1; padding: 10px 0;
-  border: none; background: var(--c-gray-50);
-  color: var(--c-gray-500);
-  font-size: 14px; font-weight: 600; font-family: var(--font);
-  cursor: pointer; transition: background var(--t), color var(--t);
-}
-.mode-toggle-btn:first-child { border-right: 2px solid var(--c-gray-200); }
-.mode-toggle-btn.active {
-  background: var(--c-primary);
-  color: var(--c-white);
-}
-.mode-toggle-btn:hover:not(.active) {
-  background: var(--gray-100);
-  color: var(--c-gray-700);
-}
-
-/* ── Disabled login btn ── */
-.login-btn:disabled { opacity: 0.72; cursor: not-allowed; transform: none; }
 
 @media (max-width: 900px) {
   .restaurant-login-container { flex-direction: column; }

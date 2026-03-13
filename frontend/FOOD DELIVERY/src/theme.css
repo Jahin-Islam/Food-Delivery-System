@@ -112,16 +112,17 @@
    Saved in:           localStorage('theme')
    ============================================================ */
 [data-theme="dark"] {
-  --primary:        #818cf8;
-  --primary-dark:   #6366f1;
+  --primary:        #a78bfa;
+  --primary-dark:   #7c3aed;
   --primary-light:  #1e1b4b;
+  --primary-bg:     #1e1b4b;
 
-  --shadow-primary:             0 4px 14px rgba(129,140,248,0.35);
-  --shadow-primary-hover:       0 8px 24px rgba(129,140,248,0.50);
-  --shadow-primary-hover-color: rgba(129,140,248,0.50);
-  --shadow-primary-color:       rgba(129,140,248,0.35);
+  --shadow-primary:             0 4px 14px rgba(167,139,250,0.40);
+  --shadow-primary-hover:       0 8px 24px rgba(167,139,250,0.55);
+  --shadow-primary-hover-color: rgba(167,139,250,0.55);
+  --shadow-primary-color:       rgba(167,139,250,0.40);
 
-  --gradient-primary: linear-gradient(135deg, #818cf8 0%, #6366f1 100%);
+  --gradient-primary: linear-gradient(135deg, #a78bfa 0%, #7c3aed 100%);
   --gradient-hero:    linear-gradient(145deg, #4f46e5 0%, #3730a3 55%, #1e1b4b 100%);
   --gradient-rider:   linear-gradient(160deg, #4f46e5 0%, #3730a3 100%);
 

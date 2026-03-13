@@ -1,303 +1,317 @@
-// cartApiService.js - Backend Cart Integration
-// Matches Django backend exactly:
-//   POST   /api/carts/<restaurant_id>/  body: { item_id, quantity }
-//   PUT    /api/carts/<restaurant_id>/  body: { item_id, quantity }
-//   DELETE /api/carts/<restaurant_id>/  body: { item_id }
-//   GET    /api/carts/<restaurant_id>/  → { items: [...], total_price }
-//   GET    /api/carts/                  → [ ...carts ]
+// cartApiService.js  
+// Maps exactly to Django views.py:
+//   GET    /api/carts/                  → [{cart_id, restaurant:{id,name}, items:[{item_id,name,price,quantity,image_url}]}]
+//   GET    /api/carts/<restaurant_id>/  → {items:[{food_id,name,price,quantity,image_url}], total_price}
+//   POST   /api/carts/<restaurant_id>/  body: {item_id, quantity}  → 201 or 409
+//   PUT    /api/carts/<restaurant_id>/  body: {item_id, quantity}
+//   DELETE /api/carts/<restaurant_id>/  body: {item_id}
 
-import authService from './Authservice';
+import authService from './Authservice.js';
 
 class CartApiService {
   constructor() {
-    this.API_BASE_URL = 'http://127.0.0.1:8000/api/carts';
+    this.API_BASE_URL = 'http://127.0.0.1:8000/api/v1/carts';
     this.CART_KEY = 'foodpanda_cart';
   }
 
-  // ============================================
-  // HELPER: Authenticated Fetch
-  // ============================================
-
-  async authenticatedFetch(endpoint, options = {}) {
-    const url = endpoint.startsWith('http') ? endpoint : `${this.API_BASE_URL}${endpoint}`;
-    return await authService.authenticatedFetch(url, options);
-  }
-
-  // ============================================
-  // LOCAL CART (for offline / unauthenticated)
-  // ============================================
+  // ─── LOCAL STORAGE (guests) ────────────────────────────────────────────────
 
   saveLocalCart(cartItems) {
-    try {
-      localStorage.setItem(this.CART_KEY, JSON.stringify(cartItems));
-      return true;
-    } catch (error) {
-      console.error('Error saving local cart:', error);
-      return false;
-    }
+    try { localStorage.setItem(this.CART_KEY, JSON.stringify(cartItems)); return true; }
+    catch (e) { console.error('Error saving local cart:', e); return false; }
   }
 
   loadLocalCart() {
     try {
-      const cartStr = localStorage.getItem(this.CART_KEY);
-      return cartStr ? JSON.parse(cartStr) : [];
-    } catch (error) {
-      console.error('Error loading local cart:', error);
+      const s = localStorage.getItem(this.CART_KEY);
+      return s ? JSON.parse(s) : [];
+    } catch (e) { return []; }
+  }
+
+  clearLocalCart() {
+    try { localStorage.removeItem(this.CART_KEY); return true; }
+    catch (e) { return false; }
+  }
+
+  // ─── RAW AUTHENTICATED FETCH ───────────────────────────────────────────────
+  // Uses authService for token/refresh handling but lets us inspect status codes
+  // before throwing, so 404 (empty cart) doesn't blow up as an error.
+
+  async _fetch(endpoint, options = {}) {
+    const url = endpoint.startsWith('http')
+      ? endpoint
+      : `${this.API_BASE_URL}${endpoint}`;
+    return await authService.authenticatedFetch(url, options);
+  }
+
+  // Like _fetch but returns null on 404 instead of throwing
+  async _fetchOrNull(endpoint, options = {}) {
+    const url = endpoint.startsWith('http')
+      ? endpoint
+      : `${this.API_BASE_URL}${endpoint}`;
+
+    let accessToken = authService.getAccessToken();
+    if (!accessToken) return null;
+
+    const makeRequest = async (token) => {
+      return await fetch(url, {
+        ...options,
+        headers: {
+          ...options.headers,
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+    };
+
+    let response = await makeRequest(accessToken);
+
+    // Auto-refresh on 401
+    if (response.status === 401) {
+      try {
+        accessToken = await authService.refreshAccessToken();
+        response = await makeRequest(accessToken);
+      } catch (e) {
+        return null;
+      }
+    }
+
+    // 404 = empty cart — not an error, just return null
+    if (response.status === 404) return null;
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`HTTP error! status: ${response.status} — ${text.slice(0, 120)}`);
+    }
+
+    const text = await response.text();
+    if (!text) return null;
+    try { return JSON.parse(text); } catch { return null; }
+  }
+
+  // ─── NORMALISE backend → frontend item shape ───────────────────────────────
+  //
+  // AllCartsView returns items with key "item_id"
+  // SingleRestaurantCart returns items with key "food_id"
+  // We unify to:  { id, foodId, food_id, name, price, quantity, image, restaurantId, restaurant }
+
+  _normaliseAllCarts(backendCarts) {
+    console.log('_normaliseAllCarts raw input:', JSON.stringify(backendCarts));
+    const items = [];
+    for (const cart of backendCarts) {
+      const restaurantId = cart.restaurant?.id;
+      const restaurantName = cart.restaurant?.name ?? '';
+      console.log(`  cart_id=${cart.cart_id} restaurant=${restaurantName}(${restaurantId}) items=${cart.items?.length}`);
+      for (const item of (cart.items ?? [])) {
+        const foodId = item.item_id ?? item.food_id;
+        console.log(`    item: food_id=${foodId} name=${item.name} qty=${item.quantity}`);
+        items.push({
+          id: `${foodId}-${restaurantId}`,   // stable — matches what App uses for update/remove
+          foodId,
+          food_id: foodId,
+          name: item.name,
+          price: parseFloat(item.price),
+          quantity: item.quantity,
+          image: item.image_url ?? '',
+          restaurantId,
+          restaurant: restaurantName,
+          restaurantImage: cart.restaurant?.image_url ?? cart.restaurant?.logo ?? cart.restaurant?.image ?? '',
+        });
+      }
+    }
+    console.log('_normaliseAllCarts result:', items.length, 'items');
+    return items;
+  }
+
+  // ─── PUBLIC API ────────────────────────────────────────────────────────────
+
+  /**
+   * GET /api/carts/
+   * Returns normalised array of cart items (all restaurants combined).
+   */
+  async getAllCarts() {
+    if (!authService.isAuthenticated()) {
+      console.log('getAllCarts: not authenticated, using localStorage');
+      return this.loadLocalCart();
+    }
+    try {
+      console.log('getAllCarts: fetching from', this.API_BASE_URL + '/');
+      const data = await this._fetchOrNull('/');
+      console.log('getAllCarts: raw response:', JSON.stringify(data));
+      if (!data) {
+        console.log('getAllCarts: got null/404 → empty cart');
+        return [];
+      }
+      const result = this._normaliseAllCarts(Array.isArray(data) ? data : []);
+      console.log('getAllCarts: normalised to', result.length, 'items');
+      return result;
+    } catch (e) {
+      console.error('getAllCarts error:', e);
       return [];
     }
   }
 
-  clearLocalCart() {
-    try {
-      localStorage.removeItem(this.CART_KEY);
-      return true;
-    } catch (error) {
-      console.error('Error clearing local cart:', error);
-      return false;
-    }
-  }
-
-  // ============================================
-  // BACKEND CART API
-  // ============================================
-
   /**
-   * Get cart for a specific restaurant
-   * GET /api/carts/<restaurant_id>/
-   */
-  async getCart(restaurantId) {
-    try {
-      if (!authService.isAuthenticated()) {
-        const localCart = this.loadLocalCart();
-        return localCart.filter(item => item.restaurantId === restaurantId);
-      }
-      return await this.authenticatedFetch(`/${restaurantId}/`);
-    } catch (error) {
-      console.error('Error fetching cart:', error);
-      const localCart = this.loadLocalCart();
-      return localCart.filter(item => item.restaurantId === restaurantId);
-    }
-  }
-
-  /**
-   * Get all carts grouped by restaurant
-   * GET /api/carts/
-   */
-  async getAllCarts() {
-    try {
-      if (!authService.isAuthenticated()) {
-        return this.loadLocalCart();
-      }
-      return await this.authenticatedFetch('/');
-    } catch (error) {
-      console.error('Error fetching all carts:', error);
-      return this.loadLocalCart();
-    }
-  }
-
-  /**
-   * Add item to cart
-   * POST /api/carts/<restaurant_id>/
-   * Body: { item_id: <food_id>, quantity: <int> }
-   *
-   * Backend returns 409 if item already in cart → use PUT to update instead.
+   * POST /api/carts/<restaurant_id>/  {item_id, quantity}
+   * If backend returns 409 (item already exists) it retries with PUT.
    */
   async addToCart(restaurantId, item) {
-    try {
-      if (!authService.isAuthenticated()) {
-        // Offline: save to localStorage
-        const localCart = this.loadLocalCart();
-        const existingIndex = localCart.findIndex(
-          cartItem =>
-            cartItem.food_id === item.food_id &&
-            cartItem.restaurantId === restaurantId
-        );
-        if (existingIndex !== -1) {
-          localCart[existingIndex].quantity += item.quantity || 1;
-        } else {
-          localCart.push({ ...item, restaurantId, quantity: item.quantity || 1 });
-        }
-        this.saveLocalCart(localCart);
-        return localCart.filter(i => i.restaurantId === restaurantId);
-      }
+    if (!authService.isAuthenticated()) {
+      return this._localAdd(restaurantId, item);
+    }
+    // Use raw fetch so we can see the exact status + body
+    const url = `${this.API_BASE_URL}/${restaurantId}/`;
+    let accessToken = authService.getAccessToken();
 
-      // Try POST first
-      try {
-        return await this.authenticatedFetch(`/${restaurantId}/`, {
-          method: 'POST',
-          body: JSON.stringify({
-            item_id: item.food_id,       // ← matches backend: item_id = request.data.get('item_id')
-            quantity: item.quantity || 1,
-          }),
-        });
-      } catch (postError) {
-        // Backend returns 409 when item already exists → update quantity instead
-        if (postError.message && postError.message.includes('409')) {
-          console.log('Item already in cart, updating quantity via PUT');
-          return await this.updateCartItem(restaurantId, item.food_id, item.quantity || 1);
-        }
-        throw postError;
-      }
-    } catch (error) {
-      console.error('Error adding to cart:', error);
-      throw error;
+    const attempt = async (token) => fetch(url, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        item_id: item.food_id ?? item.foodId,
+        quantity: item.quantity ?? 1,
+      }),
+    });
+
+    let res = await attempt(accessToken);
+    if (res.status === 401) {
+      accessToken = await authService.refreshAccessToken();
+      res = await attempt(accessToken);
+    }
+
+    if (res.status === 409) {
+      // Item already exists → update quantity instead
+      return this.updateCartItem(
+        restaurantId,
+        item.food_id ?? item.foodId,
+        item.quantity ?? 1
+      );
+    }
+
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(`addToCart failed ${res.status}: ${body.slice(0, 200)}`);
     }
   }
 
   /**
-   * Update cart item quantity
-   * PUT /api/carts/<restaurant_id>/
-   * Body: { item_id: <food_id>, quantity: <int> }
+   * PUT /api/carts/<restaurant_id>/  {item_id, quantity}
    */
   async updateCartItem(restaurantId, foodId, quantity) {
-    try {
-      if (!authService.isAuthenticated()) {
-        const localCart = this.loadLocalCart();
-        if (quantity <= 0) {
-          const updatedCart = localCart.filter(
-            item => !(item.food_id === foodId && item.restaurantId === restaurantId)
-          );
-          this.saveLocalCart(updatedCart);
-          return updatedCart.filter(i => i.restaurantId === restaurantId);
-        }
-        const updatedCart = localCart.map(item =>
-          item.food_id === foodId && item.restaurantId === restaurantId
-            ? { ...item, quantity }
-            : item
-        );
-        this.saveLocalCart(updatedCart);
-        return updatedCart.filter(i => i.restaurantId === restaurantId);
-      }
-
-      if (quantity <= 0) {
-        return await this.removeFromCart(restaurantId, foodId);
-      }
-
-      return await this.authenticatedFetch(`/${restaurantId}/`, {
-        method: 'PUT',                    // ← backend uses PUT not PATCH
-        body: JSON.stringify({
-          item_id: foodId,                // ← matches backend: item_id = request.data.get('item_id')
-          quantity: quantity,
-        }),
-      });
-    } catch (error) {
-      console.error('Error updating cart item:', error);
-      throw error;
+    if (!authService.isAuthenticated()) {
+      return this._localUpdate(restaurantId, foodId, quantity);
+    }
+    if (quantity <= 0) return this.removeFromCart(restaurantId, foodId);
+    const res = await this._rawFetch(`/${restaurantId}/`, {
+      method: 'PUT',
+      body: JSON.stringify({ item_id: foodId, quantity }),
+    });
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(`updateCartItem failed ${res.status}: ${body.slice(0, 200)}`);
     }
   }
 
-  /**
-   * Remove item from cart
-   * DELETE /api/carts/<restaurant_id>/
-   * Body: { item_id: <food_id> }
-   */
   async removeFromCart(restaurantId, foodId) {
-    try {
-      if (!authService.isAuthenticated()) {
-        const localCart = this.loadLocalCart();
-        const updatedCart = localCart.filter(
-          item => !(item.food_id === foodId && item.restaurantId === restaurantId)
-        );
-        this.saveLocalCart(updatedCart);
-        return updatedCart.filter(i => i.restaurantId === restaurantId);
-      }
-
-      return await this.authenticatedFetch(`/${restaurantId}/`, {
-        method: 'DELETE',
-        body: JSON.stringify({
-          item_id: foodId,                // ← matches backend: item_id = request.data.get('item_id')
-        }),
-      });
-    } catch (error) {
-      console.error('Error removing from cart:', error);
-      throw error;
+    if (!authService.isAuthenticated()) {
+      return this._localRemove(restaurantId, foodId);
+    }
+    const res = await this._rawFetch(`/${restaurantId}/`, {
+      method: 'DELETE',
+      body: JSON.stringify({ item_id: foodId }),
+    });
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(`removeFromCart failed ${res.status}: ${body.slice(0, 200)}`);
     }
   }
 
+  // ─── raw fetch with auto token refresh, returns Response object ───────────
+  async _rawFetch(endpoint, options = {}) {
+    const url = endpoint.startsWith('http')
+      ? endpoint
+      : `${this.API_BASE_URL}${endpoint}`;
+    let accessToken = authService.getAccessToken();
+    const attempt = (token) => fetch(url, {
+      ...options,
+      headers: { ...options.headers, 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+    });
+    let res = await attempt(accessToken);
+    if (res.status === 401) {
+      accessToken = await authService.refreshAccessToken();
+      res = await attempt(accessToken);
+    }
+    return res;
+  }
+
   /**
-   * Sync local cart to backend after login/signup
-   * Groups items by restaurant, then POSTs each item.
-   * If item already exists (409), falls back to PUT.
+   * After login: push any guest cart items to backend, then clear local.
    */
   async syncCartAfterLogin() {
-    try {
-      const localCart = this.loadLocalCart();
+    const local = this.loadLocalCart();
+    if (!local.length) return;
 
-      if (localCart.length === 0) {
-        console.log('No local cart to sync');
-        return;
-      }
-
-      // Group by restaurantId
-      const grouped = localCart.reduce((acc, item) => {
-        const rid = item.restaurantId;
-        if (!acc[rid]) acc[rid] = [];
-        acc[rid].push(item);
-        return acc;
-      }, {});
-
-      for (const [restaurantId, items] of Object.entries(grouped)) {
-        for (const item of items) {
-          try {
-            // food_id is the correct field — set by backend responses and RestaurantDetail
-            const foodId = item.food_id || item.foodId;
-            if (!foodId) {
-              console.warn('Skipping item without food_id:', item);
-              continue;
-            }
-            await this.addToCart(parseInt(restaurantId), {
-              food_id: foodId,
-              quantity: item.quantity || 1,
-            });
-          } catch (err) {
-            console.error(`Failed to sync item to backend:`, item, err);
-          }
-        }
-      }
-
-      // Clear local cart after successful sync
-      this.clearLocalCart();
-      console.log('Cart synced to backend successfully');
-    } catch (error) {
-      console.error('Error syncing cart after login:', error);
-    }
-  }
-
-  // ============================================
-  // LOCAL HELPERS
-  // ============================================
-
-  getTotalItemsCount() {
-    const cart = this.loadLocalCart();
-    return cart.reduce((total, item) => total + item.quantity, 0);
-  }
-
-  getSubtotal() {
-    const cart = this.loadLocalCart();
-    return cart.reduce((total, item) => total + item.price * item.quantity, 0);
-  }
-
-  getGroupedByRestaurant() {
-    const cart = this.loadLocalCart();
-    return cart.reduce((acc, item) => {
-      const restaurantId = item.restaurantId || 'unknown';
-      if (!acc[restaurantId]) {
-        acc[restaurantId] = {
-          restaurantName: item.restaurant,
-          restaurantId,
-          restaurantImage: item.restaurantImage,
-          items: [],
-          subtotal: 0,
-          savings: 0,
-        };
-      }
-      acc[restaurantId].items.push(item);
-      acc[restaurantId].subtotal += item.price * item.quantity;
-      if (item.originalPrice) {
-        acc[restaurantId].savings += (item.originalPrice - item.price) * item.quantity;
-      }
+    // Group by restaurant
+    const grouped = local.reduce((acc, item) => {
+      const rid = item.restaurantId;
+      if (!acc[rid]) acc[rid] = [];
+      acc[rid].push(item);
       return acc;
     }, {});
+
+    for (const [restaurantId, items] of Object.entries(grouped)) {
+      for (const item of items) {
+        const foodId = item.food_id ?? item.foodId;
+        if (!foodId) continue;
+        try {
+          await this.addToCart(parseInt(restaurantId), {
+            food_id: foodId,
+            quantity: item.quantity ?? 1,
+          });
+        } catch (e) {
+          console.error('Sync item failed:', item, e);
+        }
+      }
+    }
+    this.clearLocalCart();
+  }
+
+  // ─── LOCAL-ONLY HELPERS (guest mode) ──────────────────────────────────────
+
+  _localAdd(restaurantId, item) {
+    const cart = this.loadLocalCart();
+    const foodId = item.food_id ?? item.foodId;
+    const idx = cart.findIndex(
+      i => (i.food_id ?? i.foodId) === foodId && i.restaurantId === restaurantId
+    );
+    if (idx !== -1) {
+      cart[idx].quantity += item.quantity ?? 1;
+    } else {
+      cart.push({ ...item, food_id: foodId, foodId, restaurantId, quantity: item.quantity ?? 1 });
+    }
+    this.saveLocalCart(cart);
+  }
+
+  _localUpdate(restaurantId, foodId, quantity) {
+    let cart = this.loadLocalCart();
+    if (quantity <= 0) {
+      cart = cart.filter(
+        i => !((i.food_id ?? i.foodId) === foodId && i.restaurantId === restaurantId)
+      );
+    } else {
+      cart = cart.map(i =>
+        (i.food_id ?? i.foodId) === foodId && i.restaurantId === restaurantId
+          ? { ...i, quantity }
+          : i
+      );
+    }
+    this.saveLocalCart(cart);
+  }
+
+  _localRemove(restaurantId, foodId) {
+    const cart = this.loadLocalCart().filter(
+      i => !((i.food_id ?? i.foodId) === foodId && i.restaurantId === restaurantId)
+    );
+    this.saveLocalCart(cart);
   }
 }
 

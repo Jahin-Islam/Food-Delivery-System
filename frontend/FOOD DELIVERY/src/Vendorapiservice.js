@@ -1,374 +1,181 @@
 // vendorApiService.js - Vendor/Business Owner API Service
-// Handles all API calls for Business Dashboard (Menu, Categories, Discounts, Items)
 
 import authService from './Authservice';
 
 class VendorApiService {
   constructor() {
+    // NOTE: must match your Django URL conf — check your main urls.py
+    // If cart uses /api/v1/carts and restaurant uses /api/v1/restaurants,
+    // vendor should also be /api/v1/vendor  (change if your urls.py differs)
     this.API_BASE_URL = 'http://127.0.0.1:8000/api/vendor';
   }
 
-  // ============================================
-  // HELPER: Authenticated Fetch for Vendor
-  // ============================================
-  
-  async authenticatedFetch(endpoint, options = {}) {
+  // ─── Get a valid token, refreshing if needed ──────────────────────────────
+  async _getValidToken() {
+    let token = authService.getAccessToken();
+    if (!token) {
+      try { token = await authService.refreshAccessToken(); }
+      catch { throw new Error('Not authenticated. Please log in again.'); }
+    }
+    return token;
+  }
+
+  // ─── Authenticated JSON fetch with auto-refresh and FULL error body ───────
+  async _jsonFetch(endpoint, options = {}) {
     const url = endpoint.startsWith('http') ? endpoint : `${this.API_BASE_URL}${endpoint}`;
-    return await authService.authenticatedFetch(url, options);
+    let token = await this._getValidToken();
+
+    const attempt = (t) => fetch(url, {
+      ...options,
+      headers: {
+        ...options.headers,
+        'Authorization': `Bearer ${t}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    let res = await attempt(token);
+
+    if (res.status === 401) {
+      try { token = await authService.refreshAccessToken(); res = await attempt(token); }
+      catch { throw new Error('Session expired. Please log in again.'); }
+    }
+
+    // Return null for 204 No Content (DELETE success)
+    if (res.status === 204) return null;
+
+    const text = await res.text();
+
+    if (!res.ok) {
+      // Try to extract a meaningful message from the backend response body
+      let detail = `HTTP ${res.status}`;
+      try {
+        const json = JSON.parse(text);
+        detail = json.detail || json.message || json.error
+          || Object.entries(json).map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`).join(' | ')
+          || detail;
+      } catch { detail = text.slice(0, 200) || detail; }
+      throw new Error(detail);
+    }
+
+    if (!text) return null;
+    try { return JSON.parse(text); } catch { return null; }
   }
 
-  // ============================================
-  // DISCOUNTS (DEALS) API
-  // ============================================
+  // ─── Authenticated FormData fetch (for image uploads) ────────────────────
+  async _formDataFetch(url, method, formData) {
+    let token = await this._getValidToken();
 
-  /**
-   * Get all discounts for the authenticated restaurant
-   * @returns {Promise<Array>} List of discounts
-   */
+    const attempt = (t) => fetch(url, {
+      method,
+      headers: { 'Authorization': `Bearer ${t}` },
+      body: formData,
+    });
+
+    let res = await attempt(token);
+
+    if (res.status === 401) {
+      try { token = await authService.refreshAccessToken(); res = await attempt(token); }
+      catch { throw new Error('Session expired. Please log in again.'); }
+    }
+
+    if (res.status === 204) return null;
+
+    const text = await res.text();
+
+    if (!res.ok) {
+      let detail = `HTTP ${res.status}`;
+      try {
+        const json = JSON.parse(text);
+        detail = json.detail || json.message || json.error
+          || Object.entries(json).map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`).join(' | ')
+          || detail;
+      } catch { detail = text.slice(0, 200) || detail; }
+      throw new Error(detail);
+    }
+
+    if (!text) return null;
+    try { return JSON.parse(text); } catch { return null; }
+  }
+
+  // ─── DISCOUNTS ────────────────────────────────────────────────────────────
   async getDiscounts() {
-    try {
-      return await this.authenticatedFetch('/discounts/');
-    } catch (error) {
-      console.error('Error fetching discounts:', error);
-      throw error;
-    }
+    return this._jsonFetch('/discounts/');
   }
 
-  /**
-   * Add a new discount
-   * @param {Object} discountData - { description, min_order, percentage }
-   * @returns {Promise<Object>} Created discount
-   */
-  async addDiscount(discountData) {
-    try {
-      return await this.authenticatedFetch('/discounts/', {
-        method: 'POST',
-        body: JSON.stringify(discountData),
-      });
-    } catch (error) {
-      console.error('Error adding discount:', error);
-      throw error;
-    }
+  async addDiscount(data) {
+    return this._jsonFetch('/discounts/', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   }
 
-  /**
-   * Update an existing discount
-   * @param {number} discountId - Discount ID
-   * @param {Object} discountData - Updated data
-   * @returns {Promise<Object>} Updated discount
-   */
-  async updateDiscount(discountId, discountData) {
-    try {
-      return await this.authenticatedFetch(`/discounts/${discountId}/`, {
-        method: 'PUT',
-        body: JSON.stringify(discountData),
-      });
-    } catch (error) {
-      console.error('Error updating discount:', error);
-      throw error;
-    }
+  async updateDiscount(id, data) {
+    return this._jsonFetch(`/discounts/${id}/`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
   }
 
-  /**
-   * Delete a discount
-   * @param {number} discountId - Discount ID
-   * @returns {Promise<void>}
-   */
-  async deleteDiscount(discountId) {
-    try {
-      await this.authenticatedFetch(`/discounts/${discountId}/`, {
-        method: 'DELETE',
-      });
-    } catch (error) {
-      console.error('Error deleting discount:', error);
-      throw error;
-    }
+  async deleteDiscount(id) {
+    return this._jsonFetch(`/discounts/${id}/`, { method: 'DELETE' });
   }
 
-  // ============================================
-  // CATEGORIES API
-  // ============================================
-
-  /**
-   * Get all categories for the authenticated restaurant
-   * @returns {Promise<Array>} List of categories
-   */
+  // ─── CATEGORIES ───────────────────────────────────────────────────────────
   async getCategories() {
-    try {
-      return await this.authenticatedFetch('/categories/');
-    } catch (error) {
-      console.error('Error fetching categories:', error);
-      throw error;
-    }
+    return this._jsonFetch('/categories/');
   }
 
-  /**
-   * Add a new category
-   * @param {Object} categoryData - { name }
-   * @returns {Promise<Object>} Created category
-   */
-  async addCategory(categoryData) {
-    try {
-      return await this.authenticatedFetch('/categories/', {
-        method: 'POST',
-        body: JSON.stringify(categoryData),
-      });
-    } catch (error) {
-      console.error('Error adding category:', error);
-      throw error;
-    }
+  async addCategory(data) {
+    return this._jsonFetch('/categories/', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   }
 
-  /**
-   * Update an existing category
-   * @param {number} categoryId - Category ID
-   * @param {Object} categoryData - Updated data
-   * @returns {Promise<Object>} Updated category
-   */
-  async updateCategory(categoryId, categoryData) {
-    try {
-      return await this.authenticatedFetch(`/categories/${categoryId}/`, {
-        method: 'PUT',
-        body: JSON.stringify(categoryData),
-      });
-    } catch (error) {
-      console.error('Error updating category:', error);
-      throw error;
-    }
+  async updateCategory(id, data) {
+    return this._jsonFetch(`/categories/${id}/`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
   }
 
-  /**
-   * Delete a category
-   * @param {number} categoryId - Category ID
-   * @returns {Promise<void>}
-   */
-  async deleteCategory(categoryId) {
-    try {
-      await this.authenticatedFetch(`/categories/${categoryId}/`, {
-        method: 'DELETE',
-      });
-    } catch (error) {
-      console.error('Error deleting category:', error);
-      throw error;
-    }
+  async deleteCategory(id) {
+    return this._jsonFetch(`/categories/${id}/`, { method: 'DELETE' });
   }
 
-  // ============================================
-  // MENU ITEMS API
-  // ============================================
-
-  /**
-   * Get all menu items for the authenticated restaurant
-   * @returns {Promise<Array>} List of menu items
-   */
+  // ─── MENU ITEMS ───────────────────────────────────────────────────────────
   async getItems() {
-    try {
-      return await this.authenticatedFetch('/items/');
-    } catch (error) {
-      console.error('Error fetching items:', error);
-      throw error;
-    }
+    return this._jsonFetch('/items/');
   }
 
-  /**
-   * Add a new menu item (with image upload)
-   * @param {Object} itemData - Item data including image file
-   * @returns {Promise<Object>} Created item
-   */
   async addItem(itemData) {
-    try {
-      const accessToken = authService.getAccessToken();
-      if (!accessToken) {
-        throw new Error('No access token available');
-      }
-
-      // Create FormData for file upload
-      const formData = new FormData();
-      
-      // Append all fields to FormData
-      Object.keys(itemData).forEach(key => {
-        if (itemData[key] !== null && itemData[key] !== undefined) {
-          formData.append(key, itemData[key]);
-        }
-      });
-
-      // Make request with FormData (no Content-Type header, browser sets it)
-      const response = await fetch(`${this.API_BASE_URL}/items/`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          // Don't set Content-Type - let browser set it with boundary
-        },
-        body: formData,
-      });
-
-      if (response.status === 401) {
-        // Try refreshing token
-        const newToken = await authService.refreshAccessToken();
-        const retryResponse = await fetch(`${this.API_BASE_URL}/items/`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${newToken}`,
-          },
-          body: formData,
-        });
-        
-        if (!retryResponse.ok) {
-          throw new Error(`HTTP error! status: ${retryResponse.status}`);
-        }
-        return await retryResponse.json();
-      }
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('Error adding item:', error);
-      throw error;
-    }
+    const formData = new FormData();
+    Object.entries(itemData).forEach(([k, v]) => {
+      if (v !== null && v !== undefined) formData.append(k, v);
+    });
+    return this._formDataFetch(`${this.API_BASE_URL}/items/`, 'POST', formData);
   }
 
-  /**
-   * Update an existing menu item
-   * @param {number} itemId - Item ID
-   * @param {Object} itemData - Updated data (can include new image)
-   * @returns {Promise<Object>} Updated item
-   */
   async updateItem(itemId, itemData) {
-    try {
-      const accessToken = authService.getAccessToken();
-      if (!accessToken) {
-        throw new Error('No access token available');
-      }
-
-      // Create FormData for file upload
-      const formData = new FormData();
-      
-      // Append all fields to FormData
-      Object.keys(itemData).forEach(key => {
-        if (itemData[key] !== null && itemData[key] !== undefined) {
-          formData.append(key, itemData[key]);
-        }
-      });
-
-      const response = await fetch(`${this.API_BASE_URL}/items/${itemId}/`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-        },
-        body: formData,
-      });
-
-      if (response.status === 401) {
-        const newToken = await authService.refreshAccessToken();
-        const retryResponse = await fetch(`${this.API_BASE_URL}/items/${itemId}/`, {
-          method: 'PUT',
-          headers: {
-            'Authorization': `Bearer ${newToken}`,
-          },
-          body: formData,
-        });
-        
-        if (!retryResponse.ok) {
-          throw new Error(`HTTP error! status: ${retryResponse.status}`);
-        }
-        return await retryResponse.json();
-      }
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('Error updating item:', error);
-      throw error;
-    }
+    const formData = new FormData();
+    Object.entries(itemData).forEach(([k, v]) => {
+      if (v !== null && v !== undefined) formData.append(k, v);
+    });
+    return this._formDataFetch(`${this.API_BASE_URL}/items/${itemId}/`, 'PUT', formData);
   }
 
-  /**
-   * Delete a menu item
-   * @param {number} itemId - Item ID
-   * @returns {Promise<void>}
-   */
-  async deleteItem(itemId) {
-    try {
-      await this.authenticatedFetch(`/items/${itemId}/`, {
-        method: 'DELETE',
-      });
-    } catch (error) {
-      console.error('Error deleting item:', error);
-      throw error;
-    }
+  async deleteItem(id) {
+    return this._jsonFetch(`/items/${id}/`, { method: 'DELETE' });
   }
 
-  /**
-   * Toggle item availability
-   * @param {number} itemId - Item ID
-   * @param {boolean} isAvailable - New availability status
-   * @returns {Promise<Object>} Updated item
-   */
-  async toggleItemAvailability(itemId, isAvailable) {
-    try {
-      return await this.authenticatedFetch(`/items/${itemId}/`, {
-        method: 'PATCH',
-        body: JSON.stringify({ is_available: isAvailable ? 1 : 0 }),
-      });
-    } catch (error) {
-      console.error('Error toggling item availability:', error);
-      throw error;
-    }
-  }
-
-  // ============================================
-  // HELPER METHODS
-  // ============================================
-
-  /**
-   * Prepare item data for submission
-   * @param {Object} itemData - Raw item data from form
-   * @returns {Object} Formatted data for API
-   */
-  prepareItemData(itemData) {
-    return {
-      name: itemData.name,
-      description: itemData.description || '',
-      price: parseFloat(itemData.price),
-      discount_ammount: itemData.discount_ammount ? parseFloat(itemData.discount_ammount) : 0,
-      discount_description: itemData.discount_description || '',
-      is_available: itemData.is_available ? 1 : 0,
-      category_id: itemData.category_id || itemData.category_name, // Backend should handle both
-      image: itemData.image_file || null, // File object
-    };
-  }
-
-  /**
-   * Prepare discount data for submission
-   * @param {Object} discountData - Raw discount data from form
-   * @returns {Object} Formatted data for API
-   */
-  prepareDiscountData(discountData) {
-    return {
-      description: discountData.description,
-      min_order: parseFloat(discountData.min_order),
-      percentage: parseFloat(discountData.percentage),
-    };
-  }
-
-  /**
-   * Prepare category data for submission
-   * @param {Object} categoryData - Raw category data from form
-   * @returns {Object} Formatted data for API
-   */
-  prepareCategoryData(categoryData) {
-    return {
-      name: categoryData.name,
-    };
+  async toggleItemAvailability(id, isAvailable) {
+    return this._jsonFetch(`/items/${id}/`, {
+      method: 'PATCH',
+      body: JSON.stringify({ is_available: isAvailable ? 1 : 0 }),
+    });
   }
 }
 
-// Create and export singleton instance
 const vendorApiService = new VendorApiService();
 export default vendorApiService;

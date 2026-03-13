@@ -1,0 +1,54 @@
+/* ============================================================
+   STATIC MAP — Restaurant Detail / Checkout
+   ============================================================ */
+
+.smap-wrapper {
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 1.5px solid var(--c-gray-200);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Address bar below map */
+.smap-address-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--c-white);
+  border-top: 1px solid var(--c-gray-100);
+  font-size: 13px;
+  color: var(--c-gray-700);
+  font-weight: 500;
+}
+.smap-addr-icon { font-size: 15px; flex-shrink: 0; }
+.smap-addr-text {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Placeholder (no coordinates) */
+.smap-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--c-gray-100);
+  border-radius: var(--radius);
+  border: 2px dashed var(--c-gray-300);
+}
+.smap-placeholder-icon { font-size: 36px; opacity: 0.4; }
+.smap-placeholder-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--c-gray-400);
+}
+.smap-placeholder-addr {
+  font-size: 12px;
+  color: var(--c-gray-400);
+  text-align: center;
+  padding: 0 20px;
+}

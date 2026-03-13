@@ -66,7 +66,7 @@ const ItemDetailModal = ({
     // For items without variations, use the base item price
     if (!selectedVariation) {
       const cartItem = {
-        id: `${item.food_id}-${Date.now()}`,
+        id: `${item.food_id}-${item.restaurantId}`,
         foodId: item.food_id,
         name: item.name,
         price: item.price,
@@ -94,7 +94,7 @@ const ItemDetailModal = ({
 
     // For items with variations
     const cartItem = {
-      id: `${item.food_id}-${selectedVariation.id}-${Date.now()}`,
+      id: `${item.food_id}-${selectedVariation.id}-${item.restaurantId}`,
       foodId: item.food_id,
       name: `${item.name} (${selectedVariation.size})`,
       price: selectedVariation.price,

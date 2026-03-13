@@ -248,7 +248,7 @@
 }
 
 .carousel-btn {
-  background: var(--white);
+  background: var(--gray-100);
   border: 1.5px solid var(--c-gray-200);
   width: 32px;
   height: 32px;
@@ -285,7 +285,7 @@
 
 .popular-item {
   min-width: 140px;
-  background: var(--white);
+  background: var(--gray-100);
   border-radius: 10px;
   overflow: hidden;
   box-shadow: var(--shadow-sm);

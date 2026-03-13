@@ -4,7 +4,7 @@ import {
   TrendingUp, Users, Star, ChevronRight, LogOut, Utensils, Package
 } from 'lucide-react';
 import { BRAND, COLORS, MOTION } from '../constants.js';
-import './BusinessWelcome.css';
+import './Businesswelcome.css';
 
 const STATS = [
   { Icon: Users,     number: '12,000+', label: 'Active customers'   },

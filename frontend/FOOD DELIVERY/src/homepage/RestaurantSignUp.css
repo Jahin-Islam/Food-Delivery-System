@@ -1,5 +1,5 @@
 /* ============================================================
-   RESTAURANT SIGN UP — Enhanced CSS
+   RESTAURANT SIGN UP — dark mode + map picker
    ============================================================ */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { width: 100vw; height: 100%; overflow-x: hidden; }
@@ -56,9 +56,14 @@ html, body { width: 100vw; height: 100%; overflow-x: hidden; }
   display: flex; align-items: flex-start; justify-content: center;
   padding: 40px; overflow-y: auto; background: var(--c-white);
 }
-.restaurant-signup-card { width: 100%; max-width: 460px; }
+[data-theme="dark"] .restaurant-signup-right { background: var(--c-bg); }
+
+.restaurant-signup-card { width: 100%; max-width: 480px; }
 .restaurant-signup-header { margin-bottom: 20px; }
-.restaurant-signup-header h2 { font-size: 22px; font-weight: 800; color: var(--c-gray-900); margin-bottom: 5px; letter-spacing: -0.4px; }
+.restaurant-signup-header h2 {
+  font-size: 22px; font-weight: 800; color: var(--c-gray-900);
+  margin-bottom: 5px; letter-spacing: -0.4px;
+}
 .restaurant-signup-header p { font-size: 14px; color: var(--c-gray-500); }
 
 .restaurant-signup-form { display: flex; flex-direction: column; }
@@ -67,13 +72,14 @@ html, body { width: 100vw; height: 100%; overflow-x: hidden; }
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 
 .form-group { margin-bottom: 13px; }
-.form-group label { display: block; font-size: 12px; font-weight: 600; color: var(--c-gray-700); margin-bottom: 5px; }
-.form-group-wrapper { position: relative; display: flex; align-items: center; }
-.form-icon {
-  position: absolute; left: 12px;
-  color: var(--c-gray-400); pointer-events: none; transition: color var(--t);
+.form-group label {
+  display: block; font-size: 12px; font-weight: 600;
+  color: var(--c-gray-700); margin-bottom: 5px;
 }
+.form-group-wrapper { position: relative; display: flex; align-items: center; }
+.form-icon { position: absolute; left: 12px; color: var(--c-gray-400); pointer-events: none; transition: color var(--t); }
 .form-group.focused .form-icon { color: var(--c-primary); }
+
 .form-group input,
 .form-group select {
   width: 100%; padding: 11px 40px 11px 38px;
@@ -85,16 +91,14 @@ html, body { width: 100vw; height: 100%; overflow-x: hidden; }
 .form-group select { appearance: none; }
 .form-group input::placeholder { color: var(--c-gray-400); }
 .form-group input:focus, .form-group.focused input,
-.form-group select:focus { border-color: var(--c-primary); background: var(--c-white); box-shadow: 0 0 0 3px var(--shadow-primary-ring); }
-/* select — no left icon variant */
-.form-group select.no-icon { padding-left: 12px; }
-.form-group input.no-icon { padding-left: 12px; }
-
-/* Select arrow */
-.select-arrow {
-  position: absolute; right: 12px;
-  color: var(--c-gray-400); pointer-events: none;
+.form-group select:focus, .form-group.focused select {
+  border-color: var(--c-primary); background: var(--c-white);
+  box-shadow: 0 0 0 3px var(--shadow-primary-ring);
 }
+[data-theme="dark"] .form-group input,
+[data-theme="dark"] .form-group select { background: var(--c-gray-100); color: var(--c-gray-900); }
+[data-theme="dark"] .form-group input:focus,
+[data-theme="dark"] .form-group select:focus { background: var(--c-gray-50); }
 
 /* Password toggle */
 .pw-toggle {
@@ -105,32 +109,43 @@ html, body { width: 100vw; height: 100%; overflow-x: hidden; }
 }
 .pw-toggle:hover { color: var(--c-primary); }
 
-/* Phone input */
-.phone-input-wrapper { display: flex; gap: 0; }
+/* Phone */
+.phone-input-wrapper { display: flex; }
 .country-code {
   padding: 11px 12px;
-  background: var(--gray-100); border: 2px solid var(--c-gray-200);
+  background: var(--c-gray-100); border: 2px solid var(--c-gray-200);
   border-right: none; border-radius: var(--radius) 0 0 var(--radius);
-  font-size: 14px; font-weight: 600; color: var(--c-gray-700);
-  white-space: nowrap;
+  font-size: 14px; font-weight: 600; color: var(--c-gray-700); white-space: nowrap;
 }
 .phone-input-wrapper input {
   border-radius: 0 var(--radius) var(--radius) 0 !important;
   padding-left: 12px !important;
 }
 
-/* Checkbox */
+/* ── Map Picker ── */
+.map-picker-toggle {
+  display: flex; align-items: center; gap: 7px;
+  background: var(--c-primary-light); color: var(--c-primary);
+  border: 1.5px solid var(--c-primary); border-radius: var(--radius);
+  padding: 9px 16px; font-size: 13px; font-weight: 700;
+  cursor: pointer; font-family: var(--font);
+  transition: all var(--t); margin-bottom: 12px;
+}
+.map-picker-toggle:hover { background: var(--c-primary); color: white; }
+.map-picker-wrapper { margin-bottom: 14px; }
+.map-picker-hint { font-size: 12px; color: var(--c-gray-400); margin-bottom: 8px; }
+.map-coords { font-size: 11px; color: var(--c-gray-400); margin-top: 6px; font-weight: 600; }
+
+/* Checkboxes */
 .checkbox-group {
-  display: flex; align-items: flex-start; gap: 9px;
-  margin-bottom: 10px;
+  display: flex; align-items: flex-start; gap: 9px; margin-bottom: 10px;
 }
 .checkbox-group input[type="checkbox"] {
   width: 15px; height: 15px; margin-top: 2px;
   accent-color: var(--c-primary); cursor: pointer; flex-shrink: 0;
 }
 .checkbox-group label { font-size: 13px; color: var(--c-gray-500); cursor: pointer; line-height: 1.5; }
-.whatsapp-text { color: var(--c-whatsapp); font-weight: 600; }
-.whatsapp-checkbox label { display: flex; align-items: center; gap: 5px; }
+.whatsapp-text { color: #25D366; font-weight: 600; }
 
 /* Register button */
 .register-btn {
@@ -143,7 +158,7 @@ html, body { width: 100vw; height: 100%; overflow-x: hidden; }
   margin-top: 4px; margin-bottom: 16px;
   transition: transform var(--t), box-shadow var(--t);
 }
-.register-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 22px var(--shadow-primary-hover-color); }
+.register-btn:disabled { opacity: 0.72; cursor: not-allowed; transform: none !important; }
 
 /* Loading dots */
 .btn-loading { display: flex; gap: 5px; align-items: center; }
@@ -158,7 +173,6 @@ html, body { width: 100vw; height: 100%; overflow-x: hidden; }
   40%          { transform: scale(1);   opacity: 1;   }
 }
 
-/* Form footer */
 .form-footer { display: flex; flex-direction: column; gap: 6px; }
 .form-footer p { font-size: 13px; color: var(--c-gray-500); }
 .form-footer a { color: var(--c-primary); font-weight: 600; text-decoration: none; cursor: pointer; }
