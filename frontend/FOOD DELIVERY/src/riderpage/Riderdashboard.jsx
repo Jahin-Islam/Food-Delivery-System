@@ -5,7 +5,7 @@ import {
   Wallet, User, Star, TrendingUp, Package, ChevronRight,
   ChevronLeft, LogOut, Bell, Filter, Calendar, ArrowRight,
   Upload, AlertCircle, Check, X, Phone, Mail, Lock,
-  CreditCard, FileText, Shield, Edit2, Utensils
+  CreditCard, FileText, Shield, Edit2, Utensils, Sun, Moon, HelpCircle,
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import { COLORS, BRAND } from '../constants.js';
@@ -113,6 +113,13 @@ const RiderDashboard = ({ rider = {}, onLogout }) => {
 
   const [activeTab,    setActiveTab]    = useState('status');
   const [isOnline,     setIsOnline]     = useState(false);
+  const [isDark,       setIsDark]       = useState(() => localStorage.getItem('theme') === 'dark');
+  const [showProfile,  setShowProfile]  = useState(false);
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+    localStorage.setItem('theme', isDark ? 'dark' : 'light');
+  }, [isDark]);
   const [orders,       setOrders]       = useState(MOCK_ORDERS);
   const [orderTab,     setOrderTab]     = useState('new');
   const [activeShift,  setActiveShift]  = useState(null);
@@ -187,6 +194,73 @@ const RiderDashboard = ({ rider = {}, onLogout }) => {
         success: { iconTheme: { primary: COLORS.primary, secondary: '#fff' } },
       }} />
 
+      {/* ── RIDER PROFILE DROPDOWN ── */}
+      <AnimatePresence>
+        {showProfile && (
+          <>
+            <div style={{ position: 'fixed', inset: 0, zIndex: 999 }} onClick={() => setShowProfile(false)} />
+            <motion.div
+              initial={{ opacity: 0, y: -10, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0,   scale: 1     }}
+              exit={{    opacity: 0, y: -10, scale: 0.97  }}
+              transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+              style={{
+                position: 'fixed', top: 72, right: 20, width: 280, zIndex: 1000,
+                background: 'var(--white)', borderRadius: 12,
+                boxShadow: '0 8px 32px rgba(0,0,0,0.14)',
+                border: '1.5px solid var(--gray-200)', overflow: 'hidden',
+              }}
+              onClick={e => e.stopPropagation()}>
+
+              {/* Header */}
+              <div style={{ padding: 16, display: 'flex', alignItems: 'center', gap: 12, background: 'linear-gradient(135deg, var(--primary-light), #fed7aa)' }}>
+                <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--gradient-primary)', color: 'white', fontSize: 18, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: 'var(--shadow-primary)' }}>{initials}</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--gray-900)', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{riderData.name}</p>
+                  <p style={{ fontSize: 12, color: 'var(--gray-500)', margin: 0 }}>{riderData.email}</p>
+                </div>
+              </div>
+
+              <div style={{ height: 1, background: 'var(--gray-200)' }} />
+
+              {/* Menu items */}
+              <div style={{ padding: '8px 0' }}>
+                {[
+                  { Icon: User,       label: 'Profile',      action: () => { setActiveTab('profile'); setShowProfile(false); } },
+                  { Icon: MapPin,     label: riderData.city,  noAction: true },
+                  { Icon: HelpCircle, label: 'Help Center',  action: () => { window.open('https://www.foodpanda.com.bd/contents/help-center', '_blank'); setShowProfile(false); } },
+                ].map(({ Icon, label, action, noAction }, i) => (
+                  <motion.button key={i}
+                    onClick={noAction ? undefined : action}
+                    initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.04 + i * 0.04 }}
+                    whileHover={noAction ? {} : { x: 3 }}
+                    style={{ width: '100%', padding: '12px 16px', background: 'none', border: 'none', display: 'flex', alignItems: 'center', gap: 12, cursor: noAction ? 'default' : 'pointer', fontFamily: 'var(--font)', textAlign: 'left', transition: 'background 0.15s' }}
+                    onMouseEnter={e => { if (!noAction) e.currentTarget.style.background = 'var(--gray-50)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'none'; }}>
+                    <Icon size={17} style={{ color: 'var(--gray-500)', flexShrink: 0 }} />
+                    <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--gray-700)' }}>{label}</span>
+                  </motion.button>
+                ))}
+
+                <div style={{ height: 1, background: 'var(--gray-200)', margin: '4px 0' }} />
+
+                <motion.button
+                  onClick={() => { setShowProfile(false); onLogout?.(); }}
+                  initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.2 }} whileHover={{ x: 3 }}
+                  style={{ width: '100%', padding: '12px 16px', background: 'none', border: 'none', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', fontFamily: 'var(--font)', textAlign: 'left' }}
+                  onMouseEnter={e => { e.currentTarget.style.background = '#fef2f2'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'none'; }}>
+                  <LogOut size={17} style={{ color: '#dc2626', flexShrink: 0 }} />
+                  <span style={{ fontSize: 14, fontWeight: 600, color: '#dc2626' }}>Logout</span>
+                </motion.button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
       {/* ── TOP HEADER (logo + right controls) ── */}
       <header className="rdb-header">
         <div className="rdb-header-top">
@@ -199,15 +273,32 @@ const RiderDashboard = ({ rider = {}, onLogout }) => {
             <span className="rdb-logo-sub">rider</span>
           </div>
 
-          {/* Right: status pill + avatar + logout */}
+          {/* Right: status + dark mode + profile */}
           <div className="rdb-header-right">
             <div className="rdb-status-pill" style={{ background: isOnline ? 'rgba(16,185,129,0.15)' : 'rgba(0,0,0,0.05)' }}>
               <div className={`rdb-status-dot ${isOnline ? 'online' : ''}`} />
               <span className="rdb-status-text">{isOnline ? 'Online' : 'Offline'}</span>
             </div>
-            <div className="rdb-header-avatar" title={riderData.name}>{initials}</div>
-            <button className="rdb-logout-btn" onClick={onLogout}>
-              <LogOut size={14} /> Logout
+
+            {/* Dark mode toggle */}
+            <motion.button className="rdb-icon-btn" onClick={() => setIsDark(p => !p)}
+              whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.92 }} title="Toggle dark mode">
+              <AnimatePresence mode="wait">
+                {isDark
+                  ? <motion.span key="sun"  initial={{ rotate: -90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: 90, opacity: 0 }} transition={{ duration: 0.15 }} style={{ display: 'flex' }}><Sun size={16} /></motion.span>
+                  : <motion.span key="moon" initial={{ rotate:  90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate:-90, opacity: 0 }} transition={{ duration: 0.15 }} style={{ display: 'flex' }}><Moon size={16} /></motion.span>
+                }
+              </AnimatePresence>
+            </motion.button>
+
+            {/* Profile button */}
+            <button className="rdb-profile-btn" onClick={() => setShowProfile(true)}>
+              <div className="rdb-header-avatar">{initials}</div>
+              <div className="rdb-profile-btn-info">
+                <span className="rdb-profile-btn-name">{riderData.name.split(' ')[0]}</span>
+                <span className="rdb-profile-btn-role">Rider</span>
+              </div>
+              <ChevronRight size={13} style={{ color: 'var(--gray-400)', flexShrink: 0 }} />
             </button>
           </div>
         </div>
@@ -860,7 +951,7 @@ const ProfileTab = ({ rider }) => {
             <Icon size={18} color={COLORS.primary} />
             <span>{label}</span>
             <span className="rdb-profile-view">View</span>
-            <ChevronRight size={16} color="var(--c-gray-400)" />
+            <ChevronRight size={16} color="var(--gray-400)" />
           </button>
         ))}
       </div>

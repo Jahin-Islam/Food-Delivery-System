@@ -5,28 +5,16 @@ import Header from "./Header.jsx";
 import CuisineFilter from "./cuisineOption.jsx";
 import SortOption from "./sortbyOption.jsx";
 import OfferOption from "./offerOption.jsx";
-import PriceOption from "./priceOption.jsx";
+import PriceOption, { filterByPrice } from "./priceOption.jsx";
 import AllCarts from "./AllCarts.jsx";
 
 const Homepage = ({
-  isLoggedIn,
-  user,
-  cartItems,
-  setCartItems,
-  onLoginClick,
-  onSignUpClick,
-  onRestaurantSignUpClick,
-  onLogout,
-  onRestaurantClick,
-  onCheckout,
-  onProfileClick,
-  onOrdersClick,
-  onLogoClick,
-  onDeliveryClick,
-  onPickupClick,
-  onNearMeClick,
+  isLoggedIn, user, cartItems, setCartItems,
+  onLoginClick, onSignUpClick, onRestaurantSignUpClick, onLogout,
+  onRestaurantClick, onCheckout,
+  onProfileClick, onOrdersClick, onLogoClick,
+  onDeliveryClick, onPickupClick, onNearMeClick,
   activeTab = 'delivery',
-  // restaurants passed from App (shared with NearMePage — no duplicate fetch)
   restaurants = [],
 }) => {
   const [searchQuery,      setSearchQuery]      = useState("");
@@ -37,94 +25,79 @@ const Homepage = ({
   const [selectedCuisines, setSelectedCuisines] = useState([]);
   const [sortBy,           setSortBy]           = useState('relevance');
   const [userLocation,     setUserLocation]     = useState(null);
+  const [currentAddress,   setCurrentAddress]   = useState('Road 71, Dhaka, Bangladesh');
 
-  const handleUpdateQuantity = (itemId, newQuantity) => {
-    if (newQuantity <= 0) { handleRemoveItem(itemId); return; }
-    setCartItems(cartItems.map(item => item.id === itemId ? { ...item, quantity: newQuantity } : item));
+  // Filter state
+  const [selectedOffers, setSelectedOffers] = useState({ freeDelivery: false, acceptsVouchers: false, deals: false });
+  const [minPrice,       setMinPrice]       = useState('');
+  const [maxPrice,       setMaxPrice]       = useState('');
+
+  const handlePriceChange = (min, max) => { setMinPrice(min); setMaxPrice(max); };
+
+  const handleUpdateQuantity = (itemId, qty) => {
+    if (qty <= 0) { setCartItems(cartItems.filter(i => i.id !== itemId)); return; }
+    setCartItems(cartItems.map(i => i.id === itemId ? { ...i, quantity: qty } : i));
+  };
+  const handleRemoveItem = id => setCartItems(cartItems.filter(i => i.id !== id));
+  const handleNavigateToRestaurant = id => {
+    const r = restaurants.find(r => r.id == id);
+    if (r && onRestaurantClick) { setShowCart(false); onRestaurantClick(r); }
   };
 
-  const handleRemoveItem = (itemId) => {
-    setCartItems(cartItems.filter(item => item.id !== itemId));
+  const scrollCuisines = dir => {
+    const c = document.querySelector('.cuisines-grid');
+    if (c) { c.scrollTo({ left: c.scrollLeft + (dir === 'left' ? -300 : 300), behavior: 'smooth' }); setTimeout(updateArrows, 300); }
   };
-
-  const handleNavigateToRestaurant = (restaurantId) => {
-    const restaurant = restaurants.find(r => r.id == restaurantId);
-    if (restaurant && onRestaurantClick) { setShowCart(false); onRestaurantClick(restaurant); }
+  const updateArrows = () => {
+    const c = document.querySelector('.cuisines-grid');
+    if (c) { setShowLeftArrow(c.scrollLeft > 0); setShowRightArrow(c.scrollLeft < c.scrollWidth - c.clientWidth - 10); }
   };
-
-  const scrollCuisines = (direction) => {
-    const container = document.querySelector('.cuisines-grid');
-    if (container) {
-      container.scrollTo({ left: container.scrollLeft + (direction === 'left' ? -300 : 300), behavior: 'smooth' });
-      setTimeout(updateArrowVisibility, 300);
-    }
-  };
-
-  const updateArrowVisibility = () => {
-    const container = document.querySelector('.cuisines-grid');
-    if (container) {
-      setShowLeftArrow(container.scrollLeft > 0);
-      setShowRightArrow(container.scrollLeft < container.scrollWidth - container.clientWidth - 10);
-    }
-  };
-
-  useEffect(() => {
-    updateArrowVisibility();
-    window.addEventListener('resize', updateArrowVisibility);
-    return () => window.removeEventListener('resize', updateArrowVisibility);
-  }, []);
-
-  const filteredRestaurants = restaurants.filter(r =>
-    r.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    r.description?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const handleCuisineClick = (cuisineName) => { setSelectedCuisines([cuisineName]); setSearchQuery(""); };
-
-  const handleCuisineToggle = (cuisineName) => {
-    setSelectedCuisines(prev =>
-      prev.includes(cuisineName) ? prev.filter(c => c !== cuisineName) : [...prev, cuisineName]
-    );
-  };
-
-  const getCuisineFilteredRestaurants = () => {
-    if (selectedCuisines.length === 0) return filteredRestaurants;
-    return filteredRestaurants.filter(r =>
-      r.items?.some(item =>
-        selectedCuisines.some(sel => item.category_name?.toLowerCase() === sel.toLowerCase())
-      )
-    );
-  };
-
-  const haversineKm = (a, b) => {
-    if (!a || !b) return Infinity;
-    const R = 6371, dLat = (b.lat - a.lat) * Math.PI / 180, dLng = (b.lng - a.lng) * Math.PI / 180;
-    const s = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * Math.PI / 180) * Math.cos(b.lat * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
-    return R * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1 - s));
-  };
+  useEffect(() => { updateArrows(); window.addEventListener('resize', updateArrows); return () => window.removeEventListener('resize', updateArrows); }, []);
 
   useEffect(() => {
     if ((sortBy === 'distance' || sortBy === 'fast_delivery') && !userLocation) {
       navigator.geolocation?.getCurrentPosition(
-        pos => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        p => setUserLocation({ lat: p.coords.latitude, lng: p.coords.longitude }),
         () => setUserLocation({ lat: 23.7808, lng: 90.4206 })
       );
     }
   }, [sortBy]);
 
+  const haversineKm = (a, b) => {
+    if (!a || !b) return Infinity;
+    const R = 6371, dLat = (b.lat - a.lat) * Math.PI / 180, dLng = (b.lng - a.lng) * Math.PI / 180;
+    const s = Math.sin(dLat/2)**2 + Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.sin(dLng/2)**2;
+    return R * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1-s));
+  };
+
+  // ── Filter pipeline ──────────────────────────────────────────────────────
+  const step1 = restaurants.filter(r =>
+    r.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    r.description?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+  const step2 = selectedCuisines.length === 0 ? step1 :
+    step1.filter(r => r.items?.some(item => selectedCuisines.some(s => item.category_name?.toLowerCase() === s.toLowerCase())));
+  const step3 = step2.filter(r => {
+    if (selectedOffers.freeDelivery    && !r.free_delivery)    return false;
+    if (selectedOffers.acceptsVouchers && !r.accepts_vouchers) return false;
+    if (selectedOffers.deals           && !(r.percentage > 0)) return false;
+    return true;
+  });
+  const step4 = filterByPrice(step3, minPrice, maxPrice);
   const displayedRestaurants = (() => {
-    const base = getCuisineFilteredRestaurants();
-    if (sortBy === 'relevance') return base;
-    return [...base].sort((a, b) => {
-      if (sortBy === 'top_rated') return (parseFloat(b.rating) || 0) - (parseFloat(a.rating) || 0);
+    if (sortBy === 'relevance') return step4;
+    return [...step4].sort((a, b) => {
+      if (sortBy === 'top_rated') return (parseFloat(b.rating)||0) - (parseFloat(a.rating)||0);
       if (sortBy === 'distance' || sortBy === 'fast_delivery') {
         const loc = userLocation || { lat: 23.7808, lng: 90.4206 };
-        return haversineKm(loc, { lat: parseFloat(a.latitude), lng: parseFloat(a.longitude) }) -
-               haversineKm(loc, { lat: parseFloat(b.latitude), lng: parseFloat(b.longitude) });
+        return haversineKm(loc, { lat: +a.latitude, lng: +a.longitude }) - haversineKm(loc, { lat: +b.latitude, lng: +b.longitude });
       }
       return 0;
     });
   })();
+
+  const handleCuisineClick  = name => { setSelectedCuisines([name]); setSearchQuery(""); };
+  const handleCuisineToggle = name => setSelectedCuisines(p => p.includes(name) ? p.filter(c => c !== name) : [...p, name]);
 
   const cuisines = [
     { id: 1,  name: "Pizza",       image: "Pizza.png" },
@@ -147,22 +120,14 @@ const Homepage = ({
   return (
     <div className="homepage-container">
       <Header
-        isLoggedIn={isLoggedIn}
-        user={user}
-        cartItems={cartItems}
-        onLoginClick={onLoginClick}
-        onSignUpClick={onSignUpClick}
+        isLoggedIn={isLoggedIn} user={user} cartItems={cartItems}
+        onLoginClick={onLoginClick} onSignUpClick={onSignUpClick}
         onRestaurantSignUpClick={onRestaurantSignUpClick}
-        onCartClick={() => setShowCart(!showCart)}
-        onLogout={onLogout}
-        onProfileClick={onProfileClick}
-        onOrdersClick={onOrdersClick}
-        onLogoClick={onLogoClick}
-        onDeliveryClick={onDeliveryClick}
-        onPickupClick={onPickupClick}
-        onNearMeClick={onNearMeClick}
-        activeTab={activeTab}
-        showBanner={true}
+        onCartClick={() => setShowCart(!showCart)} onLogout={onLogout}
+        onProfileClick={onProfileClick} onOrdersClick={onOrdersClick} onLogoClick={onLogoClick}
+        onDeliveryClick={onDeliveryClick} onPickupClick={onPickupClick} onNearMeClick={onNearMeClick}
+        activeTab={activeTab} showBanner={true}
+        currentAddress={currentAddress} onAddressChange={setCurrentAddress}
       />
 
       <main className="main-content">
@@ -170,35 +135,32 @@ const Homepage = ({
           <aside className={`sidebar ${showFilters ? "sidebar-visible" : "sidebar-hidden"}`}>
             <div className="sidebar-header">
               <h3 className="sidebar-title">Filters</h3>
-              <button className="close-filters-btn" onClick={() => setShowFilters(false)} aria-label="Close filters">
+              <button className="close-filters-btn" onClick={() => setShowFilters(false)}>
                 <X size={16} />
               </button>
             </div>
             <SortOption sortBy={sortBy} onSortChange={setSortBy} />
-            <OfferOption />
+            <OfferOption selectedOffers={selectedOffers} onOfferChange={setSelectedOffers} />
             <CuisineFilter selectedCuisines={selectedCuisines} onCuisineToggle={handleCuisineToggle} />
-            <PriceOption />
+            <PriceOption minPrice={minPrice} maxPrice={maxPrice} onPriceChange={handlePriceChange} />
           </aside>
 
           <div className={`main-area ${showFilters ? "" : "main-area-full"}`}>
-            {/* Search Bar */}
+            {/* Search */}
             <div className="search-container">
               <div className="search-wrapper">
-                <button className="filter-toggle-btn" onClick={() => setShowFilters(!showFilters)} aria-label="Toggle filters">
-                  <div className="hamburger-icon"><span></span><span></span><span></span></div>
+                <button className="filter-toggle-btn" onClick={() => setShowFilters(!showFilters)}>
+                  <div className="hamburger-icon"><span/><span/><span/></div>
                 </button>
-                <span><img src="/images/accessories/glass.png" className="glass-image" alt="Search" /></span>
-                <input
-                  type="text"
-                  placeholder="Search for restaurants, cuisines, and dishes"
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  className="search-input"
-                />
+                <span style={{ display: 'flex', alignItems: 'center', marginRight: 6 }}>
+                  <Search size={16} style={{ color: 'var(--c-gray-400)' }} />
+                </span>
+                <input type="text" placeholder="Search for restaurants, cuisines, and dishes"
+                  value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="search-input" />
               </div>
             </div>
 
-            {/* Promo Banner */}
+            {/* Promo */}
             {!isLoggedIn && (
               <div className="promo-banner">
                 <div className="promo-content">
@@ -206,6 +168,15 @@ const Homepage = ({
                   <button className="promo-btn" onClick={onSignUpClick}>Sign up</button>
                 </div>
                 <div className="promo-image"><Gift size={64} strokeWidth={1.5} /></div>
+              </div>
+            )}
+
+            {/* Pickup pill */}
+            {activeTab === 'pickup' && (
+              <div style={{ padding: '10px 0 2px' }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-primary)', background: 'var(--c-primary-light)', padding: '4px 14px', borderRadius: 999 }}>
+                  Pick-up mode — browse and collect from these restaurants
+                </span>
               </div>
             )}
 
@@ -219,13 +190,13 @@ const Homepage = ({
                 </div>
               </div>
               <div className="cuisines-grid-wrapper">
-                <div className="cuisines-grid" onScroll={updateArrowVisibility}>
-                  {cuisines.map(cuisine => (
-                    <button key={cuisine.id} className="cuisine-card" onClick={() => handleCuisineClick(cuisine.name)}>
+                <div className="cuisines-grid" onScroll={updateArrows}>
+                  {cuisines.map(c => (
+                    <button key={c.id} className="cuisine-card" onClick={() => handleCuisineClick(c.name)}>
                       <div className="cuisine-icon">
-                        <img src={`/images/cusines/${cuisine.image}`} alt={cuisine.name} className="cuisine-image" />
+                        <img src={`/images/cusines/${c.image}`} alt={c.name} className="cuisine-image" />
                       </div>
-                      <span className="cuisine-name">{cuisine.name}</span>
+                      <span className="cuisine-name">{c.name}</span>
                     </button>
                   ))}
                 </div>
@@ -242,6 +213,7 @@ const Homepage = ({
                     : sortBy === 'top_rated' ? 'Top Rated Restaurants'
                     : sortBy === 'distance' ? 'Nearest Restaurants'
                     : sortBy === 'fast_delivery' ? 'Fastest Delivery Near You'
+                    : activeTab === 'pickup' ? 'Restaurants for Pick-up'
                     : 'Featured Restaurants'}
                 </h2>
               </div>
@@ -257,30 +229,28 @@ const Homepage = ({
               {restaurants.length > 0 && (
                 <div className="deals-grid">
                   {displayedRestaurants.length > 0 ? (
-                    displayedRestaurants.map(restaurant => (
-                      <div key={restaurant.id} className="deal-card" onClick={() => onRestaurantClick?.(restaurant)}>
+                    displayedRestaurants.map(r => (
+                      <div key={r.id} className="deal-card" onClick={() => onRestaurantClick?.(r)}>
                         <div className="deal-image">
-                          {restaurant.image_url ? (
-                            <img src={restaurant.image_url} alt={restaurant.name} className="restaurant-img"
-                              onError={e => { e.target.style.display = "none"; e.target.nextSibling.style.display = "flex"; }}
-                            />
-                          ) : null}
-                          <div className="deal-emoji" style={{ display: restaurant.image_url ? "none" : "flex" }}>
+                          {r.image_url
+                            ? <img src={r.image_url} alt={r.name} className="restaurant-img" onError={e => { e.target.style.display="none"; e.target.nextSibling.style.display="flex"; }} />
+                            : null}
+                          <div className="deal-emoji" style={{ display: r.image_url ? "none" : "flex" }}>
                             <UtensilsCrossed size={52} strokeWidth={1.5} />
                           </div>
-                          {restaurant.percentage > 0 && <div className="deal-discount">{restaurant.percentage}% OFF</div>}
+                          {r.percentage > 0 && <div className="deal-discount">{r.percentage}% OFF</div>}
                         </div>
                         <div className="deal-info">
-                          <h3 className="deal-name">{restaurant.name}</h3>
-                          <p className="deal-type">{restaurant.description || "Food • Restaurant"}</p>
-                          <p className="deal-address">{restaurant.address}</p>
+                          <h3 className="deal-name">{r.name}</h3>
+                          <p className="deal-type">{r.description || "Food • Restaurant"}</p>
+                          <p className="deal-address">{r.address}</p>
                           <div className="deal-footer">
                             <div className="deal-rating">
                               <span className="star-icon"><Star size={13} fill="currentColor" /></span>
-                              <span>{restaurant.rating}</span>
-                              <span className="rating-count">({restaurant.total_rated})</span>
+                              <span>{r.rating}</span>
+                              <span className="rating-count">({r.total_rated})</span>
                             </div>
-                            <span className="deal-min-order">Min: ৳{restaurant.min_order}</span>
+                            <span className="deal-min-order">Min: ৳{r.min_order}</span>
                           </div>
                         </div>
                       </div>
@@ -302,13 +272,9 @@ const Homepage = ({
         </div>
       </main>
 
-      <AllCarts
-        isOpen={showCart}
-        onClose={() => setShowCart(false)}
-        cartItems={cartItems}
-        onCheckout={onCheckout}
-        onNavigateToRestaurant={handleNavigateToRestaurant}
-      />
+      <AllCarts isOpen={showCart} onClose={() => setShowCart(false)}
+        cartItems={cartItems} onCheckout={onCheckout}
+        onNavigateToRestaurant={handleNavigateToRestaurant} />
     </div>
   );
 };
