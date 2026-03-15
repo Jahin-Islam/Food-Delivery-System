@@ -26,6 +26,7 @@ class AllCartsView(APIView):
                 c.created_at,
                 res.id as restaurant_id,
                 res.name as restaurant_name,
+                res.image as restaurant_image,
                 ci.id as cart_item_id,
                 ci.quantity,
                 mi.food_id as item_id,
@@ -59,7 +60,8 @@ class AllCartsView(APIView):
                     'cart_id': c_id,
                     'restaurant': {
                         'id': row['restaurant_id'],
-                        'name': row['restaurant_name']
+                        'name': row['restaurant_name'],
+                        'image_url' : CloudinaryImage(row['restaurant_image']).build_url(secure=True) if row['restaurant_image'] else None
                     },
                     'created_at': row['created_at'],
                     'total_price': 0,

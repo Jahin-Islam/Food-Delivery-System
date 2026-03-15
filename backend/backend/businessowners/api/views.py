@@ -3,73 +3,22 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.parsers import MultiPartParser, FormParser
+import cloudinary.uploader
+from cloudinary import CloudinaryImage
+from resturants.api.services import get_all_discounts
+from exceptions import PermissionError, ValidationError, NotFoundError, ConflictError
 
 class RestaurantDiscountView(APIView):
     # We enforce basic token auth availability, but we check role manually below
     permission_classes = [IsAuthenticated]
 
-    def dictfetchall(self, cursor):
-        """
-        Helper function to convert raw SQL rows into a list of dictionaries.
-        This replaces the Serializer's job of formatting data.
-        """
-        columns = [col[0] for col in cursor.description]
-        return [
-            dict(zip(columns, row))
-            for row in cursor.fetchall()
-        ]
-
-    def check_restaurant_owner(self, request):
-        """
-        Validates if user is authenticated and has the correct role.
-        """
-        # 1. Check Role
-        if request.user.role != 'RESTAURANT':
-            return False
-        return True
-
-    def get_restaurant_id(self, user_id):
-        """
-        Raw SQL to find the restaurant ID associated with the user.
-        """
-        with connection.cursor() as cursor:
-            # Table name assumption: 'restaurants_restaurant' 
-            # (app_name + "_" + model_name in lowercase)
-            cursor.execute(
-                "SELECT id FROM resturants_restaurant WHERE user_id = %s LIMIT 1", 
-                [user_id]
-            )
-            row = cursor.fetchone()
-            return row[0] if row else None
-
     def get(self, request):
-        if not self.check_restaurant_owner(request):
-            return Response(
-                {"detail": "Access denied. Only Restaurant owners allowed."}, 
-                status=status.HTTP_403_FORBIDDEN
-            )
-
-        restaurant_id = self.get_restaurant_id(request.user.id)
-        
-        if not restaurant_id:
-            return Response(
-                {"detail": "Restaurant profile not found for this user."}, 
-                status=status.HTTP_404_NOT_FOUND
-            )
-
-        # RAW SQL: Get all discounts for this restaurant
-        with connection.cursor() as cursor:
-            # We select specific fields to return cleanly
-            sql = """
-                SELECT id, discount_num, percentage, min_order, description, is_active 
-                FROM resturants_discount 
-                WHERE resturant_id = %s
-                ORDER BY discount_num ASC
-            """
-            cursor.execute(sql, [restaurant_id])
-            discounts = self.dictfetchall(cursor)
-
-        return Response(discounts, status=status.HTTP_200_OK)
+        try:
+            discounts = get_all_discounts(request)
+            return Response(discounts, status=status.HTTP_200_OK)
+        except PermissionError as e:
+            return Response({"error" : str(e)}, status=status.HTTP_403_FORBIDDEN)
 
     def post(self, request):
         if not self.check_restaurant_owner(request):
@@ -230,7 +179,7 @@ class RestaurantDiscountDetailedView(APIView):
 
         return Response({"detail": "Discount deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
 
-    def put(self, request, pk):
+    def patch(self, request, pk):
         """
         Update a specific discount.
         """
@@ -408,6 +357,7 @@ class CategoryDetailedView(APIView):
 
 class MenuItemView(APIView):
     permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
 
     def get_restaurant_id(self, user_id):
         """Helper to find the restaurant ID for the logged-in user."""
@@ -431,12 +381,10 @@ class MenuItemView(APIView):
             return Response({"detail": "Restaurant profile not found."}, status=status.HTTP_401_UNAUTHORIZED)
 
         with connection.cursor() as cursor:
-            # RAW SQL: Select all items belonging to this restaurant
-            # We also join with Category to get the category name for frontend convenience
             sql = """
                 SELECT 
                     m.food_id, m.name, m.price, m.description, 
-                    m.is_available, m.image_url, m.category_id,
+                    m.is_available,
                     m.image,
                     c.category_id,
                     c.category_name,
@@ -450,65 +398,88 @@ class MenuItemView(APIView):
             cursor.execute(sql, [restaurant_id])
             items = self.dictfetchall(cursor)
 
+        # ✅ Rebuild Cloudinary URL from the public_id stored in 'image' column
+        for item in items:
+            public_id = item.get('image')
+            if public_id:
+                item['image_url'] = CloudinaryImage(public_id).build_url(
+                    quality="auto",
+                    fetch_format="auto",
+                )
+            else:
+                item['image_url'] = None  # no image uploaded
+
         return Response(items, status=status.HTTP_200_OK)
 
     def post(self, request):
-        """
-        Add an item to a certain category for the restaurant.
-        """
         restaurant_id = self.get_restaurant_id(request.user.id)
         if not restaurant_id:
             return Response({"detail": "Restaurant profile not found."}, status=status.HTTP_401_UNAUTHORIZED)
 
         data = request.data
-        
+
         # 1. Basic Validation
         name = data.get('item_name')
         price = data.get('price')
-        category_id = data.get('category_id') # Essential per your request
+        category_id = data.get('category_id')
 
-        
         if not name or not price or not category_id:
             return Response({"detail": "Name, Price, and Category ID are required."}, status=400)
 
         with connection.cursor() as cursor:
-            # 2. SECURITY CHECK: Ensure the Category belongs to THIS restaurant
-            # We don't want Vendor A adding items to Vendor B's category.
+            # 2. Security check
             check_cat_sql = "SELECT category_id FROM items_category WHERE category_id = %s AND restaurant_id = %s"
             cursor.execute(check_cat_sql, [category_id, restaurant_id])
             if not cursor.fetchone():
                 return Response({"detail": "Invalid Category. It may not belong to your restaurant."}, status=status.HTTP_400_BAD_REQUEST)
 
-            # 3. RAW SQL: Insert the Item
+            # 3. ✅ Handle image upload to Cloudinary
+            # Upload to Cloudinary and save only the public_id
+            image_file = request.FILES.get('image')
+            image_public_id = ''
+            if image_file:
+                try:
+                    # Generate a clean filename from item name
+                    clean_name = name.replace(' ', '_').lower()
+                    upload_result = cloudinary.uploader.upload(
+                        image_file,
+                        folder="media/menu_items",               # ✅ Controls the folder in Cloudinary
+                        public_id = f"{restaurant_id}_{category_id}_{clean_name}",              # ✅ Controls the filename
+                        overwrite=True,
+                    )
+                    image_public_id = upload_result.get('public_id', '')
+                    # image_public_id will be: "menu_items/item_name"
+                except Exception as e:
+                    return Response({"detail": f"Image upload failed: {str(e)}"}, status=500)
+
+            # 4. Insert the item
             insert_sql = """
                 INSERT INTO items_menuitem 
-                (restaurant_id, category_id, name, price, description, is_available, image_url, discount_amount, discount_description, image)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                (restaurant_id, category_id, name, price, description, is_available, image, discount_amount, discount_description)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             """
-            
-            # Handling optional fields
             description = data.get('description', '')
-            is_available = data.get('is_available', 1) # Default true
-            image_url = data.get('image_url', '')
+            is_available = data.get('is_available', 1)
             discount_amount = data.get('discount_amount', None)
             discount_description = data.get('discount_description', None)
-            image = data.get('image', '')
 
             cursor.execute(insert_sql, [
-                restaurant_id, category_id, name, price, 
-                description, is_available, image_url, 
-                discount_amount, discount_description, image
+            restaurant_id, category_id, name, price,
+            description, is_available,
+            image_public_id,   # ✅ saves "menu_items/chicken_burger" to DB
+            discount_amount, discount_description
             ])
-            
-            # 4. Get the new ID (MySQL specific)
-            new_id = cursor.lastrowid
 
-        return Response({
+            new_id = cursor.lastrowid
+            return Response({
             "message": "Item created successfully",
             "food_id": new_id,
             "name": name,
-            "category_id": category_id
-        }, status=status.HTTP_201_CREATED)
+            "category_id": category_id,
+            "image_url": CloudinaryImage(image_public_id).build_url()  # ✅ Return the URL to frontend
+            }, status=status.HTTP_201_CREATED)
+
+        
 
 
 class MenuItemDetailedView(APIView):

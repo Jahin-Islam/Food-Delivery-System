@@ -182,7 +182,7 @@ const BusinessDashboard = ({
   const openEditItem = (item) => {
     setEditingItem(item);
     // Restore full category object so submit sends the real category_id
-    setSelectedCategoryForAdd(item.category_name);
+    setSelectedCategoryForAdd(item.category_id);
     setNewItemData({
       name: item.name, description: item.description ?? '',
       price: item.price.toString(), discount_ammount: item.discount_ammount?.toString() ?? '',
@@ -221,7 +221,7 @@ const BusinessDashboard = ({
         discount_amount: newItemData.discount_ammount ? parseFloat(newItemData.discount_ammount) : 0,
         discount_description: newItemData.discount_description,
         is_available: newItemData.is_available ? 1 : 0,
-        category_id: selectedCategoryForAdd?.category_id ?? selectedCategoryForAdd,
+        category_id: selectedCategoryForAdd?.category_id ?? null,
         image: newItemData.image_file ?? undefined,
       };
 
@@ -562,7 +562,10 @@ const BusinessDashboard = ({
                     </div>
                   </div>
                 ))}
-                <button className="business-add-item-card" onClick={() => openAddItem(category)}>
+                <button className="business-add-item-card" onClick={() => {
+  const catObj = categories.find(c => c?.category_name === category);
+  openAddItem(catObj);
+}}>
                   <div className="add-item-icon"><Plus size={22} /></div>
                   <div className="add-item-text">Add New Item</div>
                 </button>

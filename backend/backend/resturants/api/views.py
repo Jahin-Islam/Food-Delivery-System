@@ -8,6 +8,7 @@ from ..models import Discount, Restaurant, Serve
 from .serializers import DiscountSerializer, RestaurantSerializer, ResturantDetailedSerializer
 from items.serializers import ItemSerializer
 from items.models import MenuItem, Category
+from cloudinary import CloudinaryImage
 from rest_framework.permissions import IsAuthenticated
 from orders.api.services import get_restaurant_orders, update_order_status_by_restaurant, get_order_items, get_order_details
 
@@ -106,6 +107,17 @@ class RestaurantDetailedView(APIView):
                 """
             cursor.execute(item_find_query, [pk])
             items = dictfetchall(cursor)
+
+            # ✅ Rebuild Cloudinary URL for each item
+            for item in items:
+                public_id = item.get('image')
+                if public_id:
+                    item['image_url'] = CloudinaryImage(public_id).build_url(
+                        quality="auto",
+                        fetch_format="auto",
+                    )
+                else:
+                    item['image_url'] = None
 
             discount_find_query = """
                 SELECT *

@@ -112,7 +112,7 @@ class VendorApiService {
 
   async updateDiscount(id, data) {
     return this._jsonFetch(`/discounts/${id}/`, {
-      method: 'PUT',
+      method: 'PATCH',
       body: JSON.stringify(data),
     });
   }
