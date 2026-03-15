@@ -8,7 +8,11 @@ from ..models import Discount, Restaurant, Serve
 from .serializers import DiscountSerializer, RestaurantSerializer, ResturantDetailedSerializer
 from items.serializers import ItemSerializer
 from items.models import MenuItem, Category
+from rest_framework.permissions import IsAuthenticated
+from orders.api.services import get_restaurant_orders, update_order_status_by_restaurant, get_order_items, get_order_details
 
+
+VALID_ORDER_STATUSES = {'PENDING', 'PREPARING', 'PICKED_UP', 'DELIVERED', 'CANCELLED'}
 
 def dictfetchall(cursor):
     columns = [col[0] for col in cursor.description]
@@ -20,6 +24,15 @@ def dictfetchone(cursor):
         return None
     columns = [col[0] for col in cursor.description]
     return dict(zip(columns, row))
+
+def get_restaurant_id(user_id):
+    """Resolve auth user_id → restaurant.id. Returns None if no restaurant profile exists."""
+    with connection.cursor() as cursor:
+        cursor.execute("""
+            SELECT id FROM resturants_restaurant WHERE user_id = %s
+        """, [user_id])
+        row = cursor.fetchone()
+    return row[0] if row else None
 
 
 class RestaurantView(mixins.ListModelMixin, generics.GenericAPIView):
@@ -106,3 +119,107 @@ class RestaurantDetailedView(APIView):
             restaurant['discounts'] = discounts
 
             return Response(restaurant, status=status.HTTP_200_OK)
+
+class RestaurantOrderListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        restaurant_id = get_restaurant_id(request.user.id)
+        if not restaurant_id:
+            return Response(
+                {"error": "Restaurant profile not found."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        status_filter = request.query_params.get('status')
+
+        if status_filter:
+            status_filter = status_filter.upper()
+            if status_filter not in VALID_ORDER_STATUSES:
+                return Response(
+                    {"error": f"Invalid status. Valid values are: {sorted(VALID_ORDER_STATUSES)}"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        orders = get_restaurant_orders(restaurant_id, status_filter)
+        return Response(orders, status=status.HTTP_200_OK)
+    
+class RestaurantOrderDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request, order_id):
+        restaurant_id = get_restaurant_id(request.user.id)
+        if not restaurant_id:
+            return Response(
+                {"error": "Restaurant profile not found."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # ── Verify order belongs to this restaurant ──
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT 1 FROM orders_order
+                WHERE order_id = %s AND restaurant_id = %s
+            """, [order_id, restaurant_id])
+            if not cursor.fetchone():
+                return Response(
+                    {"error": "Order not found or does not belong to your restaurant."},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+        order = get_order_details(order_id)
+        order['items'] = get_order_items(order_id)
+
+        return Response(order, status=status.HTTP_200_OK)
+
+    def patch(self, request, order_id):
+        restaurant_id = get_restaurant_id(request.user.id)
+        if not restaurant_id:
+            return Response(
+                {"error": "Restaurant profile not found."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        new_status = request.data.get('status')
+        if not new_status:
+            return Response(
+                {"error": "status is required."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Normalize to uppercase to be forgiving of frontend casing
+        new_status = new_status.upper()
+
+        try:
+            update_order_status_by_restaurant(order_id, restaurant_id, new_status)
+        except ValueError as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        return Response(
+            {"message": f"Order {order_id} status updated to {new_status}."},
+            status=status.HTTP_200_OK
+        )
+    
+"""
+{
+    "restaurant_id": 2,
+    "address_id": 3,
+    "email": "john@example.com",
+    "first_name": "John",
+    "last_name": "Doe",
+    "phone_number": "01712345678",
+    "items": [
+        {
+            "item_id": 14,
+            "quantity": 2
+        },
+        {
+            "item_id": 16,
+            "quantity": 1
+        }
+    ]
+}
+"""

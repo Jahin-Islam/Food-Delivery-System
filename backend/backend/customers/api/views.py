@@ -4,11 +4,15 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from decimal import Decimal, InvalidOperation
+from orders.api.services import get_customer_orders, get_order_details, get_order_items, create_order
+from addresses.api.services import get_all_delivery_address, create_delivery_address, get_specific_delivery_address, update_delivery_address, delete_delivery_address
+from exceptions import ConflictError, ValidationError, PermissionError, NotFoundError
 
 
 # ─────────────────────────────────────────────
 # HELPERS
 # ─────────────────────────────────────────────
+
 def dictfetchall(cursor):
     columns = [col[0] for col in cursor.description]
     return [dict(zip(columns, row)) for row in cursor.fetchall()]
@@ -36,87 +40,25 @@ class CustomerAddressListView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        customer_id = get_customer_id(request.user.id)
-        if not customer_id:
-            return Response(
-                {"error": "Customer profile not found."},
-                status=status.HTTP_404_NOT_FOUND
-            )
-
-        with connection.cursor() as cursor:
-            cursor.execute("""
-                SELECT
-                    id,
-                    address_type,
-                    street_number,
-                    apartment_number,
-                    description,
-                    latitude,
-                    longitude
-                FROM addresses_deliveryaddress
-                WHERE customer_id = %s
-                ORDER BY id DESC
-            """, [customer_id])
-            addresses = dictfetchall(cursor)
-
-        return Response(addresses, status=status.HTTP_200_OK)
+        try:
+            addresses = get_all_delivery_address(request)
+            return Response(addresses, status=status.HTTP_200_OK)
+        except PermissionError as e:
+            return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
 
     def post(self, request):
-        customer_id = get_customer_id(request.user.id)
-        if not customer_id:
+        try:
+            new_id = create_delivery_address(request)
             return Response(
-                {"error": "Customer profile not found."},
-                status=status.HTTP_404_NOT_FOUND
+                {"message": "Address added successfully.", "address_id": new_id},
+                status=status.HTTP_201_CREATED
             )
-
-        data = request.data
-        VALID_TYPES = {'HOME', 'WORK', 'PARTNER', 'OTHER'}
-
-        address_type = str(data.get('address_type', 'HOME')).upper()
-        if address_type not in VALID_TYPES:
-            return Response(
-                {"error": f"address_type must be one of {sorted(VALID_TYPES)}"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        # Check if customer already has an address of this type
-        with connection.cursor() as cursor:
-            cursor.execute("""
-                SELECT id FROM addresses_deliveryaddress
-                WHERE customer_id = %s AND address_type = %s
-            """, [customer_id, address_type])
-            existing = cursor.fetchone()
-
-        if existing:
-            return Response(
-                {
-                    "error": f"You already have a {address_type} address (id: {existing[0]}). "
-                             f"Use PUT /api/customers/me/addresses/{existing[0]}/ to update it."
-                },
-                status=status.HTTP_409_CONFLICT
-            )
-
-        with connection.cursor() as cursor:
-            cursor.execute("""
-                INSERT INTO addresses_deliveryaddress
-                    (customer_id, address_type, street_number, apartment_number,
-                     description, latitude, longitude)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
-            """, [
-                customer_id,
-                address_type,
-                data.get('street_number'),
-                data.get('apartment_number'),
-                data.get('description'),
-                data.get('latitude'),
-                data.get('longitude'),
-            ])
-            new_id = cursor.lastrowid
-
-        return Response(
-            {"message": "Address added successfully.", "address_id": new_id},
-            status=status.HTTP_201_CREATED
-        )
+        except ValidationError as e:
+            return Response({"error" : str(e)}, status= status.HTTP_400_BAD_REQUEST)
+        except ConflictError as e:
+            return Response({"error" : str(e)}, status= status.HTTP_409_CONFLICT)
+        except PermissionError as e:
+            return Response({"error" : str(e)}, status= status.HTTP_404_NOT_FOUND)
 
 
 # ─────────────────────────────────────────────
@@ -127,103 +69,37 @@ class CustomerAddressListView(APIView):
 class CustomerAddressDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
-    def _get_verified_address(self, address_id, customer_id):
-        """Shared helper — returns the address row or None if not found / not owned."""
-        with connection.cursor() as cursor:
-            cursor.execute("""
-                SELECT id, address_type, street_number, apartment_number,
-                       description, latitude, longitude
-                FROM addresses_deliveryaddress
-                WHERE id = %s AND customer_id = %s
-            """, [address_id, customer_id])
-            return dictfetchone(cursor)
-
     def get(self, request, address_id):
-        customer_id = get_customer_id(request.user.id)
-        if not customer_id:
+        try:
+            address = get_specific_delivery_address(request, address_id)
+            return Response(address, status=status.HTTP_200_OK)
+        except PermissionError as e:
+            return Response({"error" : str(e)}, status=status.HTTP_404_NOT_FOUND)
+        except NotFoundError as e:
+            return Response({"error" : str(e)}, status=status.HTTP_404_NOT_FOUND)
+
+    def patch(self, request, address_id):
+        try:
+            updated_address = update_delivery_address(request, address_id)
             return Response(
-                {"error": "Customer profile not found."},
-                status=status.HTTP_404_NOT_FOUND
-            )
-
-        address = self._get_verified_address(address_id, customer_id)
-        if not address:
-            return Response(
-                {"error": "Address not found or access denied."},
-                status=status.HTTP_404_NOT_FOUND
-            )
-
-        return Response(address, status=status.HTTP_200_OK)
-
-    def put(self, request, address_id):
-        customer_id = get_customer_id(request.user.id)
-        if not customer_id:
-            return Response(
-                {"error": "Customer profile not found."},
-                status=status.HTTP_404_NOT_FOUND
-            )
-
-        if not self._get_verified_address(address_id, customer_id):
-            return Response(
-                {"error": "Address not found or access denied."},
-                status=status.HTTP_404_NOT_FOUND
-            )
-
-        data = request.data
-        UPDATABLE_FIELDS = ['street_number', 'apartment_number', 'description', 'latitude', 'longitude']
-        updates = {f: data[f] for f in UPDATABLE_FIELDS if f in data}
-
-        if not updates:
-            return Response(
-                {"error": "No updatable fields provided. Accepted fields: street_number, apartment_number, description, latitude, longitude."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        set_clause = ', '.join(f"{col} = %s" for col in updates)
-        values = list(updates.values()) + [address_id, customer_id]
-
-        with connection.cursor() as cursor:
-            cursor.execute(f"""
-                UPDATE addresses_deliveryaddress
-                SET {set_clause}
-                WHERE id = %s AND customer_id = %s
-            """, values)
-            cursor.execute("""
-                SELECT id, address_type, street_number, apartment_number, description, latitude, longitude
-                FROM addresses_deliveryaddress
-                WHERE id = %s
-            """, [address_id])
-            updated = dictfetchone(cursor)
-
-        return Response(
-            {"message": "Address updated successfully.", "address": updated},
-            status=status.HTTP_200_OK
-        )
+            {"message": "Address updated successfully.", "address": updated_address},
+                status=status.HTTP_200_OK)
+        except PermissionError as e:
+            return Response({"error" : str(e)}, status=status.HTTP_404_NOT_FOUND)
+        except NotFoundError as e:
+            return Response({"error" : str(e)}, status=status.HTTP_404_NOT_FOUND)
+        except ValidationError as e:
+            return Response({"error" : str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request, address_id):
-        customer_id = get_customer_id(request.user.id)
-        if not customer_id:
-            return Response(
-                {"error": "Customer profile not found."},
-                status=status.HTTP_404_NOT_FOUND
-            )
-
-        if not self._get_verified_address(address_id, customer_id):
-            return Response(
-                {"error": "Address not found or access denied."},
-                status=status.HTTP_404_NOT_FOUND
-            )
-
-        with connection.cursor() as cursor:
-            cursor.execute("""
-                DELETE FROM addresses_deliveryaddress
-                WHERE id = %s AND customer_id = %s
-            """, [address_id, customer_id])
-
-        return Response(
-            {"message": "Address deleted successfully."},
-            status=status.HTTP_200_OK
-        )
+        try:
+            delete_delivery_address(request, address_id)
+            return Response({"message" :"Address delete successfully"}, status=status.HTTP_200_OK)
+        except PermissionError as e:
+            return Response({"error" : str(e)}, status=status.HTTP_404_NOT_FOUND)
+        except NotFoundError as e:
+            return Response({"error" : str(e)}, status=status.HTTP_404_NOT_FOUND)
+            
 
 
 # ─────────────────────────────────────────────
@@ -233,97 +109,133 @@ class CustomerOrderListView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        with connection.cursor() as cursor:
-            cursor.execute("""
-                SELECT id FROM customers_customer WHERE user_id = %s
-            """, [request.user.id])
-            row = cursor.fetchone()
+        customer_id = get_customer_id(request.user.id)
+        if not customer_id:
+            return Response(
+                {"error": "Customer profile not found."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        orders = get_customer_orders(customer_id)
+        return Response(orders, status=status.HTTP_200_OK)
 
-        if not row:
+    def post(self, request):
+        """
+            Body for the post request
+            {
+            "restaurant_id": 1,
+            "address_id": 3,
+            "email": "john@example.com",
+            "first_name": "John",
+            "last_name": "Doe",
+            "phone_number": "01712345678",
+            "items": [
+                {
+                    "item_id": 5,
+                    "quantity": 2
+                },
+                {
+                    "item_id": 8,
+                    "quantity": 1
+                }
+            ]
+            }
+        """
+        customer_id = get_customer_id(request.user.id)
+        if not customer_id:
             return Response(
                 {"error": "Customer profile not found."},
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        customer_id = row[0]
+        data = request.data
 
-        with connection.cursor() as cursor:
-            cursor.execute("""
-                SELECT
-                    o.order_id,
-                    o.status,
-                    o.total_amount,
-                    o.created_at,
-                    o.est_delivery,
-                    o.delivered_at,
-                    r.name          AS restaurant_name,
-                    r.image_url     AS restaurant_image
-                FROM orders_order o
-                LEFT JOIN resturants_restaurant r ON r.id = o.restaurant_id
-                WHERE o.customer_id = %s
-                ORDER BY o.created_at DESC
-            """, [customer_id])
-            orders = dictfetchall(cursor)
+        # ── Validate required fields ──
+        restaurant_id = data.get('restaurant_id')
+        items = data.get('items')  # expected: [{ item_id, quantity }]
+        address_id = data.get('address_id')
 
-        return Response(orders, status=status.HTTP_200_OK)
+        if not restaurant_id:
+            return Response(
+                {"error": "restaurant_id is required."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        if not address_id:
+            return Response({"error" : "Address must be provided for delivery"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        if not items or not isinstance(items, list) or len(items) == 0:
+            return Response(
+                {"error": "items must be a non-empty list."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        for i, item in enumerate(items):
+            if 'item_id' not in item or 'quantity' not in item:
+                return Response(
+                    {"error": f"Item at index {i} is missing item_id or quantity."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            if item['quantity'] <= 0:
+                return Response(
+                    {"error": f"Item at index {i} has invalid quantity."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        customer_info = {
+            'email': data.get('email'),
+            'first_name': data.get('first_name'),
+            'last_name': data.get('last_name'),
+            'phone_number': data.get('phone_number'),
+        }
+
+        try:
+            order_id = create_order(
+                customer_id=customer_id,
+                restaurant_id=restaurant_id,
+                address_id=data.get('address_id'),  # optional
+                items=items,
+                customer_info=customer_info,
+            )
+        except ValueError as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        return Response(
+            {"message": "Order placed successfully.", "order_id": order_id},
+            status=status.HTTP_201_CREATED
+        )
+    
+    
 
 
 # ─────────────────────────────────────────────
 # GET  /api/customers/me/orders/<order_id>/
 # ─────────────────────────────────────────────
+
 class CustomerOrderDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, order_id):
-        with connection.cursor() as cursor:
-            cursor.execute("""
-                SELECT
-                    o.order_id,
-                    o.status,
-                    o.total_amount,
-                    o.created_at,
-                    o.est_pickup,
-                    o.est_delivery,
-                    o.delivered_at,
-                    o.email,
-                    o.first_name,
-                    o.last_name,
-                    o.phone_number,
-                    r.name              AS restaurant_name,
-                    ad.street_number,
-                    ad.apartment_number,
-                    ad.description      AS address_description,
-                    ad.latitude         AS delivery_lat,
-                    ad.longitude        AS delivery_lng
-                FROM orders_order o
-                INNER JOIN customers_customer c ON c.id = o.customer_id
-                LEFT JOIN resturants_restaurant r ON r.id = o.restaurant_id
-                LEFT JOIN addresses_deliveryadress ad ON ad.id = o.address_id
-                WHERE o.order_id = %s AND c.user_id = %s
-            """, [order_id, request.user.id])
-            order = dictfetchone(cursor)
+        ##Ownership Check#
+        customer_id = get_customer_id(request.user.id)
 
-        if not order:
-            return Response(
-                {"error": "Order not found or access denied."},
-                status=status.HTTP_404_NOT_FOUND
-            )
-
+        if not customer_id:
+            return Response({"error" : "You are unauthorized to view this api"},
+                        status=status.HTTP_403_FORBIDDEN)
+        
         with connection.cursor() as cursor:
-            cursor.execute("""
-                SELECT
-                    oi.id,
-                    oi.quantity,
-                    oi.price_at_purchase,
-                    mi.name         AS item_name,
-                    mi.image_url    AS item_image
-                FROM orders_orderitem oi
-                LEFT JOIN items_menuitem mi ON mi.food_id = oi.item_id
-                WHERE oi.order_id = %s
-            """, [order_id])
-            order['items'] = dictfetchall(cursor)
+            cursor.execute("select 1 from orders_order where order_id = %s and customer_id = %s", 
+                           [order_id, customer_id])
+            
+            row = dictfetchone(cursor)
+            if not row:
+                return Response({"error" : "The order does not belog to you"}, status=status.HTTP_403_FORBIDDEN)
+        
+        order = get_order_details(order_id)
+        order['items'] = get_order_items(order_id)
 
         return Response(order, status=status.HTTP_200_OK)
+            
 
 
 # ─────────────────────────────────────────────
