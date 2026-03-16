@@ -6,7 +6,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser
 import cloudinary.uploader
 from cloudinary import CloudinaryImage
-from resturants.api.services import get_all_discounts
+from resturants.api.services import get_all_discounts, create_discount
 from exceptions import PermissionError, ValidationError, NotFoundError, ConflictError
 
 class RestaurantDiscountView(APIView):
@@ -21,68 +21,15 @@ class RestaurantDiscountView(APIView):
             return Response({"error" : str(e)}, status=status.HTTP_403_FORBIDDEN)
 
     def post(self, request):
-        if not self.check_restaurant_owner(request):
-            return Response(
-                {"detail": "Access denied. Only Restaurant owners allowed."}, 
-                status=status.HTTP_403_FORBIDDEN
-            )
-
-        restaurant_id = self.get_restaurant_id(request.user.id)
-
-        if not restaurant_id:
-            return Response(
-                {"detail": "Restaurant profile not found. Please create one first."}, 
-                status=status.HTTP_404_NOT_FOUND
-            )
-
-        # Extract data from request body (Manual parsing, no serializer validation)
-        data = request.data
         try:
-            percentage = float(data.get('percentage'))
-            min_order = data.get('min_order') # Can be None/Null
-            description = data.get('description', '')
-            is_active = data.get('is_active', True)
-        except (ValueError, TypeError):
-            return Response(
-                {"detail": "Invalid input data. Percentage is required."}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return create_discount(request)
+        except PermissionError as e:
+            return Response({"error" : str(e)}, status=status.HTTP_403_FORBIDDEN)
+        except NotFoundError as e:
+            return Response({"error" : str(e)}, status=status.HTTP_404_NOT_FOUND)
+        except ValidationError as e:
+            return Response({"error" : str(e)}, status=status.HTTP_404_NOT_FOUND)
 
-        with connection.cursor() as cursor:
-            # RAW SQL: Logic to find current max discount_num
-            # COALESCE ensures if result is NULL (no records), we get 0
-            count_sql = """
-                SELECT COALESCE(MAX(discount_num), 0) 
-                FROM resturants_discount 
-                WHERE resturant_id = %s
-            """
-            cursor.execute(count_sql, [restaurant_id])
-            current_max = cursor.fetchone()[0]
-            
-            # Logic: Add 1 to the max number
-            next_discount_num = current_max + 1
-
-            # RAW SQL: Insert the new discount
-            insert_sql = """
-                INSERT INTO resturants_discount 
-                (resturant_id, discount_num, percentage, min_order, description, is_active) 
-                VALUES (%s, %s, %s, %s, %s, %s)
-            """
-            cursor.execute(insert_sql, [
-                restaurant_id, 
-                next_discount_num, 
-                percentage, 
-                min_order, 
-                description, 
-                is_active
-            ])
-
-        return Response({
-            "message": "Discount created successfully",
-            "discount_num": next_discount_num,
-            "percentage": percentage,
-            "description": description
-        }, status=status.HTTP_201_CREATED)
     
 
 

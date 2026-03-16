@@ -24,6 +24,51 @@ def dictfetchone(cursor):
     row = cursor.fetchone()
     return dict(zip(columns, row)) if row else None
 
+def insert_address(cursor, street_address, city, latitude=None, longitude=None):
+    """
+    Inserts one row into addresses_address and returns the new address_id (int).
+
+    Must be called with an already-open cursor inside a transaction.atomic() block
+    so the insert is part of the same transaction as the caller.
+
+    MySQL note: we use LAST_INSERT_ID() immediately after the INSERT.
+    This is connection-scoped in MySQL — it always returns the ID generated
+    by the most recent INSERT on *this* connection, never someone else's.
+
+    Parameters
+    ----------
+    cursor         : open Django DB cursor
+    street_address : str   e.g. "146, CDA Avenue"
+    city           : str   e.g. "Chittagong"
+    latitude       : float | None
+    longitude      : float | None
+
+    Returns
+    -------
+    int — address_id of the newly inserted row.
+
+    Usage from any other view:
+        with transaction.atomic():
+            with connection.cursor() as cur:
+                addr_id = insert_address(cur, "Road 4", "Dhaka", 23.74, 90.37)
+    """
+    cursor.execute(
+        """
+        INSERT INTO addresses_address (street_address, city, latitude, longitude)
+        VALUES (%s, %s, %s, %s)
+        """,
+        [street_address, city, latitude, longitude]
+    )
+
+    # LAST_INSERT_ID() is MySQL's way of reading the auto-increment value
+    # produced by the INSERT above — no SELECT WHERE needed.
+    cursor.execute("SELECT LAST_INSERT_ID()")
+    row = cursor.fetchone()
+    if not row or not row[0]:
+        raise Exception("MySQL did not return a valid address_id after INSERT.")
+    return row[0]
+
+
 
 
 def get_all_delivery_address(request):
