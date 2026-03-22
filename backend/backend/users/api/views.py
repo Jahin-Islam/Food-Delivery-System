@@ -22,7 +22,7 @@
 # insert_address() is a standalone helper so any other view can reuse it.
 
 from datetime import datetime
-from django.contrib.auth.hashers import make_password
+from django.contrib.auth.hashers import make_password, check_password
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -326,3 +326,80 @@ class UserProfileView(APIView):
                     }
 
         return Response(response_data)
+    def patch(self, request):
+        """
+        PATCH /api/auth/profile/
+        Updatable fields: first_name, last_name, phone_number, password.
+        All fields are optional — only provided fields are updated.
+        For password change, current_password must also be supplied.
+        """
+        user_id = request.user.id
+        data    = request.data
+
+        # ── 1. Collect which updatable fields were sent ──
+        ALLOWED_FIELDS = {'first_name', 'last_name', 'phone_number'}
+        updates = {field: data[field] for field in ALLOWED_FIELDS if field in data}
+
+        new_password     = data.get('new_password')
+        current_password = data.get('current_password')
+
+        # ── 2. Nothing to do? ──
+        if not updates and not new_password:
+            return Response(
+                {"error": "No updatable fields provided."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # ── 3. Basic length/blank validation ──
+        for field, value in updates.items():
+            if not isinstance(value, str) or not value.strip():
+                return Response(
+                    {"error": f"{field} must be a non-empty string."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        # ── 4. Password change validation ──
+        if new_password:
+            if not current_password:
+                return Response(
+                    {"error": "current_password is required to set a new password."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            if len(new_password) < 8:
+                return Response(
+                    {"error": "New password must be at least 8 characters."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT password FROM users_user WHERE id = %s", [user_id]
+                )
+                row = cursor.fetchone()
+
+            if not row or not check_password(current_password, row[0]):
+                return Response(
+                    {"error": "Current password is incorrect."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            updates['password'] = make_password(new_password)
+
+        # ── 5. Build and run the UPDATE ──
+        set_clause = ', '.join(f"{col} = %s" for col in updates)
+        values     = list(updates.values()) + [user_id]
+
+        with connection.cursor() as cursor:
+            cursor.execute(
+                f"UPDATE users_user SET {set_clause} WHERE id = %s",
+                values
+            )
+            if cursor.rowcount == 0:
+                return Response(
+                    {"error": "User not found."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+        return Response(
+            {"message": "Profile updated successfully."},
+            status=status.HTTP_200_OK
+        )

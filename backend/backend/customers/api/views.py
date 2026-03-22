@@ -5,8 +5,8 @@ from rest_framework.response import Response
 from rest_framework import status
 from decimal import Decimal, InvalidOperation
 from orders.api.services import get_customer_orders, get_order_details, get_order_items, create_order
-from addresses.api.services import get_all_delivery_address, create_delivery_address, get_specific_delivery_address, update_delivery_address, delete_delivery_address
 from exceptions import ConflictError, ValidationError, PermissionError, NotFoundError
+from addresses.api.services import get_all_delivery_address, create_delivery_address, get_specific_delivery_address, update_delivery_address, delete_delivery_address
 
 
 # ─────────────────────────────────────────────
@@ -120,25 +120,24 @@ class CustomerOrderListView(APIView):
 
     def post(self, request):
         """
-            Body for the post request
-            {
+        Place a new order.
+
+        Expected body:
+        {
             "restaurant_id": 1,
             "address_id": 3,
+            "delivery_charge": "15.00",
+            "service_charge": "5.00",
+            "rider_tip":"15.00",
             "email": "john@example.com",
             "first_name": "John",
             "last_name": "Doe",
             "phone_number": "01712345678",
             "items": [
-                {
-                    "item_id": 5,
-                    "quantity": 2
-                },
-                {
-                    "item_id": 8,
-                    "quantity": 1
-                }
+                { "item_id": 5, "quantity": 2 },
+                { "item_id": 8, "quantity": 1 }
             ]
-            }
+        }
         """
         customer_id = get_customer_id(request.user.id)
         if not customer_id:
@@ -147,58 +146,12 @@ class CustomerOrderListView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        data = request.data
-
-        # ── Validate required fields ──
-        restaurant_id = data.get('restaurant_id')
-        items = data.get('items')  # expected: [{ item_id, quantity }]
-        address_id = data.get('address_id')
-
-        if not restaurant_id:
-            return Response(
-                {"error": "restaurant_id is required."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        if not address_id:
-            return Response({"error" : "Address must be provided for delivery"}, status=status.HTTP_400_BAD_REQUEST)
-        
-        if not items or not isinstance(items, list) or len(items) == 0:
-            return Response(
-                {"error": "items must be a non-empty list."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        for i, item in enumerate(items):
-            if 'item_id' not in item or 'quantity' not in item:
-                return Response(
-                    {"error": f"Item at index {i} is missing item_id or quantity."},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            if item['quantity'] <= 0:
-                return Response(
-                    {"error": f"Item at index {i} has invalid quantity."},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
-        customer_info = {
-            'email': data.get('email'),
-            'first_name': data.get('first_name'),
-            'last_name': data.get('last_name'),
-            'phone_number': data.get('phone_number'),
-        }
-
         try:
-            order_id = create_order(
-                customer_id=customer_id,
-                restaurant_id=restaurant_id,
-                address_id=data.get('address_id'),  # optional
-                items=items,
-                customer_info=customer_info,
-            )
-        except ValueError as e:
-            return Response(
-                {"error": str(e)},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            order_id = create_order(request, customer_id)
+        except ValidationError as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except NotFoundError as e:
+            return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
 
         return Response(
             {"message": "Order placed successfully.", "order_id": order_id},

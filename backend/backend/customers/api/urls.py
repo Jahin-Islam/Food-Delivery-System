@@ -10,5 +10,5 @@ urlpatterns = [
     path('me/addresses/', views.CustomerAddressListView.as_view(), name='customer-addresses'),
     path('me/addresses/<int:address_id>/', views.CustomerAddressDetailView.as_view(), name='customer-address-detail'),    
     # Wallet  (GET = balance, POST = top-up)
-    path('me/wallet/', views.CustomerWalletView.as_view(), name='customer-wallet'),
+    # path('me/wallet/', views.CustomerWalletView.as_view(), name='customer-wallet'),
 ]

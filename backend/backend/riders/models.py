@@ -11,7 +11,7 @@ class Rider(models.Model):
     vehicle = models.CharField(max_length= 50,
             choices= [('BIKE', 'Motorbike'), ('CYCLE', 'Bicycle'), ('SCOOTER', 'Scooter')]) 
     license_plate = models.CharField(max_length=50)
-
+    verfied = models.IntegerField(default=0)
     current_latitude = models.FloatField(blank=True, null=True)
     current_longitude = models.FloatField(blank=True, null=True)
 
