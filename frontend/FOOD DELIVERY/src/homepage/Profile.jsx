@@ -8,8 +8,15 @@ import AllCarts from './AllCarts.jsx';
 import authService from '../Authservice.js';
 import { COLORS, MOTION } from '../constants.js';
 
-const Profile = ({ isLoggedIn, user, onBack, onLoginClick, onSignUpClick, onLogout, cartItems = [], onProfileClick, onOrdersClick, onLogoClick, onCheckout }) => {
+const Profile = ({
+  isLoggedIn, user, onBack, onLoginClick, onSignUpClick, onLogout,
+  cartItems = [], onProfileClick, onOrdersClick, onLogoClick, onCheckout,
+  currentAddress, onAddressChange,
+  onNearMeClick, onDeliveryClick, onPickupClick,  // fix: near me nav
+}) => {
   const [showCart,            setShowCart]            = useState(false);
+  const [showDeleteConfirm,   setShowDeleteConfirm]   = useState(false);  // fix: delete confirm
+  const [deleteLoading,       setDeleteLoading]       = useState(false);
   const [formData,            setFormData]            = useState({ first_name: '', last_name: '', phone: '', email: '' });
   const [passwordData,        setPasswordData]        = useState({ current_password: '', new_password: '' });
   const [isEditing,           setIsEditing]           = useState(false);
@@ -18,6 +25,7 @@ const Profile = ({ isLoggedIn, user, onBack, onLoginClick, onSignUpClick, onLogo
   const [message,             setMessage]             = useState({ type: '', text: '' });
 
   useEffect(() => {
+    // First fill from prop/localStorage so there's no flash of empty fields
     const u = user || authService.getUser();
     if (u) setFormData({
       first_name: u.first_name || u.firstName || '',
@@ -25,6 +33,20 @@ const Profile = ({ isLoggedIn, user, onBack, onLoginClick, onSignUpClick, onLogo
       phone:      u.phone_number || u.phone || '',
       email:      u.email || '',
     });
+
+    // Then fetch fresh data from backend to get the latest values
+    const fetchFresh = async () => {
+      try {
+        const fresh = await authService.fetchUserDetails();
+        if (fresh) setFormData({
+          first_name: fresh.first_name || '',
+          last_name:  fresh.last_name  || '',
+          phone:      fresh.phone_number || '',
+          email:      fresh.email || '',
+        });
+      } catch {}
+    };
+    if (authService.isAuthenticated()) fetchFresh();
   }, [user]);
 
   const showMsg = (type, text) => {
@@ -35,9 +57,13 @@ const Profile = ({ isLoggedIn, user, onBack, onLoginClick, onSignUpClick, onLogo
   const handleUpdate = async () => {
     setLoading(true);
     try {
-      await authService.authenticatedFetch('http://127.0.0.1:8000/api/auth/user/', {
+      await authService.authenticatedFetch('http://127.0.0.1:8000/api/auth/profile/', {
         method: 'PATCH',
-        body: JSON.stringify({ first_name: formData.first_name, last_name: formData.last_name, phone_number: formData.phone }),
+        body: JSON.stringify({
+          first_name:   formData.first_name,
+          last_name:    formData.last_name,
+          phone_number: formData.phone,
+        }),
       });
       toast.success('Profile updated successfully');
       setIsEditing(false);
@@ -57,8 +83,13 @@ const Profile = ({ isLoggedIn, user, onBack, onLoginClick, onSignUpClick, onLogo
     }
     setLoading(true);
     try {
-      await authService.authenticatedFetch('http://127.0.0.1:8000/api/auth/change-password/', {
-        method: 'POST', body: JSON.stringify(passwordData),
+      // Backend handles password change via the same PATCH /api/auth/profile/ endpoint
+      await authService.authenticatedFetch('http://127.0.0.1:8000/api/auth/profile/', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          current_password: passwordData.current_password,
+          new_password:     passwordData.new_password,
+        }),
       });
       toast.success('Password changed successfully');
       setPasswordData({ current_password: '', new_password: '' });
@@ -70,6 +101,30 @@ const Profile = ({ isLoggedIn, user, onBack, onLoginClick, onSignUpClick, onLogo
     }
   };
 
+  const handleDeleteAccount = async () => {
+    setDeleteLoading(true);
+    try {
+      await authService.authenticatedFetch('http://127.0.0.1:8000/api/auth/profile/', {
+        method: 'DELETE',
+      });
+      // Wipe everything immediately — account no longer exists in DB
+      authService.clearTokens();
+      authService.clearUser();
+      authService.clearRestaurantData();
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('user');
+      localStorage.removeItem('restaurantData');
+      toast.success('Account deleted. Goodbye!');
+      setShowDeleteConfirm(false);
+      // Small delay so user sees the toast, then call onLogout to reset all React state and go home
+      setTimeout(() => { onLogout?.(); }, 1200);
+    } catch (err) {
+      toast.error(err.message || 'Failed to delete account. Please contact support.');
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
   const initials = `${formData.first_name?.[0] || ''}${formData.last_name?.[0] || ''}`.toUpperCase() || 'U';
   const fullName = `${formData.first_name} ${formData.last_name}`.trim() || 'User';
 
@@ -83,7 +138,12 @@ const Profile = ({ isLoggedIn, user, onBack, onLoginClick, onSignUpClick, onLogo
         onLoginClick={onLoginClick} onSignUpClick={onSignUpClick}
         onCartClick={() => setShowCart(!showCart)} onLogout={onLogout}
         onProfileClick={onProfileClick} onOrdersClick={onOrdersClick}
-        onLogoClick={onLogoClick} />
+        onLogoClick={onLogoClick}
+        onNearMeClick={onNearMeClick}
+        onDeliveryClick={onDeliveryClick}
+        onPickupClick={onPickupClick}
+        currentAddress={currentAddress}
+        onAddressChange={onAddressChange} />
 
       <div className="profile-content">
         {/* Avatar card */}
@@ -223,10 +283,26 @@ const Profile = ({ isLoggedIn, user, onBack, onLoginClick, onSignUpClick, onLogo
           <p style={{ fontSize: 13, color: 'var(--c-gray-500)', marginBottom: 14, lineHeight: 1.5 }}>
             Permanently delete your account and all associated data. This action cannot be undone.
           </p>
-          <button className="btn-danger"
-            onClick={() => toast.error('Account deletion requires confirmation', { icon: '⚠️' })}>
-            Delete My Account
-          </button>
+
+          {!showDeleteConfirm ? (
+            <button className="btn-danger" onClick={() => setShowDeleteConfirm(true)}>
+              Delete My Account
+            </button>
+          ) : (
+            <div style={{ background: '#fee2e2', border: '1.5px solid #fca5a5', borderRadius: 10, padding: 16 }}>
+              <p style={{ fontSize: 14, fontWeight: 600, color: '#991b1b', marginBottom: 12 }}>
+                Are you sure? This cannot be undone.
+              </p>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button className="btn-ghost" onClick={() => setShowDeleteConfirm(false)} disabled={deleteLoading}>
+                  Cancel
+                </button>
+                <button className="btn-danger" onClick={handleDeleteAccount} disabled={deleteLoading}>
+                  {deleteLoading ? <span className="btn-loading"><span/><span/><span/></span> : 'Yes, Delete My Account'}
+                </button>
+              </div>
+            </div>
+          )}
         </motion.div>
       </div>
 

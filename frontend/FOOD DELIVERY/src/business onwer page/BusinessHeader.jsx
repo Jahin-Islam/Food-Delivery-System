@@ -3,19 +3,19 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Utensils, ShoppingBag, Clock, Sun, Moon,
   User, HelpCircle, LogOut, Package, Building2,
-  ChevronRight,
+  ChevronRight, UserCircle,
 } from 'lucide-react';
 import { BRAND, COLORS } from '../constants.js';
 
-// ─── PROFILE DROPDOWN  (matches Profiledropdown.jsx style) ───────────────────
+// ─── PROFILE DROPDOWN ────────────────────────────────────────────────────────
 const BusinessProfileDropdown = ({ isOpen, onClose, user, restaurant, onLogout, onProfileClick }) => {
   const initials = [user?.first_name, user?.last_name]
     .filter(Boolean).map(n => n[0]).join('').toUpperCase() || 'BP';
 
   const items = [
-    { Icon: Building2, label: restaurant?.name || 'My Restaurant', sub: 'Restaurant Partner', noAction: true },
-    { Icon: User,      label: 'Profile',      action: () => { onProfileClick?.(); onClose(); } },
-    { Icon: HelpCircle,label: 'Help Center',  action: () => { window.open('https://www.foodpanda.com.bd/contents/help-center', '_blank'); onClose(); } },
+    { Icon: Building2,  label: restaurant?.name || 'My Restaurant', sub: 'Restaurant Partner', noAction: true },
+    { Icon: User,       label: 'Profile',      action: () => { onProfileClick?.(); onClose(); } },
+    { Icon: HelpCircle, label: 'Help Center',  action: () => { window.open('https://www.foodpanda.com.bd/contents/help-center', '_blank'); onClose(); } },
   ];
 
   return (
@@ -30,7 +30,6 @@ const BusinessProfileDropdown = ({ isOpen, onClose, user, restaurant, onLogout, 
             exit={{    opacity: 0, y: -10, scale: 0.97  }}
             transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
           >
-            {/* User header */}
             <div className="bh-dd-header">
               <div className="bh-dd-avatar">{initials}</div>
               <div className="bh-dd-info">
@@ -85,6 +84,7 @@ const BusinessHeader = ({
   onNavigateToMenu,
   onNavigateToOrders,
   onNavigateToHistory,
+  onNavigateToProfile,   // TASK 2: new prop for restaurant profile page
   onProfileClick,
   newOrderCount = 0,
 }) => {
@@ -100,10 +100,12 @@ const BusinessHeader = ({
   const initials = [user?.first_name, user?.last_name]
     .filter(Boolean).map(n => n[0]).join('').toUpperCase() || 'BP';
 
+  // TASK 3: All 4 tabs now have their own click handlers — history always works
   const TABS = [
-    { id: 'menu',    label: 'Menu',          Icon: Utensils,    onClick: onNavigateToMenu    },
-    { id: 'orders',  label: 'Orders',        Icon: ShoppingBag, onClick: onNavigateToOrders, badge: newOrderCount },
-    { id: 'history', label: 'Order History', Icon: Clock,       onClick: onNavigateToHistory },
+    { id: 'menu',    label: 'Menu',            Icon: Utensils,    onClick: onNavigateToMenu    },
+    { id: 'orders',  label: 'Orders',          Icon: ShoppingBag, onClick: onNavigateToOrders, badge: newOrderCount },
+    { id: 'history', label: 'Order History',   Icon: Clock,       onClick: onNavigateToHistory },
+    { id: 'profile', label: 'Restaurant Info', Icon: UserCircle,  onClick: onNavigateToProfile },
   ];
 
   return (
@@ -125,7 +127,6 @@ const BusinessHeader = ({
 
           {/* Right controls */}
           <div className="business-header-right">
-            {/* Dark mode toggle */}
             <motion.button className="bh-icon-btn" onClick={() => setIsDark(p => !p)}
               whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.92 }}
               title={isDark ? 'Light mode' : 'Dark mode'}>
@@ -137,7 +138,6 @@ const BusinessHeader = ({
               </AnimatePresence>
             </motion.button>
 
-            {/* Profile button + dropdown */}
             <div className="bh-profile-wrap" ref={profileRef}>
               <button className="bh-profile-btn" onClick={() => setShowDropdown(p => !p)}>
                 <div className="bh-profile-avatar">{initials}</div>
@@ -154,13 +154,13 @@ const BusinessHeader = ({
                 user={user}
                 restaurant={restaurant}
                 onLogout={onLogout}
-                onProfileClick={onProfileClick}
+                onProfileClick={onNavigateToProfile ?? onProfileClick}
               />
             </div>
           </div>
         </div>
 
-        {/* Nav Tabs */}
+        {/* Nav Tabs — TASK 3: history tab now always calls onNavigateToHistory */}
         <nav className="business-nav-tabs">
           <div className="business-nav-tabs-content">
             {TABS.map(({ id, label, Icon, onClick, badge }) => (

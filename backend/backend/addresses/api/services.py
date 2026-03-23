@@ -1,3 +1,8 @@
+# addresses/api/services.py
+# COMPLETE FILE — only change is in insert_address():
+# latitude and longitude now default to 0.0 instead of None
+# because addresses_address.latitude and .longitude are NOT NULL columns
+
 from django.db import connection
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
@@ -31,44 +36,40 @@ def insert_address(cursor, street_address, city, latitude=None, longitude=None):
     Must be called with an already-open cursor inside a transaction.atomic() block
     so the insert is part of the same transaction as the caller.
 
-    MySQL note: we use LAST_INSERT_ID() immediately after the INSERT.
-    This is connection-scoped in MySQL — it always returns the ID generated
-    by the most recent INSERT on *this* connection, never someone else's.
+    FIX: latitude and longitude are NOT NULL in addresses_address — passing None
+    caused a MySQL constraint error which left address_id as NULL for riders/restaurants
+    who didn't pick a map location. Now defaults to 0.0 instead of None.
 
     Parameters
     ----------
     cursor         : open Django DB cursor
     street_address : str   e.g. "146, CDA Avenue"
     city           : str   e.g. "Chittagong"
-    latitude       : float | None
-    longitude      : float | None
+    latitude       : float | None  → stored as 0.0 if None
+    longitude      : float | None  → stored as 0.0 if None
 
     Returns
     -------
     int — address_id of the newly inserted row.
-
-    Usage from any other view:
-        with transaction.atomic():
-            with connection.cursor() as cur:
-                addr_id = insert_address(cur, "Road 4", "Dhaka", 23.74, 90.37)
     """
     cursor.execute(
         """
         INSERT INTO addresses_address (street_address, city, latitude, longitude)
         VALUES (%s, %s, %s, %s)
         """,
-        [street_address, city, latitude, longitude]
+        [
+            street_address,
+            city or 'Unknown',
+            float(latitude)  if latitude  is not None else 0.0,
+            float(longitude) if longitude is not None else 0.0,
+        ]
     )
 
-    # LAST_INSERT_ID() is MySQL's way of reading the auto-increment value
-    # produced by the INSERT above — no SELECT WHERE needed.
     cursor.execute("SELECT LAST_INSERT_ID()")
     row = cursor.fetchone()
     if not row or not row[0]:
         raise Exception("MySQL did not return a valid address_id after INSERT.")
     return row[0]
-
-
 
 
 def get_all_delivery_address(request):

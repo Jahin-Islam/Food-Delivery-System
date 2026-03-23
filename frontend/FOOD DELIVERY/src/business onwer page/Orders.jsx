@@ -42,7 +42,6 @@ const OrderCard = ({ order, type, onAccept, onDeny, onMarkReady }) => (
     transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
     className={`order-card ${type === 'new' ? 'new-order' : 'accepted-order'}`}>
 
-    {/* Header row */}
     <div className="order-header">
       <div className="order-header-left">
         <div className="customer-avatar">{order.customerName.charAt(0)}</div>
@@ -56,7 +55,6 @@ const OrderCard = ({ order, type, onAccept, onDeny, onMarkReady }) => (
       </div>
     </div>
 
-    {/* Details */}
     <div className="order-details">
       <div className="order-meta-pill">
         <span className="meta-label">Customer</span>
@@ -89,7 +87,6 @@ const OrderCard = ({ order, type, onAccept, onDeny, onMarkReady }) => (
       </div>
     </div>
 
-    {/* Actions */}
     <div className="order-actions">
       {type === 'new' && (<>
         <button className="order-action-btn deny-btn" onClick={() => onDeny(order)}>Deny</button>
@@ -107,7 +104,10 @@ const OrderCard = ({ order, type, onAccept, onDeny, onMarkReady }) => (
 );
 
 // ─── MAIN ─────────────────────────────────────────────────────────────────────
-const Orders = ({ isLoggedIn, user, restaurant, onLogout, onNavigateToMenu, onNavigateToOrderHistory }) => {
+const Orders = ({
+  isLoggedIn, user, restaurant, onLogout,
+  onNavigateToMenu, onNavigateToHistory, onNavigateToProfile,
+}) => {
   const [newOrders,      setNewOrders]      = useState(INITIAL_NEW);
   const [acceptedOrders, setAcceptedOrders] = useState(INITIAL_ACCEPTED);
   const [denyTarget,     setDenyTarget]     = useState(null);
@@ -137,6 +137,7 @@ const Orders = ({ isLoggedIn, user, restaurant, onLogout, onNavigateToMenu, onNa
         success: { iconTheme: { primary: COLORS.primary, secondary: '#fff' } },
       }} />
 
+      {/* TASK 3: Pass all navigation props including history and profile */}
       <BusinessHeader
         activePage="orders"
         user={user}
@@ -144,7 +145,8 @@ const Orders = ({ isLoggedIn, user, restaurant, onLogout, onNavigateToMenu, onNa
         onLogout={onLogout}
         onNavigateToMenu={onNavigateToMenu}
         onNavigateToOrders={() => {}}
-        onNavigateToHistory={onNavigateToOrderHistory}
+        onNavigateToHistory={onNavigateToHistory}
+        onNavigateToProfile={onNavigateToProfile}
         newOrderCount={newOrders.length}
       />
 

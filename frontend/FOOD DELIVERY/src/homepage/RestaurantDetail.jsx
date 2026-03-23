@@ -248,6 +248,12 @@ const RestaurantDetail = ({
   onProfileClick,
   onOrdersClick,
   onNavigateToRestaurant,
+  // Task 10: navigation props for Header nav tabs
+  onNearMeClick,
+  onDeliveryClick,
+  onPickupClick,
+  currentAddress,
+  onAddressChange,
 }) => {
   const [searchQuery,       setSearchQuery]       = useState('');
   const [selectedCategory,  setSelectedCategory]  = useState('All');
@@ -302,6 +308,12 @@ const RestaurantDetail = ({
     onCartClick: () => setShowCart(!showCart),
     onLogout, onLogoClick, onProfileClick, onOrdersClick,
     showBanner: false,
+    // Task 10: pass nav props so header tabs work from restaurant page
+    onNearMeClick,
+    onDeliveryClick: onDeliveryClick ?? onLogoClick,
+    onPickupClick,
+    currentAddress,
+    onAddressChange,
   };
 
   if (!restaurant) return (

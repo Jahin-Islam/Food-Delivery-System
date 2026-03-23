@@ -3,13 +3,12 @@ from django.db import connection
 from rest_framework import mixins, generics, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from ..models import Discount, Restaurant, Serve
 from .serializers import DiscountSerializer, RestaurantSerializer, ResturantDetailedSerializer
 from items.serializers import ItemSerializer
 from items.models import MenuItem, Category
 from cloudinary import CloudinaryImage
-from rest_framework.permissions import IsAuthenticated
 from orders.api.services import get_restaurant_orders, update_order_status_by_restaurant, get_order_items, get_order_details
 
 
@@ -27,7 +26,6 @@ def dictfetchone(cursor):
     return dict(zip(columns, row))
 
 def get_restaurant_id(user_id):
-    """Resolve auth user_id → restaurant.id. Returns None if no restaurant profile exists."""
     with connection.cursor() as cursor:
         cursor.execute("""
             SELECT id FROM resturants_restaurant WHERE user_id = %s
@@ -37,7 +35,7 @@ def get_restaurant_id(user_id):
 
 
 class RestaurantView(mixins.ListModelMixin, generics.GenericAPIView):
-    permission_classes = [AllowAny]   # ← public endpoint, no login needed
+    permission_classes = [AllowAny]
 
     query = """
      SELECT *
@@ -74,7 +72,7 @@ class RestaurantView(mixins.ListModelMixin, generics.GenericAPIView):
 
 
 class RestaurantDetailedView(APIView):
-    permission_classes = [AllowAny]   # ← public endpoint, no login needed
+    permission_classes = [AllowAny]
 
     def get(self, request, pk):
         with connection.cursor() as cursor:
@@ -108,7 +106,6 @@ class RestaurantDetailedView(APIView):
             cursor.execute(item_find_query, [pk])
             items = dictfetchall(cursor)
 
-            # ✅ Rebuild Cloudinary URL for each item
             for item in items:
                 public_id = item.get('image')
                 if public_id:
@@ -131,6 +128,7 @@ class RestaurantDetailedView(APIView):
             restaurant['discounts'] = discounts
 
             return Response(restaurant, status=status.HTTP_200_OK)
+
 
 class RestaurantOrderListView(APIView):
     permission_classes = [IsAuthenticated]
@@ -155,10 +153,11 @@ class RestaurantOrderListView(APIView):
 
         orders = get_restaurant_orders(restaurant_id, status_filter)
         return Response(orders, status=status.HTTP_200_OK)
-    
+
+
 class RestaurantOrderDetailView(APIView):
     permission_classes = [IsAuthenticated]
-    
+
     def get(self, request, order_id):
         restaurant_id = get_restaurant_id(request.user.id)
         if not restaurant_id:
@@ -167,7 +166,6 @@ class RestaurantOrderDetailView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        # ── Verify order belongs to this restaurant ──
         with connection.cursor() as cursor:
             cursor.execute("""
                 SELECT 1 FROM orders_order
@@ -199,7 +197,6 @@ class RestaurantOrderDetailView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Normalize to uppercase to be forgiving of frontend casing
         new_status = new_status.upper()
 
         try:
@@ -214,24 +211,49 @@ class RestaurantOrderDetailView(APIView):
             {"message": f"Order {order_id} status updated to {new_status}."},
             status=status.HTTP_200_OK
         )
-    
-"""
-{
-    "restaurant_id": 2,
-    "address_id": 3,
-    "email": "john@example.com",
-    "first_name": "John",
-    "last_name": "Doe",
-    "phone_number": "01712345678",
-    "items": [
-        {
-            "item_id": 14,
-            "quantity": 2
-        },
-        {
-            "item_id": 16,
-            "quantity": 1
-        }
-    ]
-}
-"""
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# RESTAURANT UPDATE
+# ─────────────────────────────────────────────────────────────────────────────
+
+class RestaurantUpdateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request):
+        restaurant_id = get_restaurant_id(request.user.id)
+        if not restaurant_id:
+            return Response(
+                {"error": "Restaurant profile not found for this account."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        data    = request.data
+        ALLOWED = {'name', 'opening_time', 'closing_time', 'phone'}
+        updates = {k: v for k, v in data.items() if k in ALLOWED}
+
+        if not updates:
+            return Response(
+                {"error": "No valid fields provided. You can update: name, opening_time, closing_time, phone"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        set_clause = ', '.join(f"{col} = %s" for col in updates)
+        values     = list(updates.values()) + [restaurant_id]
+
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    f"UPDATE resturants_restaurant SET {set_clause} WHERE id = %s",
+                    values
+                )
+        except Exception as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+        return Response(
+            {"message": "Restaurant updated successfully."},
+            status=status.HTTP_200_OK
+        )

@@ -397,8 +397,65 @@ class AuthService {
   }
 
   // ============================================
-  // INITIALIZE - Check auth state on app load
+  // REGISTER RIDER
   // ============================================
+
+  async registerRider(riderData) {
+    // Rider registration uses multipart/form-data because it includes NID images
+    const formData = new FormData();
+
+    // Basic auth fields
+    formData.append('role',         'RIDER');
+    formData.append('email',        riderData.email);
+    formData.append('password',     riderData.password);
+    formData.append('password2',    riderData.password2);
+    formData.append('first_name',   riderData.firstName || riderData.name || '');
+    formData.append('last_name',    riderData.lastName  || riderData.surname || '');
+    formData.append('phone_number', riderData.phone.replace(/\D/g, ''));
+
+    // Rider-specific fields
+    formData.append('vehicle',       (riderData.vehicle || '').toUpperCase()
+      .replace('MOTORBIKE', 'BIKE').replace('BI-CYCLE', 'CYCLE').replace('BICYCLE', 'CYCLE'));
+    formData.append('license_plate', riderData.licensePlate || riderData.license_plate || '');
+    formData.append('street_address',riderData.streetAddress || riderData.city || '');
+    formData.append('city',          riderData.city || '');
+    formData.append('nid_number',    riderData.nidNumber || riderData.nid_number || '');
+    formData.append('gender',        riderData.gender || '');
+    formData.append('emergency_contact_name',   riderData.emergencyName   || riderData.emergency_contact_name   || '');
+    formData.append('emergency_contact_number', riderData.emergencyPhone  || riderData.emergency_contact_number || '');
+
+    if (riderData.latitude)  formData.append('latitude',  riderData.latitude);
+    if (riderData.longitude) formData.append('longitude', riderData.longitude);
+
+    // NID image files
+    if (riderData.nidFront) formData.append('nid_front', riderData.nidFront);
+    if (riderData.nidBack)  formData.append('nid_back',  riderData.nidBack);
+
+    try {
+      const response = await fetch(`${this.API_BASE_URL}/register/`, {
+        method: 'POST',
+        // No Content-Type header — browser sets it with boundary for multipart
+        body: formData,
+      });
+
+      if (!response.ok) {
+        let errorMessage = 'Rider registration failed';
+        try {
+          const errorData = await this.safeJsonParse(response);
+          errorMessage = errorData.error || errorData.detail || errorData.message || errorMessage;
+        } catch {}
+        throw new Error(errorMessage);
+      }
+
+      const data = await this.safeJsonParse(response);
+      // Auto-login after registration
+      await this.login(riderData.email, riderData.password, 'email');
+      return data;
+    } catch (error) {
+      console.error('Rider registration error:', error);
+      throw error;
+    }
+  }
 
   async initialize() {
     const accessToken = this.getAccessToken();

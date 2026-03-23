@@ -10,12 +10,14 @@ import AllCarts from "./AllCarts.jsx";
 
 const Homepage = ({
   isLoggedIn, user, cartItems, setCartItems,
-  onLoginClick, onSignUpClick, onRestaurantSignUpClick, onLogout,
+  onLoginClick, onSignUpClick, onRestaurantSignUpClick, onRiderSignUpClick, onLogout,
   onRestaurantClick, onCheckout,
   onProfileClick, onOrdersClick, onLogoClick,
   onDeliveryClick, onPickupClick, onNearMeClick,
   activeTab = 'delivery',
   restaurants = [],
+  currentAddress,
+  onAddressChange,
 }) => {
   const [searchQuery,      setSearchQuery]      = useState("");
   const [showFilters,      setShowFilters]      = useState(true);
@@ -25,7 +27,9 @@ const Homepage = ({
   const [selectedCuisines, setSelectedCuisines] = useState([]);
   const [sortBy,           setSortBy]           = useState('relevance');
   const [userLocation,     setUserLocation]     = useState(null);
-  const [currentAddress,   setCurrentAddress]   = useState('Road 71, Dhaka, Bangladesh');
+  // currentAddress comes from App.jsx (persisted in localStorage) — do NOT use local state
+  // We keep a local copy only as fallback if prop is not passed
+  const [localAddress, setLocalAddress] = useState('');
 
   // Filter state
   const [selectedOffers, setSelectedOffers] = useState({ freeDelivery: false, acceptsVouchers: false, deals: false });
@@ -123,11 +127,13 @@ const Homepage = ({
         isLoggedIn={isLoggedIn} user={user} cartItems={cartItems}
         onLoginClick={onLoginClick} onSignUpClick={onSignUpClick}
         onRestaurantSignUpClick={onRestaurantSignUpClick}
+        onRiderSignUpClick={onRiderSignUpClick}
         onCartClick={() => setShowCart(!showCart)} onLogout={onLogout}
         onProfileClick={onProfileClick} onOrdersClick={onOrdersClick} onLogoClick={onLogoClick}
         onDeliveryClick={onDeliveryClick} onPickupClick={onPickupClick} onNearMeClick={onNearMeClick}
         activeTab={activeTab} showBanner={true}
-        currentAddress={currentAddress} onAddressChange={setCurrentAddress}
+        currentAddress={currentAddress || localAddress}
+        onAddressChange={(addr) => { setLocalAddress(addr); onAddressChange?.(addr); }}
       />
 
       <main className="main-content">

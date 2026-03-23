@@ -48,7 +48,15 @@ const SignUp = ({ onSwitchToSignIn, onSignUpSuccess }) => {
 
     setLoading(true);
     try {
+      // Step 1: Register
       await authService.register({ email, password, password2, first_name, last_name, phone_number });
+
+      // Step 2: Auto-login to get tokens (backend doesn't return tokens on register)
+      await authService.login(email, password);
+
+      // Step 3: Fetch fresh profile so it's available immediately
+      await authService.fetchUserDetails();
+
       toast.success('Account created! Welcome to foodpanda!');
       setTimeout(() => onSignUpSuccess && onSignUpSuccess(authService.getUser()), 600);
     } catch (err) {

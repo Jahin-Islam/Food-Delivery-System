@@ -201,6 +201,17 @@ class MyLoginView(TokenObtainPairView):
 # USER PROFILE — unchanged, returns role-specific data
 # ─────────────────────────────────────────────────────────────────────────────
 
+def format_time(val):
+    """Convert MySQL TimeField value (timedelta or time or string) to HH:MM string."""
+    if val is None:
+        return None
+    if hasattr(val, 'seconds'):  # timedelta from MySQL
+        total = int(val.total_seconds())
+        h, m = divmod(total // 60, 60)
+        return f"{h:02d}:{m:02d}"
+    return str(val)[:5]  # already a string or time object — take first 5 chars "HH:MM"
+
+
 class UserProfileView(APIView):
     """
     GET /api/auth/profile/
@@ -320,8 +331,8 @@ class UserProfileView(APIView):
                         "category":         row[2],
                         "rating":           row[3],
                         "contact_phone":    row[4],
-                        "opening_time":     row[5],
-                        "closing_time":     row[6],
+                        "opening_time":     format_time(row[5]),
+                        "closing_time":     format_time(row[6]),
                         "restaurant_image": row[7],
                     }
 
@@ -388,18 +399,203 @@ class UserProfileView(APIView):
         set_clause = ', '.join(f"{col} = %s" for col in updates)
         values     = list(updates.values()) + [user_id]
 
-        with connection.cursor() as cursor:
-            cursor.execute(
-                f"UPDATE users_user SET {set_clause} WHERE id = %s",
-                values
-            )
-            if cursor.rowcount == 0:
-                return Response(
-                    {"error": "User not found."},
-                    status=status.HTTP_404_NOT_FOUND
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    f"UPDATE users_user SET {set_clause} WHERE id = %s",
+                    values
                 )
+                if cursor.rowcount == 0:
+                    return Response(
+                        {"error": "User not found."},
+                        status=status.HTTP_404_NOT_FOUND
+                    )
+        except IntegrityError:
+            return Response(
+                {"error": "Phone number is already in use by another account."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except Exception as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
         return Response(
             {"message": "Profile updated successfully."},
             status=status.HTTP_200_OK
         )
+
+    def delete(self, request):
+        """
+        DELETE /api/auth/profile/
+        Permanently deletes the authenticated user and all their data.
+        """
+        user_id = request.user.id
+        try:
+            with connection.cursor() as cursor:
+
+                # 1. Get the customer.id
+                cursor.execute(
+                    "SELECT id FROM customers_customer WHERE user_id = %s", [user_id]
+                )
+                row = cursor.fetchone()
+                customer_id = row[0] if row else None
+
+                if customer_id:
+                    # 2. Delete order items
+                    cursor.execute("""
+                        DELETE oi FROM orders_orderitem oi
+                        INNER JOIN orders_order o ON o.order_id = oi.order_id
+                        WHERE o.customer_id = %s
+                    """, [customer_id])
+
+                    # 3. Delete orders
+                    cursor.execute(
+                        "DELETE FROM orders_order WHERE customer_id = %s", [customer_id]
+                    )
+
+                    # 4. Delete delivery addresses — try both possible table names
+                    for tbl in ('addresses_deliveryaddress', 'addresses_deliveryadress'):
+                        try:
+                            cursor.execute(
+                                f"DELETE FROM {tbl} WHERE customer_id = %s", [customer_id]
+                            )
+                            break
+                        except Exception:
+                            connection.connection.rollback()  # clear failed statement in MySQL
+
+                    # 5. Delete customer profile
+                    cursor.execute(
+                        "DELETE FROM customers_customer WHERE id = %s", [customer_id]
+                    )
+
+                # 6. Delete rider additional info then rider
+                try:
+                    cursor.execute("""
+                        DELETE rai FROM riders_rider_additional_information rai
+                        INNER JOIN riders_rider r ON r.id = rai.rider_id
+                        WHERE r.user_id = %s
+                    """, [user_id])
+                except Exception:
+                    connection.connection.rollback()
+
+                cursor.execute("DELETE FROM riders_rider WHERE user_id = %s", [user_id])
+
+                # 7. Delete restaurant discounts then restaurant
+                try:
+                    cursor.execute("""
+                        DELETE d FROM resturants_discount d
+                        INNER JOIN resturants_restaurant r ON r.id = d.resturant_id
+                        WHERE r.user_id = %s
+                    """, [user_id])
+                except Exception:
+                    connection.connection.rollback()
+
+                cursor.execute("DELETE FROM resturants_restaurant WHERE user_id = %s", [user_id])
+
+                # 8. Delete the user
+                cursor.execute("DELETE FROM users_user WHERE id = %s", [user_id])
+
+            return Response(
+                {"message": "Account deleted successfully."},
+                status=status.HTTP_200_OK
+            )
+        except Exception as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+# ─────────────────────────────────────────────────────────────────────────────
+# DELIVERY ADDRESS — saves the address the customer picks in the Header
+# POST /api/auth/address/
+# Called by Header.jsx confirmAddress() whenever user picks a delivery location
+# ─────────────────────────────────────────────────────────────────────────────
+
+class DeliveryAddressView(APIView):
+    """
+    POST /api/auth/address/
+    
+    Saves the delivery address the customer selected in the "Deliver to" header.
+    Creates a new addresses_deliveryaddress row or updates the most recent HOME
+    address if one already exists.
+
+    Body: { address, latitude, longitude, type }
+    - address   : full display name from Nominatim
+    - latitude  : float or null
+    - longitude : float or null
+    - type      : 'delivery' (we store as HOME type)
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user_id  = request.user.id
+        data     = request.data
+        address  = (data.get('address') or '').strip()
+        latitude = data.get('latitude')
+        longitude= data.get('longitude')
+
+        if not address:
+            return Response(
+                {"error": "address is required."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        with connection.cursor() as cursor:
+            # Get customer_id
+            cursor.execute(
+                "SELECT id FROM customers_customer WHERE user_id = %s",
+                [user_id]
+            )
+            row = cursor.fetchone()
+            if not row:
+                # Not a customer (could be rider/restaurant) — just return OK
+                # No delivery address table for non-customers
+                return Response({"message": "Address noted."}, status=status.HTTP_200_OK)
+
+            customer_id = row[0]
+
+            # Check if a HOME delivery address already exists
+            cursor.execute("""
+                SELECT id FROM addresses_deliveryaddress
+                WHERE customer_id = %s AND address_type = 'HOME'
+                LIMIT 1
+            """, [customer_id])
+            existing = cursor.fetchone()
+
+            if existing:
+                # Update existing HOME address with new location
+                cursor.execute("""
+                    UPDATE addresses_deliveryaddress
+                    SET description  = %s,
+                        latitude     = %s,
+                        longitude    = %s
+                    WHERE id = %s
+                """, [address, latitude, longitude, existing[0]])
+                return Response(
+                    {"message": "Delivery address updated.", "address_id": existing[0]},
+                    status=status.HTTP_200_OK
+                )
+            else:
+                # Insert new HOME address
+                cursor.execute("""
+                    INSERT INTO addresses_deliveryaddress
+                        (customer_id, address_type, street_number,
+                         apartment_number, description, latitude, longitude)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                """, [
+                    customer_id,
+                    'HOME',
+                    None,
+                    None,
+                    address,
+                    latitude,
+                    longitude,
+                ])
+                cursor.execute("SELECT LAST_INSERT_ID()")
+                new_id = cursor.fetchone()[0]
+                return Response(
+                    {"message": "Delivery address saved.", "address_id": new_id},
+                    status=status.HTTP_201_CREATED
+                )

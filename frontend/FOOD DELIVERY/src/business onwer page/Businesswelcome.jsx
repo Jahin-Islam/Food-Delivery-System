@@ -1,33 +1,42 @@
 import { motion } from 'framer-motion';
 import {
-  BarChart2, Megaphone, Settings, ShoppingBag, Tag, ArrowRight,
-  TrendingUp, Users, Star, ChevronRight, LogOut, Utensils, Package
+  BarChart2, Megaphone, Settings, ShoppingBag, ArrowRight,
+  TrendingUp, Users, Star, ChevronRight, LogOut, Utensils, Package, History
 } from 'lucide-react';
 import { BRAND, COLORS, MOTION } from '../constants.js';
 import './Businesswelcome.css';
 
 const STATS = [
-  { Icon: Users,     number: '12,000+', label: 'Active customers'   },
-  { Icon: TrendingUp,number: '300%',    label: 'Avg. revenue growth' },
-  { Icon: Star,      number: '4.8',     label: 'Average rating'      },
+  { Icon: Users,      number: '12,000+', label: 'Active customers'    },
+  { Icon: TrendingUp, number: '300%',    label: 'Avg. revenue growth'  },
+  { Icon: Star,       number: '4.8',     label: 'Average rating'       },
 ];
 
 const FEATURES = [
-  { Icon: BarChart2,  title: 'Analytics Dashboard',   desc: 'Track sales, orders, and customer trends in real time from one place.' },
-  { Icon: Megaphone,  title: 'Deals & Promotions',    desc: 'Create discounts and campaigns to attract new customers and boost retention.' },
-  { Icon: Settings,   title: 'Menu Management',       desc: 'Add, edit, or remove menu items and categories anytime — instantly live.' },
+  { Icon: BarChart2, title: 'Analytics Dashboard',  desc: 'Track sales, orders, and customer trends in real time from one place.' },
+  { Icon: Megaphone, title: 'Deals & Promotions',   desc: 'Create discounts and campaigns to attract new customers and boost retention.' },
+  { Icon: Settings,  title: 'Menu Management',      desc: 'Add, edit, or remove menu items and categories anytime — instantly live.' },
 ];
 
-const QUICK_ACTIONS = [
-  { Icon: Utensils,   title: 'Manage Menu',      desc: 'Add or update items and categories', action: 'dashboard' },
-  { Icon: Tag,        title: 'Create Deals',     desc: 'Set up discounts and promotions',     action: 'dashboard' },
-  { Icon: ShoppingBag,title: 'View Orders',      desc: 'See incoming and past orders',         action: 'orders'    },
-  { Icon: Package,    title: 'Restaurant Info',  desc: 'Update your restaurant details',       action: 'dashboard' },
-];
-
-const BusinessWelcome = ({ user, restaurant, onEnterDashboard, onLogout }) => {
+// TASK 2: Replaced 'Create Deals' with 'View History', each action mapped to correct handler
+const BusinessWelcome = ({
+  user, restaurant,
+  onEnterDashboard,
+  onGoToDashboard,
+  onGoToOrders,
+  onGoToOrderHistory,
+  onGoToProfile,
+  onLogout,
+}) => {
   const firstName = user?.first_name || user?.firstName || 'Partner';
   const restaurantName = restaurant?.name || 'Your Restaurant';
+
+  const QUICK_ACTIONS = [
+    { Icon: Utensils,   title: 'Manage Menu',      desc: 'Add or update items and categories', onClick: onGoToDashboard   },
+    { Icon: History,    title: 'View History',      desc: 'See your order history & analytics', onClick: onGoToOrderHistory },
+    { Icon: ShoppingBag,title: 'View Orders',       desc: 'See incoming and past orders',       onClick: onGoToOrders      },
+    { Icon: Package,    title: 'Restaurant Info',   desc: 'Update your restaurant details',     onClick: onGoToProfile     },
+  ];
 
   return (
     <div className="bw-page">
@@ -71,7 +80,7 @@ const BusinessWelcome = ({ user, restaurant, onEnterDashboard, onLogout }) => {
               whileHover={{ y: -2 }} whileTap={{ scale: 0.97 }}>
               Go to Dashboard <ArrowRight size={15} />
             </motion.button>
-            <button className="bw-cta-secondary" onClick={onEnterDashboard}>
+            <button className="bw-cta-secondary" onClick={onGoToOrders}>
               View Orders
             </button>
           </div>
@@ -107,15 +116,16 @@ const BusinessWelcome = ({ user, restaurant, onEnterDashboard, onLogout }) => {
         </div>
       </div>
 
-      {/* Quick Actions */}
+      {/* Quick Actions — TASK 2: each button goes to the correct page */}
       <div className="bw-quick">
         <h2 className="bw-quick-title">Quick actions</h2>
         <div className="bw-quick-grid">
-          {QUICK_ACTIONS.map(({ Icon, title, desc, action }, i) => (
+          {QUICK_ACTIONS.map(({ Icon, title, desc, onClick }, i) => (
             <motion.div key={i} className="bw-quick-card"
               initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.3 + i * 0.06, duration: 0.3 }}
-              onClick={onEnterDashboard}>
+              onClick={onClick}
+              style={{ cursor: 'pointer' }}>
               <div className="bw-quick-card-icon"><Icon size={20} /></div>
               <div>
                 <h4>{title}</h4>

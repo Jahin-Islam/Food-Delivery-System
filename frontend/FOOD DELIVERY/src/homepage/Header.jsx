@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Sun, Moon, MapPin, Globe, ShoppingCart, Heart,
   User, Truck, PackageOpen, Navigation, Store,
-  ChevronDown, Utensils, LocateFixed, ArrowRight, X, Search,
+  ChevronDown, Utensils, LocateFixed, ArrowRight, X, Search, Bike,
 } from 'lucide-react';
 import './Header.css';
 import ProfileDropdown from './Profiledropdown.jsx';
@@ -13,6 +13,7 @@ const Header = ({
   isLoggedIn, user, cartItems = [],
   onLoginClick, onSignUpClick, onCartClick, onLogout,
   showBanner = false, onRestaurantSignUpClick,
+  onRiderSignUpClick,   // TASK 2: new prop for rider signup
   onProfileClick, onOrdersClick, onLogoClick,
   onDeliveryClick, onPickupClick, onNearMeClick,
   activeTab = 'delivery',
@@ -22,14 +23,22 @@ const Header = ({
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const [isDark,           setIsDark]           = useState(() => localStorage.getItem('theme') === 'dark');
   const [showPanel,        setShowPanel]        = useState(false);
-  const [inputVal,         setInputVal]         = useState(currentAddress || 'Road 71, Dhaka, Bangladesh');
-  const [displayAddress,   setDisplayAddress]   = useState(currentAddress || 'Road 71, Dhaka, Bangladesh');
+  const [inputVal,         setInputVal]         = useState(currentAddress || '');
+  const [displayAddress,   setDisplayAddress]   = useState(currentAddress || '');
   const [locating,         setLocating]         = useState(false);
   const [suggestions,      setSuggestions]      = useState([]);
   const [suggestLoading,   setSuggestLoading]   = useState(false);
 
   const panelRef    = useRef(null);
   const debounceRef = useRef(null);
+
+  // Sync whenever the saved address arrives from App (e.g. after localStorage restore on init)
+  useEffect(() => {
+    if (currentAddress) {
+      setDisplayAddress(currentAddress);
+      setInputVal(currentAddress);
+    }
+  }, [currentAddress]);
 
   useEffect(() => {
     isDark
@@ -61,6 +70,8 @@ const Header = ({
 
   const handleInputChange = (e) => {
     setInputVal(e.target.value);
+    // Clear stored coords since user is typing a new address (no suggestion picked yet)
+    try { localStorage.removeItem('fp_delivery_lat'); localStorage.removeItem('fp_delivery_lng'); } catch {}
     clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => fetchSuggestions(e.target.value), 400);
   };
@@ -84,6 +95,10 @@ const Header = ({
     setSuggestions([]);
     setShowPanel(false);
     onAddressChange?.(val);
+    // Save lat/lng to localStorage so NearMePage uses the exact picked location
+    if (lat && lng) {
+      try { localStorage.setItem('fp_delivery_lat', String(lat)); localStorage.setItem('fp_delivery_lng', String(lng)); } catch {}
+    }
     await saveToBackend(val, lat, lng);
   };
 
@@ -105,7 +120,8 @@ const Header = ({
     );
   };
 
-  const short = displayAddress.length > 36 ? displayAddress.slice(0, 36) + '…' : displayAddress;
+  const addr  = displayAddress || 'Set delivery address';
+  const short = addr.length > 36 ? addr.slice(0, 36) + '…' : addr;
 
   return (
     <>
@@ -117,6 +133,12 @@ const Header = ({
             <Store size={16} strokeWidth={2} />
             <span>Own a restaurant? Join us today!</span>
             <button className="banner-btn" onClick={onRestaurantSignUpClick}>SIGN UP FOR A BUSINESS ACCOUNT</button>
+            {/* TASK 2: Rider signup button */}
+            <Bike size={16} strokeWidth={2} style={{ marginLeft: 8 }} />
+            <span>Want to deliver?</span>
+            <button className="banner-btn" onClick={onRiderSignUpClick} style={{ background: 'rgba(255,255,255,0.85)', marginLeft: 4 }}>
+              SIGN UP AS A RIDER
+            </button>
           </motion.div>
         )}
       </AnimatePresence>
@@ -157,7 +179,6 @@ const Header = ({
                     transition={{ duration: 0.17, ease: [0.22, 1, 0.36, 1] }}
                     style={{ position: 'absolute', top: 'calc(100% + 10px)', left: 0, width: 380, background: 'var(--c-white)', borderRadius: 14, boxShadow: '0 8px 32px rgba(0,0,0,0.14)', border: '1.5px solid var(--c-gray-200)', zIndex: 2000, padding: 16 }}>
 
-                    {/* Title row */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                       <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--c-gray-900)' }}>Enter your address</span>
                       <button onClick={() => { setShowPanel(false); setSuggestions([]); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--c-gray-400)', display: 'flex', alignItems: 'center' }}>
@@ -165,7 +186,6 @@ const Header = ({
                       </button>
                     </div>
 
-                    {/* Input */}
                     <div style={{ position: 'relative', marginBottom: 6 }}>
                       <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--c-gray-400)', pointerEvents: 'none' }} />
                       <input type="text" value={inputVal} onChange={handleInputChange}
@@ -181,7 +201,6 @@ const Header = ({
                       </button>
                     </div>
 
-                    {/* Suggestions dropdown */}
                     {(suggestLoading || suggestions.length > 0) && (
                       <div style={{ border: '1.5px solid var(--c-gray-200)', borderRadius: 10, overflow: 'hidden', marginBottom: 10, background: 'var(--c-white)' }}>
                         {suggestLoading && <div style={{ padding: '10px 14px', fontSize: 13, color: 'var(--c-gray-400)' }}>Searching…</div>}
@@ -197,14 +216,12 @@ const Header = ({
                       </div>
                     )}
 
-                    {/* Divider */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '10px 0' }}>
                       <div style={{ flex: 1, height: 1, background: 'var(--c-gray-200)' }} />
                       <span style={{ fontSize: 11, color: 'var(--c-gray-400)', fontWeight: 600 }}>OR</span>
                       <div style={{ flex: 1, height: 1, background: 'var(--c-gray-200)' }} />
                     </div>
 
-                    {/* Locate me */}
                     <button onClick={handleLocateMe} disabled={locating}
                       style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 11, border: '2px solid var(--c-primary)', borderRadius: 10, background: 'var(--c-primary-light)', color: 'var(--c-primary)', fontSize: 14, fontWeight: 700, cursor: locating ? 'not-allowed' : 'pointer', fontFamily: 'var(--font)', opacity: locating ? 0.7 : 1, transition: 'all 0.2s' }}>
                       <LocateFixed size={15} style={{ animation: locating ? 'hdrSpin 1s linear infinite' : 'none' }} />

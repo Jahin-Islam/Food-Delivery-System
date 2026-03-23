@@ -50,7 +50,8 @@ const ConfirmDialog = ({ message, onConfirm, onCancel }) => (
 // ─────────────────────────────────────────────────────────────────────────────
 
 const BusinessDashboard = ({
-  restaurant, onBack, isLoggedIn, user, onLoginClick, onSignUpClick, onLogout, onNavigateToOrders,
+  restaurant, onBack, isLoggedIn, user, onLoginClick, onSignUpClick, onLogout,
+  onNavigateToOrders, onNavigateToHistory, onNavigateToProfile,
 }) => {
   const [activeTab, setActiveTab] = useState('menu');
   const [searchQuery, setSearchQuery] = useState('');
@@ -61,83 +62,63 @@ const BusinessDashboard = ({
   const [restaurantDetails, setRestaurantDetails] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Toast
   const [toast, setToast] = useState(null);
   const showToast = (message, type = 'success') => setToast({ message, type });
 
-  // Confirm dialog
-  const [confirm, setConfirm] = useState(null); // { message, onConfirm }
-
-  // Submitting states
+  const [confirm, setConfirm] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // ── Add Item Modal ──
   const [showAddItemModal, setShowAddItemModal] = useState(false);
-  const [editingItem, setEditingItem] = useState(null); // null = add, object = edit
+  const [editingItem, setEditingItem] = useState(null);
   const [selectedCategoryForAdd, setSelectedCategoryForAdd] = useState('');
   const [newItemData, setNewItemData] = useState({
     name: '', description: '', price: '', discount_ammount: '',
     discount_description: '', is_available: true, image_file: null, image_preview: null,
   });
 
-  // ── Add Category Modal ──
   const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
 
-  // ── Add Deal Modal ──
   const [showAddDealModal, setShowAddDealModal] = useState(false);
   const [editingDeal, setEditingDeal] = useState(null);
   const [newDealData, setNewDealData] = useState({ description: '', min_order: '', percentage: '' });
 
-  // ─── FETCH all data ───────────────────────────────────────────────────────
   const fetchAll = useCallback(async () => {
     if (!restaurant?.id) { setLoading(false); return; }
     setLoading(true);
     try {
-      // Restaurant details (public endpoint) with 8s timeout
       let details = null;
       try {
         const endpoint = `http://127.0.0.1:8000/api/v1/restaurants/${restaurant.id}/`;
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 8000);
-        let resp = null;
         if (isLoggedIn) {
-          resp = await authService.authenticatedFetch(endpoint, { signal: controller.signal });
-          details = resp;
+          details = await authService.authenticatedFetch(endpoint, { signal: controller.signal });
         } else {
           const r = await fetch(endpoint, { signal: controller.signal });
           if (r.ok) details = await r.json();
         }
         clearTimeout(timeoutId);
       } catch (e) {
-        if (e.name === 'AbortError') {
-          console.warn('Restaurant fetch timed out — showing with available data');
-        } else {
-          console.warn('restaurant details fetch failed', e);
-        }
-        // Fall back to the prop data so the dashboard still renders
+        if (e.name !== 'AbortError') console.warn('restaurant details fetch failed', e);
         details = restaurant;
       }
 
       setRestaurantDetails(details ?? restaurant);
       setMenuItems(details?.items ?? []);
 
-      // Always fetch categories from vendor API to get real category_id values
       if (isLoggedIn) {
         const [cats, disc] = await Promise.all([
           vendorApiService.getCategories().catch(() => []),
           vendorApiService.getDiscounts().catch(() => []),
         ]);
-        // Model fields: category_id (PK), category_name
         const normalised = cats.map(c => ({
           category_id:   c.category_id,
           category_name: c.category_name ?? c.name ?? String(c.category_id),
         }));
-        // 'All' is the string sentinel; the rest are { category_id, category_name } objects
         setCategories(['All', ...normalised]);
         setDeals(disc);
       } else {
-        // Logged-out fallback: name-only list from items
         const names = [...new Set((details?.items ?? []).map(i => i.category_name).filter(Boolean))];
         setCategories(['All', ...names.map(n => ({ category_id: null, category_name: n }))]);
       }
@@ -153,7 +134,6 @@ const BusinessDashboard = ({
 
   const displayRestaurant = restaurantDetails ?? restaurant;
 
-  // ─── FILTER + GROUP items ──────────────────────────────────────────────────
   const filteredItems = menuItems.filter(item => {
     const q = searchQuery.toLowerCase();
     const matchSearch = item.name.toLowerCase().includes(q) || item.description?.toLowerCase().includes(q);
@@ -162,17 +142,14 @@ const BusinessDashboard = ({
   });
 
   const groupedItems = filteredItems.reduce((acc, item) => {
-    const cat = item.category_name || 'Other'; // cat is always a string (the name)
+    const cat = item.category_name || 'Other';
     if (!acc[cat]) acc[cat] = [];
     acc[cat].push(item);
     return acc;
   }, {});
 
-  // ─── ITEM handlers ─────────────────────────────────────────────────────────
-
   const openAddItem = (category) => {
     setEditingItem(null);
-    // category is a { category_id, category_name } object from our normalised list
     setSelectedCategoryForAdd(category);
     setNewItemData({ name: '', description: '', price: '', discount_ammount: '',
       discount_description: '', is_available: true, image_file: null, image_preview: null });
@@ -181,7 +158,6 @@ const BusinessDashboard = ({
 
   const openEditItem = (item) => {
     setEditingItem(item);
-    // Restore full category object so submit sends the real category_id
     setSelectedCategoryForAdd(item.category_id);
     setNewItemData({
       name: item.name, description: item.description ?? '',
@@ -192,16 +168,11 @@ const BusinessDashboard = ({
     setShowAddItemModal(true);
   };
 
-  const closeAddItemModal = () => {
-    setShowAddItemModal(false);
-    setEditingItem(null);
-  };
+  const closeAddItemModal = () => { setShowAddItemModal(false); setEditingItem(null); };
 
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
-    if (file) {
-      setNewItemData(p => ({ ...p, image_file: file, image_preview: URL.createObjectURL(file) }));
-    }
+    if (file) setNewItemData(p => ({ ...p, image_file: file, image_preview: URL.createObjectURL(file) }));
   };
 
   const handleItemInput = (e) => {
@@ -226,20 +197,15 @@ const BusinessDashboard = ({
       };
 
       if (editingItem) {
-        // PUT: backend field_map uses 'name'
-        const payload = { ...basePayload, name: newItemData.name };
-        await vendorApiService.updateItem(editingItem.food_id, payload);
+        await vendorApiService.updateItem(editingItem.food_id, { ...basePayload, name: newItemData.name });
         showToast('Item updated successfully!');
       } else {
-        // POST: backend expects 'item_name'
-        const payload = { ...basePayload, item_name: newItemData.name };
-        await vendorApiService.addItem(payload);
+        await vendorApiService.addItem({ ...basePayload, item_name: newItemData.name });
         showToast('Item added successfully!');
       }
       closeAddItemModal();
       await fetchAll();
     } catch (err) {
-      console.error(err);
       showToast(err.message || 'Failed to save item', 'error');
     } finally { setSubmitting(false); }
   };
@@ -261,13 +227,9 @@ const BusinessDashboard = ({
   const handleToggleAvailability = async (item) => {
     try {
       await vendorApiService.toggleItemAvailability(item.food_id, !item.is_available);
-      setMenuItems(prev =>
-        prev.map(i => i.food_id === item.food_id ? { ...i, is_available: !i.is_available } : i)
-      );
+      setMenuItems(prev => prev.map(i => i.food_id === item.food_id ? { ...i, is_available: !i.is_available } : i));
     } catch (e) { showToast('Failed to update availability', 'error'); }
   };
-
-  // ─── CATEGORY handlers ─────────────────────────────────────────────────────
 
   const handleSubmitCategory = async () => {
     if (!newCategoryName.trim()) { showToast('Category name is required', 'error'); return; }
@@ -284,15 +246,12 @@ const BusinessDashboard = ({
   };
 
   const handleDeleteCategory = (cat) => {
-    // Find category id from backend (categories from vendor API have id)
     setConfirm({
       message: `Delete category "${cat}"? Items in it will not be deleted.`,
       onConfirm: async () => {
         setConfirm(null);
-        // We need the category id — re-fetch to get it
         try {
           const cats = await vendorApiService.getCategories();
-          // Model PK is category_id; display name field is category_name
           const found = cats.find(c => (c.category_name ?? c.name) === cat);
           if (!found) { showToast('Category not found', 'error'); return; }
           await vendorApiService.deleteCategory(found.category_id ?? found.id);
@@ -303,8 +262,6 @@ const BusinessDashboard = ({
     });
   };
 
-  // ─── DEAL handlers ─────────────────────────────────────────────────────────
-
   const openAddDeal = () => {
     setEditingDeal(null);
     setNewDealData({ description: '', min_order: '', percentage: '' });
@@ -313,44 +270,24 @@ const BusinessDashboard = ({
 
   const openEditDeal = (deal) => {
     setEditingDeal(deal);
-    setNewDealData({
-      description: deal.description,
-      min_order: deal.min_order.toString(),
-      percentage: deal.percentage.toString(),
-    });
+    setNewDealData({ description: deal.description, min_order: deal.min_order.toString(), percentage: deal.percentage.toString() });
     setShowAddDealModal(true);
   };
 
-  const handleDealInput = (e) => {
-    const { name, value } = e.target;
-    setNewDealData(p => ({ ...p, [name]: value }));
-  };
+  const handleDealInput = (e) => { const { name, value } = e.target; setNewDealData(p => ({ ...p, [name]: value })); };
 
   const handleSubmitDeal = async () => {
     const { description, min_order, percentage } = newDealData;
-    if (!description || !min_order || !percentage) {
-      showToast('All fields are required', 'error'); return;
-    }
+    if (!description || !min_order || !percentage) { showToast('All fields are required', 'error'); return; }
     setSubmitting(true);
     try {
-      const payload = {
-        description,
-        min_order: parseFloat(min_order),
-        percentage: parseFloat(percentage),
-      };
-      if (editingDeal) {
-        await vendorApiService.updateDiscount(editingDeal.id, payload);
-        showToast('Deal updated!');
-      } else {
-        await vendorApiService.addDiscount(payload);
-        showToast('Deal added!');
-      }
-      setShowAddDealModal(false);
-      setEditingDeal(null);
+      const payload = { description, min_order: parseFloat(min_order), percentage: parseFloat(percentage) };
+      if (editingDeal) { await vendorApiService.updateDiscount(editingDeal.id, payload); showToast('Deal updated!'); }
+      else { await vendorApiService.addDiscount(payload); showToast('Deal added!'); }
+      setShowAddDealModal(false); setEditingDeal(null);
       await fetchAll();
-    } catch (e) {
-      showToast(e.message || 'Failed to save deal', 'error');
-    } finally { setSubmitting(false); }
+    } catch (e) { showToast(e.message || 'Failed to save deal', 'error'); }
+    finally { setSubmitting(false); }
   };
 
   const handleDeleteDeal = (deal) => {
@@ -358,16 +295,12 @@ const BusinessDashboard = ({
       message: `Delete deal "${deal.description}"?`,
       onConfirm: async () => {
         setConfirm(null);
-        try {
-          await vendorApiService.deleteDiscount(deal.id);
-          showToast('Deal deleted');
-          await fetchAll();
-        } catch (e) { showToast('Failed to delete deal', 'error'); }
+        try { await vendorApiService.deleteDiscount(deal.id); showToast('Deal deleted'); await fetchAll(); }
+        catch (e) { showToast('Failed to delete deal', 'error'); }
       },
     });
   };
 
-  // ─── LOADING STATE ─────────────────────────────────────────────────────────
   if (loading) {
     return (
       <div className="business-dashboard" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
@@ -380,17 +313,12 @@ const BusinessDashboard = ({
     );
   }
 
-  // ─── RENDER ────────────────────────────────────────────────────────────────
   return (
     <div className="business-dashboard">
-
-      {/* Toast */}
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
-
-      {/* Confirm dialog */}
       {confirm && <ConfirmDialog message={confirm.message} onConfirm={confirm.onConfirm} onCancel={() => setConfirm(null)} />}
 
-      {/* ── Header ── */}
+      {/* ── Header — TASK 3: pass onNavigateToHistory correctly ── */}
       <BusinessHeader
         activePage="menu"
         user={user}
@@ -398,12 +326,13 @@ const BusinessDashboard = ({
         onLogout={onLogout}
         onNavigateToMenu={() => {}}
         onNavigateToOrders={() => onNavigateToOrders?.()}
-        onNavigateToHistory={() => {}}
+        onNavigateToHistory={() => onNavigateToHistory?.()}  // TASK 3: fixed
+        onNavigateToProfile={() => onNavigateToProfile?.()}
       />
 
-      {/* ── Restaurant Banner ── */}
+      {/* ── Restaurant Banner — TASK 2: back button REMOVED ── */}
       <div className="business-restaurant-banner">
-        <button className="business-back-button" onClick={onBack}>← Back</button>
+        {/* back button intentionally removed per task 2 */}
         <div className="business-banner-content">
           <div className="business-banner-image">
             {displayRestaurant?.image_url
@@ -440,16 +369,12 @@ const BusinessDashboard = ({
                 <p className="deal-description">Min. ৳{deal.min_order} • {deal.percentage}% off</p>
               </div>
               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                <button
-                  onClick={() => openEditDeal(deal)}
-                  style={{ background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: 6,
-                    padding: '5px 8px', cursor: 'pointer', color: '#fff', fontSize: 12 }}>
+                <button onClick={() => openEditDeal(deal)}
+                  style={{ background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: 6, padding: '5px 8px', cursor: 'pointer', color: '#fff', fontSize: 12 }}>
                   <Pencil size={13} />
                 </button>
-                <button
-                  onClick={() => handleDeleteDeal(deal)}
-                  style={{ background: 'rgba(220,38,38,0.7)', border: 'none', borderRadius: 6,
-                    padding: '5px 8px', cursor: 'pointer', color: '#fff', fontSize: 12 }}>
+                <button onClick={() => handleDeleteDeal(deal)}
+                  style={{ background: 'rgba(220,38,38,0.7)', border: 'none', borderRadius: 6, padding: '5px 8px', cursor: 'pointer', color: '#fff', fontSize: 12 }}>
                   <Trash2 size={13} />
                 </button>
               </div>
@@ -465,8 +390,6 @@ const BusinessDashboard = ({
       {/* ── Menu Section ── */}
       <div className="business-menu-section">
         <h2 className="business-section-title">Menu</h2>
-
-        {/* Search */}
         <div className="business-menu-controls">
           <div className="business-search-in-menu">
             <Search size={16} style={{ marginRight: 8, color: 'var(--gray-400)', flexShrink: 0 }} />
@@ -475,7 +398,6 @@ const BusinessDashboard = ({
           </div>
         </div>
 
-        {/* Category tabs */}
         <div className="business-menu-categories">
           <div className="business-categories-scroll">
             {categories.map(cat => {
@@ -484,23 +406,23 @@ const BusinessDashboard = ({
               const isActive = selectedCategory === cat ||
                 (selectedCategory?.category_id != null && selectedCategory?.category_id === cat?.category_id);
               return (
-              <div key={catKey} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <button
-                  className={`business-category-btn ${isActive ? 'active' : ''}`}
-                  onClick={() => setSelectedCategory(cat)}>
-                  {catName}
-                </button>
-                {catName !== 'All' && (
-                  <button onClick={() => handleDeleteCategory(catName)}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer',
-                      color: 'var(--gray-400)', padding: '2px 4px', borderRadius: 4,
-                      display: 'flex', alignItems: 'center' }}
-                    title="Delete category">
-                    <Trash2 size={13} />
+                <div key={catKey} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <button
+                    className={`business-category-btn ${isActive ? 'active' : ''}`}
+                    onClick={() => setSelectedCategory(cat)}>
+                    {catName}
                   </button>
-                )}
-              </div>
-            );
+                  {catName !== 'All' && (
+                    <button onClick={() => handleDeleteCategory(catName)}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer',
+                        color: 'var(--gray-400)', padding: '2px 4px', borderRadius: 4,
+                        display: 'flex', alignItems: 'center' }}
+                      title="Delete category">
+                      <Trash2 size={13} />
+                    </button>
+                  )}
+                </div>
+              );
             })}
             <button className="business-add-category-btn" onClick={() => setShowAddCategoryModal(true)}>
               + Add Category
@@ -508,7 +430,6 @@ const BusinessDashboard = ({
           </div>
         </div>
 
-        {/* Items grid */}
         <div className="business-menu-items-container">
           {Object.entries(groupedItems).map(([category, items]) => (
             <div key={category} className="business-category-section">
@@ -522,16 +443,12 @@ const BusinessDashboard = ({
                       <p className="business-item-description">{item.description}</p>
                       <div className="business-item-footer">
                         <span className="business-item-price">৳{item.price}</span>
-                        {item.discount_ammount > 0 && (
-                          <span className="business-item-discount">−{item.discount_ammount}%</span>
-                        )}
+                        {item.discount_ammount > 0 && <span className="business-item-discount">−{item.discount_ammount}%</span>}
                       </div>
                       <div className="business-item-controls">
-                        {/* Edit */}
                         <button className="business-item-edit-btn" onClick={() => openEditItem(item)}>
                           <Pencil size={13} style={{ marginRight: 4, verticalAlign: 'middle' }} />Edit
                         </button>
-                        {/* Delete */}
                         <button
                           onClick={() => handleDeleteItem(item)}
                           style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 10px',
@@ -539,7 +456,6 @@ const BusinessDashboard = ({
                             color: '#dc2626', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
                           <Trash2 size={13} /> Remove
                         </button>
-                        {/* Availability */}
                         <div className="business-item-availability">
                           <label className="availability-switch">
                             <input type="checkbox" checked={!!item.is_available}
@@ -563,9 +479,9 @@ const BusinessDashboard = ({
                   </div>
                 ))}
                 <button className="business-add-item-card" onClick={() => {
-  const catObj = categories.find(c => c?.category_name === category);
-  openAddItem(catObj);
-}}>
+                  const catObj = categories.find(c => c?.category_name === category);
+                  openAddItem(catObj);
+                }}>
                   <div className="add-item-icon"><Plus size={22} /></div>
                   <div className="add-item-text">Add New Item</div>
                 </button>
@@ -573,7 +489,6 @@ const BusinessDashboard = ({
             </div>
           ))}
 
-          {/* Empty categories (no items yet) */}
           {categories.slice(1).filter(cat => !Object.keys(groupedItems).includes(cat?.category_name ?? cat)).map(cat => (
             <div key={cat?.category_id ?? cat?.category_name ?? cat} className="business-category-section">
               <h3 className="business-category-title">{cat?.category_name ?? cat}</h3>
@@ -596,9 +511,7 @@ const BusinessDashboard = ({
         </div>
       </div>
 
-      {/* ════════════════════════════════════════
-          ADD / EDIT ITEM MODAL
-      ════════════════════════════════════════ */}
+      {/* ADD/EDIT ITEM MODAL */}
       {showAddItemModal && (
         <div className="modal-overlay" onClick={closeAddItemModal}>
           <div className="add-item-modal" onClick={e => e.stopPropagation()}>
@@ -609,7 +522,6 @@ const BusinessDashboard = ({
               <button className="modal-close-btn" onClick={closeAddItemModal}>×</button>
             </div>
             <div className="modal-body">
-              {/* Image upload */}
               <div className="form-group">
                 <label className="form-label">Item Photo</label>
                 <div className="image-upload-area">
@@ -633,25 +545,21 @@ const BusinessDashboard = ({
                   )}
                 </div>
               </div>
-
               <div className="form-group">
                 <label className="form-label">Item Name *</label>
                 <input type="text" name="name" value={newItemData.name} onChange={handleItemInput}
                   placeholder="e.g., Chicken Cashewnut Salad" className="form-input" />
               </div>
-
               <div className="form-group">
                 <label className="form-label">Description</label>
                 <textarea name="description" value={newItemData.description} onChange={handleItemInput}
                   placeholder="Describe your dish…" className="form-textarea" rows={3} />
               </div>
-
               <div className="form-group">
                 <label className="form-label">Price (৳) *</label>
                 <input type="number" name="price" value={newItemData.price} onChange={handleItemInput}
                   placeholder="0.00" className="form-input" min="0" step="0.01" />
               </div>
-
               <div className="form-row">
                 <div className="form-group">
                   <label className="form-label">Discount (%)</label>
@@ -664,7 +572,6 @@ const BusinessDashboard = ({
                     onChange={handleItemInput} placeholder="e.g., Weekend Special" className="form-input" />
                 </div>
               </div>
-
               <div className="form-group">
                 <label className="form-label">Availability</label>
                 <div className="availability-toggle-group">
@@ -673,9 +580,7 @@ const BusinessDashboard = ({
                       onChange={handleItemInput} />
                     <span className="availability-slider" />
                   </label>
-                  <span className="availability-label">
-                    {newItemData.is_available ? 'Available' : 'Unavailable'}
-                  </span>
+                  <span className="availability-label">{newItemData.is_available ? 'Available' : 'Unavailable'}</span>
                 </div>
               </div>
             </div>
@@ -690,9 +595,7 @@ const BusinessDashboard = ({
         </div>
       )}
 
-      {/* ════════════════════════════════════════
-          ADD CATEGORY MODAL
-      ════════════════════════════════════════ */}
+      {/* ADD CATEGORY MODAL */}
       {showAddCategoryModal && (
         <div className="modal-overlay" onClick={() => setShowAddCategoryModal(false)}>
           <div className="add-category-modal" onClick={e => e.stopPropagation()}>
@@ -718,9 +621,7 @@ const BusinessDashboard = ({
         </div>
       )}
 
-      {/* ════════════════════════════════════════
-          ADD / EDIT DEAL MODAL
-      ════════════════════════════════════════ */}
+      {/* ADD/EDIT DEAL MODAL */}
       {showAddDealModal && (
         <div className="modal-overlay" onClick={() => { setShowAddDealModal(false); setEditingDeal(null); }}>
           <div className="add-deal-modal" onClick={e => e.stopPropagation()}>

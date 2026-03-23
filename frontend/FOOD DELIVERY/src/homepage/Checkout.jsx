@@ -21,8 +21,10 @@ const Checkout = ({
   onProfileClick,
   onOrdersClick,
   onLogoClick,
+  currentAddress,
+  onAddressChange,
 }) => {
-  const [deliveryAddress, setDeliveryAddress] = useState('Road 71, Dhaka');
+  const [deliveryAddress, setDeliveryAddress] = useState(currentAddress || '');
   const [streetNumber, setStreetNumber] = useState('');
   const [apartment, setApartment] = useState('');
   const [note, setNote] = useState('');
@@ -98,6 +100,8 @@ const Checkout = ({
         onOrdersClick={onOrdersClick}
         onLogoClick={onLogoClick}
         showBanner={false}
+        currentAddress={currentAddress}
+        onAddressChange={onAddressChange}
       />
 
       <div className="checkout-content">

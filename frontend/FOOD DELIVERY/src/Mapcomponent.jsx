@@ -144,7 +144,17 @@ export default function MapComponent({
 
   // ── 2. Initialise map once Leaflet + DOM are ready ────────────────────────
   useEffect(() => {
-    if (!mapReady || !containerRef.current || mapRef.current) return;
+    if (!mapReady || !containerRef.current) return;
+
+    // Destroy any existing map on this container (StrictMode double-invoke guard)
+    if (mapRef.current) {
+      mapRef.current.remove();
+      mapRef.current = null;
+    }
+    // Clear Leaflet's internal container registry so it doesn't throw "already initialized"
+    if (containerRef.current._leaflet_id) {
+      delete containerRef.current._leaflet_id;
+    }
 
     const center = riderPos || restaurantPos || customerPos ||
                    (restaurants[0] ? { lat: restaurants[0].lat, lng: restaurants[0].lng } : null) ||
@@ -170,6 +180,9 @@ export default function MapComponent({
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
+      }
+      if (containerRef.current && containerRef.current._leaflet_id) {
+        delete containerRef.current._leaflet_id;
       }
     };
   }, [mapReady]); // eslint-disable-line

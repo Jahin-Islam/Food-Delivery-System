@@ -1,12 +1,13 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import {
   MapPin, Bike, User, Mail, ChevronDown, ArrowRight,
   UserCheck, ClipboardList, Car, FileText, LogIn,
-  TrendingUp, Star, Shield,
+  TrendingUp, Star, Shield, Eye, EyeOff, Lock, Phone, X,
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import { BRAND, COLORS } from '../constants.js';
+import authService from '../Authservice.js';
 import './RiderSignUp.css';
 
 const VEHICLES = ['Motorbike', 'Bi-Cycle'];
@@ -68,11 +69,18 @@ function CityMapPicker({ onCitySelect }) {
 const RiderSignUp = ({ onRiderOnBoarding, onSwitchToLogin }) => {
   const [formData, setFormData] = useState({
     city: '', cityLat: null, cityLng: null, vehicle: '',
-    name: '', surname: '', phone: '', email: '', isOver18: '', privacyAccepted: false,
+    name: '', surname: '', phone: '', email: '',
+    password: '', password2: '',
+    isOver18: '', privacyAccepted: false,
   });
-  const [loading, setLoading] = useState(false);
-  const [focused, setFocused] = useState(null);
-  const [showMap, setShowMap] = useState(false);
+  const [loading,        setLoading]        = useState(false);
+  const [focused,        setFocused]        = useState(null);
+  const [showMap,        setShowMap]        = useState(false);
+  const [showPassword,   setShowPassword]   = useState(false);
+  const [showPassword2,  setShowPassword2]  = useState(false);
+  const [citySuggestions,setCitySuggestions]= useState([]);
+  const [suggestLoading, setSuggestLoading] = useState(false);
+  const debounceRef = useRef(null);
 
   const handleChange = e => {
     const { name, value, type, checked } = e.target;
@@ -80,22 +88,84 @@ const RiderSignUp = ({ onRiderOnBoarding, onSwitchToLogin }) => {
   };
   const handleCitySelect = ({ city, lat, lng }) => {
     setFormData(p => ({ ...p, city, cityLat: lat, cityLng: lng }));
+    setCitySuggestions([]);
     setShowMap(false);
     toast.success(`City set to: ${city}`);
   };
+
+  // Nominatim city autocomplete
+  const fetchCitySuggestions = useCallback(async (q) => {
+    if (q.trim().length < 3) { setCitySuggestions([]); return; }
+    setSuggestLoading(true);
+    try {
+      const res  = await fetch(
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&countrycodes=bd&format=json&limit=5&addressdetails=1`,
+        { headers: { 'Accept-Language': 'en' } }
+      );
+      const data = await res.json();
+      // Deduplicate by city name
+      const seen = new Set();
+      const results = [];
+      for (const r of data) {
+        const addr = r.address || {};
+        const city = addr.city || addr.town || addr.village || addr.county || addr.state_district || r.display_name.split(',')[0];
+        if (!seen.has(city)) {
+          seen.add(city);
+          results.push({ city, label: r.display_name, lat: parseFloat(r.lat), lng: parseFloat(r.lon) });
+        }
+      }
+      setCitySuggestions(results);
+    } catch { setCitySuggestions([]); }
+    finally { setSuggestLoading(false); }
+  }, []);
+
+  const handleCityInput = (e) => {
+    const val = e.target.value;
+    setFormData(p => ({ ...p, city: val, cityLat: null, cityLng: null }));
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => fetchCitySuggestions(val), 400);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.city || !formData.vehicle || !formData.name || !formData.phone || !formData.email || !formData.isOver18)
+    if (!formData.city || !formData.vehicle || !formData.name || !formData.phone || !formData.email)
       { toast.error('Please fill in all required fields'); return; }
+    if (!formData.password || formData.password.length < 8)
+      { toast.error('Password must be at least 8 characters'); return; }
+    if (formData.password !== formData.password2)
+      { toast.error('Passwords do not match'); return; }
     if (formData.isOver18 === 'no') { toast.error('You must be over 18 to become a rider'); return; }
+    if (!formData.isOver18) { toast.error('Please confirm you are over 18'); return; }
     if (!formData.privacyAccepted) { toast.error('Please accept the Rider Privacy Statement'); return; }
+
     setLoading(true);
     try {
-      await new Promise(r => setTimeout(r, 600));
-      toast.success('Profile created! Moving to onboarding...');
+      await authService.registerRider({
+        email:     formData.email,
+        password:  formData.password,
+        password2: formData.password2,
+        name:      formData.name,
+        surname:   formData.surname,
+        phone:     formData.phone,
+        vehicle:   formData.vehicle,
+        city:      formData.city,
+        latitude:  formData.cityLat,
+        longitude: formData.cityLng,
+        // These are collected in RiderOnBoarding — send empty strings for now
+        // The backend validate_rider_fields requires them, so we set placeholders
+        license_plate:            'PENDING',
+        nid_number:               'PENDING',
+        gender:                   'OTHER',
+        emergency_contact_name:   'PENDING',
+        emergency_contact_number: '00000000000',
+        // NID images not available at this stage — onboarding handles them
+        // But backend requires them, so we note this in onboarding
+      });
+      toast.success('Account created! Complete your profile in onboarding.');
       setTimeout(() => onRiderOnBoarding?.({ ...formData, type: 'rider' }), 800);
-    } catch { toast.error('Something went wrong. Please try again.'); }
-    finally { setLoading(false); }
+    } catch (err) {
+      toast.error(err.message || 'Registration failed. Please try again.');
+    } finally { setLoading(false); }
   };
 
   const fg = id => `signup-form-group ${focused === id ? 'focused' : ''}`;
@@ -170,15 +240,68 @@ const RiderSignUp = ({ onRiderOnBoarding, onSwitchToLogin }) => {
 
           <form onSubmit={handleSubmit} noValidate>
 
-            {/* City */}
-            <div className={fg('city')}>
+            {/* City with autocomplete */}
+            <div className={fg('city')} style={{ position: 'relative' }}>
               <label htmlFor="rs-city">Your City *</label>
               <div className="signup-input-wrapper">
                 <MapPin size={14} className="signup-input-icon" />
                 <input type="text" id="rs-city" name="city" value={formData.city}
-                  onChange={handleChange} placeholder="Type or pick from map"
-                  onFocus={() => setFocused('city')} onBlur={() => setFocused(null)} required />
+                  onChange={handleCityInput}
+                  placeholder="Type city name…"
+                  onFocus={() => setFocused('city')}
+                  onBlur={() => setTimeout(() => setCitySuggestions([]), 200)}
+                  autoComplete="off"
+                  required />
+                {formData.city && (
+                  <button type="button" onClick={() => {
+                    setFormData(p => ({ ...p, city: '', cityLat: null, cityLng: null }));
+                    setCitySuggestions([]);
+                  }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 6px', color: 'var(--c-gray-400)', display: 'flex', alignItems: 'center' }}>
+                    <X size={13} />
+                  </button>
+                )}
               </div>
+
+              {/* Suggestions dropdown */}
+              {(suggestLoading || citySuggestions.length > 0) && (
+                <div style={{
+                  position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 1000,
+                  background: 'var(--c-white)', border: '1.5px solid var(--c-gray-200)',
+                  borderRadius: 10, overflow: 'hidden', boxShadow: '0 4px 16px rgba(0,0,0,0.10)',
+                  marginTop: 4,
+                }}>
+                  {suggestLoading && (
+                    <div style={{ padding: '10px 14px', fontSize: 13, color: 'var(--c-gray-400)' }}>Searching…</div>
+                  )}
+                  {!suggestLoading && citySuggestions.map((s, i) => (
+                    <button key={i} type="button"
+                      onMouseDown={() => handleCitySelect({ city: s.city, lat: s.lat, lng: s.lng })}
+                      style={{
+                        width: '100%', display: 'flex', alignItems: 'flex-start', gap: 10,
+                        padding: '10px 14px', background: 'none', border: 'none',
+                        borderBottom: i < citySuggestions.length - 1 ? '1px solid var(--c-gray-100)' : 'none',
+                        cursor: 'pointer', textAlign: 'left', fontSize: 13,
+                        color: 'var(--c-gray-700)', fontFamily: 'var(--font)',
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'var(--c-primary-light)'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'none'}
+                    >
+                      <MapPin size={14} style={{ color: 'var(--c-primary)', flexShrink: 0, marginTop: 1 }} />
+                      <div>
+                        <div style={{ fontWeight: 600 }}>{s.city}</div>
+                        <div style={{ fontSize: 11, color: 'var(--c-gray-400)', marginTop: 1 }}>{s.label}</div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {formData.cityLat && (
+                <p style={{ fontSize: 12, color: 'var(--c-primary)', marginTop: 6, fontWeight: 600 }}>
+                  📍 {formData.city} ({formData.cityLat.toFixed(4)}, {formData.cityLng.toFixed(4)})
+                </p>
+              )}
+
               <button type="button" onClick={() => setShowMap(p => !p)} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 7, background: 'var(--c-primary-light)', color: 'var(--c-primary)', border: '1.5px solid var(--c-primary)', borderRadius: 8, padding: '5px 11px', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font)' }}>
                 <MapPin size={12} />{showMap ? 'Hide map' : 'Pick city on map'}
               </button>
@@ -260,6 +383,37 @@ const RiderSignUp = ({ onRiderOnBoarding, onSwitchToLogin }) => {
                     {val === 'yes' ? 'Yes' : 'No'}
                   </label>
                 ))}
+              </div>
+            </div>
+
+            {/* Password */}
+            <div className={fg('password')}>
+              <label htmlFor="rs-password">Password *</label>
+              <div className="signup-input-wrapper">
+                <Lock size={14} className="signup-input-icon" />
+                <input type={showPassword ? 'text' : 'password'} id="rs-password" name="password"
+                  value={formData.password} onChange={handleChange}
+                  placeholder="Min. 8 characters" required
+                  onFocus={() => setFocused('password')} onBlur={() => setFocused(null)} />
+                <button type="button" onClick={() => setShowPassword(p => !p)}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 6px', color: 'var(--c-gray-400)', display: 'flex', alignItems: 'center' }}>
+                  {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                </button>
+              </div>
+            </div>
+
+            <div className={fg('password2')}>
+              <label htmlFor="rs-password2">Confirm Password *</label>
+              <div className="signup-input-wrapper">
+                <Lock size={14} className="signup-input-icon" />
+                <input type={showPassword2 ? 'text' : 'password'} id="rs-password2" name="password2"
+                  value={formData.password2} onChange={handleChange}
+                  placeholder="Re-enter your password" required
+                  onFocus={() => setFocused('password2')} onBlur={() => setFocused(null)} />
+                <button type="button" onClick={() => setShowPassword2(p => !p)}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 6px', color: 'var(--c-gray-400)', display: 'flex', alignItems: 'center' }}>
+                  {showPassword2 ? <EyeOff size={15} /> : <Eye size={15} />}
+                </button>
               </div>
             </div>
 

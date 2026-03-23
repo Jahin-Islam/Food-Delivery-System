@@ -79,7 +79,17 @@ export default function DeliveryMapPicker({
 
   // ── 2. Init map + draggable marker ───────────────────────────────────────
   useEffect(() => {
-    if (!mapReady || !containerRef.current || mapRef.current) return;
+    if (!mapReady || !containerRef.current) return;
+
+    // StrictMode / remount guard — destroy existing map first
+    if (mapRef.current) {
+      mapRef.current.remove();
+      mapRef.current = null;
+      markerRef.current = null;
+    }
+    if (containerRef.current._leaflet_id) {
+      delete containerRef.current._leaflet_id;
+    }
 
     const map = L.map(containerRef.current, {
       center:             [DEFAULT.lat, DEFAULT.lng],
@@ -142,6 +152,9 @@ export default function DeliveryMapPicker({
       map.remove();
       mapRef.current    = null;
       markerRef.current = null;
+      if (containerRef.current && containerRef.current._leaflet_id) {
+        delete containerRef.current._leaflet_id;
+      }
     };
   }, [mapReady]); // eslint-disable-line
 

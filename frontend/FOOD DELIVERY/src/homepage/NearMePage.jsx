@@ -234,8 +234,10 @@ export default function NearMePage({
   onBack,
   restaurants = [],
   onRestaurantClick,
+  currentAddress,
+  onAddressChange,
 }) {
-  const { position: userPos, loading: locLoading, error: locError } = useRiderLocation();
+  const { position: gpsPos, loading: locLoading, error: locError } = useRiderLocation();
   const { toasts, toast, removeToast } = useToast();
 
   const [radius,      setRadius]      = useState(5);
@@ -244,20 +246,54 @@ export default function NearMePage({
   const [search,      setSearch]      = useState('');
   const [filterOpen,  setFilterOpen]  = useState(false);
   const [showCart,    setShowCart]    = useState(false);
+  const [addressPos,  setAddressPos]  = useState(null);
 
   const geocodingRef  = useRef(false);
   const shownLocToast = useRef(false);
 
+  // Read saved delivery lat/lng from localStorage first (set by Header when user picks a suggestion)
+  // If not available, geocode the address text as fallback
+  useEffect(() => {
+    const savedLat = parseFloat(localStorage.getItem('fp_delivery_lat'));
+    const savedLng = parseFloat(localStorage.getItem('fp_delivery_lng'));
+
+    if (savedLat && savedLng && !isNaN(savedLat) && !isNaN(savedLng)) {
+      // Use the exact coordinates the user picked
+      setAddressPos({ lat: savedLat, lng: savedLng });
+      return;
+    }
+
+    // Fallback: geocode the address text if no stored coords
+    if (!currentAddress) return;
+    const geocodeDeliveryAddress = async () => {
+      try {
+        const q   = encodeURIComponent(currentAddress + ', Bangladesh');
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1`);
+        const data = await res.json();
+        if (data?.[0]) {
+          setAddressPos({ lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) });
+        }
+      } catch {}
+    };
+    geocodeDeliveryAddress();
+  }, [currentAddress]);
+
+  // userPos = saved address coords if set, otherwise real GPS
+  const userPos = addressPos || gpsPos;
+
   useEffect(() => {
     if (userPos && !locLoading && !shownLocToast.current) {
       shownLocToast.current = true;
-      toast('Location found! Showing restaurants near you.', 'success');
+      const label = addressPos
+        ? `Showing restaurants near ${currentAddress || 'your delivery address'}.`
+        : 'Location found! Showing restaurants near you.';
+      toast(label, 'success');
     }
-  }, [userPos, locLoading]);
+  }, [userPos, locLoading, addressPos]);
 
   useEffect(() => {
-    if (locError) toast('Could not get your location. Showing all restaurants on map.', 'warning', 5000);
-  }, [locError]);
+    if (locError && !addressPos) toast('Could not get your location. Showing all restaurants on map.', 'warning', 5000);
+  }, [locError, addressPos]);
 
   const adapted = useMemo(() =>
     restaurants.map(r => ({ ...r, ...extractCoords(r) })),
@@ -355,6 +391,8 @@ export default function NearMePage({
         onNearMeClick={() => {}}
         activeTab="nearme"
         showBanner={false}
+        currentAddress={currentAddress}
+        onAddressChange={onAddressChange}
       />
 
       {/* ── Body ─────────────────────────────────────────────────────── */}

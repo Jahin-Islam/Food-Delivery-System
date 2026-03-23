@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import {
   Eye, EyeOff, Mail, Lock, Phone, User, Building2,
   Utensils, Smartphone, MapPin, ArrowRight, Globe,
-  TrendingUp, CheckCircle, DollarSign,
+  TrendingUp, CheckCircle, DollarSign, Search, X,
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import './RestaurantSignUp.css';
@@ -81,14 +81,19 @@ function AddressMapPicker({ onLocationSelect, initialLat, initialLng }) {
 
   const reverseGeocode = async (lat, lng) => {
     try {
-      const res  = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`);
+      const res  = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1`);
       const data = await res.json();
+      // Extract the best city name from Nominatim's address breakdown
+      const addr = data.address || {};
+      const city = addr.city || addr.town || addr.village || addr.county ||
+                   addr.state_district || addr.state || 'Unknown';
       onLocationSelect({
         lat, lng,
         address: data.display_name || `${lat.toFixed(5)}, ${lng.toFixed(5)}`,
+        city,
       });
     } catch {
-      onLocationSelect({ lat, lng, address: `${lat.toFixed(5)}, ${lng.toFixed(5)}` });
+      onLocationSelect({ lat, lng, address: `${lat.toFixed(5)}, ${lng.toFixed(5)}`, city: 'Unknown' });
     }
   };
 
@@ -101,7 +106,7 @@ const RestaurantPartnerSignUp = ({ onSwitchToLogin, onRiderSignUp, onSignUpSucce
   const [formData, setFormData] = useState({
     businessName: '', ownerFirstName: '', ownerLastName: '',
     businessType: '', email: '', phone: '', password: '', password2: '',
-    address: '', latitude: null, longitude: null,
+    address: '', latitude: null, longitude: null, city: '',
     sameAsPhone: false, whatsappUpdates: true,
   });
   const [showPassword,  setShowPassword]  = useState(false);
@@ -109,14 +114,55 @@ const RestaurantPartnerSignUp = ({ onSwitchToLogin, onRiderSignUp, onSignUpSucce
   const [loading,       setLoading]       = useState(false);
   const [showMap,       setShowMap]       = useState(false);
   const [focused,       setFocused]       = useState(null);
+  const [suggestions,   setSuggestions]   = useState([]);
+  const [suggestLoading,setSuggestLoading]= useState(false);
+  const debounceRef = useRef(null);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
   };
 
-  const handleLocationSelect = ({ lat, lng, address }) => {
-    setFormData(prev => ({ ...prev, latitude: lat, longitude: lng, address }));
+  const handleLocationSelect = ({ lat, lng, address, city }) => {
+    setFormData(prev => ({ ...prev, latitude: lat, longitude: lng, address, city: city || '' }));
+    setSuggestions([]);
+  };
+
+  // Nominatim autocomplete — fires 400ms after user stops typing
+  const fetchSuggestions = useCallback(async (q) => {
+    if (q.trim().length < 3) { setSuggestions([]); return; }
+    setSuggestLoading(true);
+    try {
+      const res  = await fetch(
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&countrycodes=bd&format=json&limit=5&addressdetails=1`,
+        { headers: { 'Accept-Language': 'en' } }
+      );
+      const data = await res.json();
+      setSuggestions(data.map(r => {
+        const addr = r.address || {};
+        const city = addr.city || addr.town || addr.village || addr.county ||
+                     addr.state_district || addr.state || '';
+        return {
+          label: r.display_name,
+          lat:   parseFloat(r.lat),
+          lng:   parseFloat(r.lon),
+          city,
+        };
+      }));
+    } catch { setSuggestions([]); }
+    finally { setSuggestLoading(false); }
+  }, []);
+
+  const handleAddressInput = (e) => {
+    const val = e.target.value;
+    setFormData(prev => ({ ...prev, address: val, latitude: null, longitude: null, city: '' }));
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => fetchSuggestions(val), 400);
+  };
+
+  const handleSuggestionPick = ({ label, lat, lng, city }) => {
+    setFormData(prev => ({ ...prev, address: label, latitude: lat, longitude: lng, city }));
+    setSuggestions([]);
   };
 
   const handleSubmit = async (e) => {
@@ -147,6 +193,7 @@ const RestaurantPartnerSignUp = ({ onSwitchToLogin, onRiderSignUp, onSignUpSucce
         password2:      formData.password2,
         role:           'RESTAURANT',
         address:        formData.address,
+        city:           formData.city,
         latitude:       formData.latitude,
         longitude:      formData.longitude,
       });
@@ -307,15 +354,67 @@ const RestaurantPartnerSignUp = ({ onSwitchToLogin, onRiderSignUp, onSignUpSucce
               </div>
             </div>
 
-            {/* ── Address + Map ── */}
-            <div className={fg('address')}>
+            {/* ── Address + Suggestions + Map ── */}
+            <div className={fg('address')} style={{ position: 'relative' }}>
               <label>Restaurant Address</label>
               <div className="form-group-wrapper">
                 <MapPin size={15} className="form-icon" />
-                <input type="text" name="address" placeholder="Enter address or pick from map"
-                  value={formData.address} onChange={handleChange}
-                  onFocus={() => setFocused('address')} onBlur={() => setFocused(null)} />
+                <input type="text" name="address" placeholder="Type to search address…"
+                  value={formData.address}
+                  onChange={handleAddressInput}
+                  onFocus={() => setFocused('address')}
+                  onBlur={() => setTimeout(() => setSuggestions([]), 200)}
+                  autoComplete="off"
+                />
+                {formData.address && (
+                  <button type="button" onClick={() => {
+                    setFormData(prev => ({ ...prev, address: '', latitude: null, longitude: null, city: '' }));
+                    setSuggestions([]);
+                  }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 6px', color: 'var(--c-gray-400)', display: 'flex', alignItems: 'center' }}>
+                    <X size={14} />
+                  </button>
+                )}
               </div>
+
+              {/* Suggestions dropdown */}
+              {(suggestLoading || suggestions.length > 0) && (
+                <div style={{
+                  position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 1000,
+                  background: 'var(--c-white)', border: '1.5px solid var(--c-gray-200)',
+                  borderRadius: 10, overflow: 'hidden', boxShadow: '0 4px 16px rgba(0,0,0,0.10)',
+                  marginTop: 4,
+                }}>
+                  {suggestLoading && (
+                    <div style={{ padding: '10px 14px', fontSize: 13, color: 'var(--c-gray-400)' }}>
+                      Searching…
+                    </div>
+                  )}
+                  {!suggestLoading && suggestions.map((s, i) => (
+                    <button key={i} type="button"
+                      onMouseDown={() => handleSuggestionPick(s)}
+                      style={{
+                        width: '100%', display: 'flex', alignItems: 'flex-start', gap: 10,
+                        padding: '10px 14px', background: 'none', border: 'none',
+                        borderBottom: i < suggestions.length - 1 ? '1px solid var(--c-gray-100)' : 'none',
+                        cursor: 'pointer', textAlign: 'left', fontSize: 13,
+                        color: 'var(--c-gray-700)', fontFamily: 'var(--font)',
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'var(--c-primary-light)'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'none'}
+                    >
+                      <MapPin size={14} style={{ color: 'var(--c-primary)', flexShrink: 0, marginTop: 1 }} />
+                      <span style={{ lineHeight: 1.4 }}>{s.label}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Picked location confirmation */}
+              {formData.latitude && (
+                <p style={{ fontSize: 12, color: 'var(--c-primary)', marginTop: 6, fontWeight: 600 }}>
+                  📍 {formData.city || 'Location set'} ({formData.latitude.toFixed(4)}, {formData.longitude.toFixed(4)})
+                </p>
+              )}
             </div>
 
             <button type="button" className="map-picker-toggle"
