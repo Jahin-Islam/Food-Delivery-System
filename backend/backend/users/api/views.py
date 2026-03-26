@@ -32,7 +32,6 @@ from django.db import connection, IntegrityError, transaction
 
 from ..models import User
 from .serializers import UserRegistrationSerializer, MyTokenObtainPairSerializer
-from addresses.api.services import insert_address
 from riders.api.services import validate_rider_fields, insert_rider
 from customers.api.services import insert_customer
 from resturants.api.services import insert_restaurant
@@ -85,7 +84,7 @@ class RegisterView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-
+        print(request.data)
         # ── Step 1: validate base user fields via existing serializer ───────
         serializer = UserRegistrationSerializer(data=request.data)
         if not serializer.is_valid():
@@ -124,7 +123,6 @@ class RegisterView(APIView):
         try:
             with transaction.atomic():
                 with connection.cursor() as cursor:
-
                     # 4a ── Insert the base users_user row ───────────────────
                     cursor.execute(
                         """
