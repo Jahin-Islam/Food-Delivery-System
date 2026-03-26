@@ -8,83 +8,52 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from exceptions import PermissionError, ConflictError, NotFoundError, ValidationError
-import logging
-
-log = logging.getLogger(__name__)
-
+from addresses.api.services import insert_address
 
 def insert_restaurant(cursor, user_id, phone_number, data):
     """
-    Insert a resturants_restaurant row.
+    Insert a resturants_restaurant row, and an addresses_address row if the
+    frontend supplied enough location data.
 
-    Address handling:
-    - Frontend sends: address (street), city, latitude, longitude
-    - city comes from Nominatim reverse geocode — never hardcoded
-    - All three (city, latitude, longitude) are NOT NULL in addresses_address
-      so we only create the address row when all three are present
-    - If address data is missing, restaurant gets address_id = NULL (safe —
-      the homepage query uses LEFT JOIN so it still shows up, just without location)
-    - get_or_create pattern: if this user already has a restaurant with an
-      address_id, we update that row instead of creating a duplicate
+    Expected request.data fields
+    ----------------------------
+    restaurant_name     : str   (required)
+    restaurant_category : str   (optional, defaults to 'RESTAURANT')
+    address             : str   street address from Nominatim  (optional)
+    city                : str   city from Nominatim reverse geocode (optional)
+    latitude            : float (optional)
+    longitude           : float (optional)
+
+    Address behaviour
+    -----------------
+    - insert_address() requires city, latitude, and longitude because those
+      columns are NOT NULL in addresses_address.
+    - When all three are present we call insert_address() and store the
+      returned address_id on the restaurant row.
+    - When any of the three is missing we leave address_id as NULL.
+      The homepage query uses LEFT JOIN so the restaurant still appears,
+      just without a map location.
+    - This is a brand-new registration, so there is no "existing address" to
+      worry about — we always INSERT, never UPDATE, here.
+    - The cursor is already inside transaction.atomic() (opened in the view),
+      so if insert_address() or the restaurant INSERT fails, everything rolls
+      back automatically.
     """
-    street_address = (data.get('address')  or '').strip()
-    city           = (data.get('city')     or '').strip()
+    street_address = (data.get('address') or '').strip()
+    city           = (data.get('city')    or '').strip()
     latitude       = data.get('latitude')  or None
     longitude      = data.get('longitude') or None
     address_id     = None
 
-    # All three fields are NOT NULL in addresses_address —
-    # only proceed when every one is available
+    # addresses_address has NOT NULL constraints on city, latitude, longitude —
+    # only create the row when all three arrive from the frontend.
     has_full_address = bool(city and latitude is not None and longitude is not None)
 
     if has_full_address:
-        try:
-            # get_or_create: does this user already have a restaurant with an address?
-            cursor.execute(
-                """
-                SELECT address_id FROM resturants_restaurant
-                WHERE user_id = %s AND address_id IS NOT NULL
-                LIMIT 1
-                """,
-                [user_id]
-            )
-            existing = cursor.fetchone()
-
-            if existing and existing[0]:
-                # Update the existing address row in-place
-                address_id = existing[0]
-                cursor.execute(
-                    """
-                    UPDATE addresses_address
-                    SET street_address = %s,
-                        city           = %s,
-                        latitude       = %s,
-                        longitude      = %s
-                    WHERE address_id   = %s
-                    """,
-                    [street_address, city, float(latitude), float(longitude), address_id]
-                )
-            else:
-                # Create a fresh address row
-                cursor.execute(
-                    """
-                    INSERT INTO addresses_address
-                        (street_address, city, latitude, longitude)
-                    VALUES (%s, %s, %s, %s)
-                    """,
-                    [street_address, city, float(latitude), float(longitude)]
-                )
-                cursor.execute("SELECT LAST_INSERT_ID()")
-                row = cursor.fetchone()
-                if row and row[0]:
-                    address_id = row[0]
-
-        except Exception as exc:
-            # Don't break registration if address insert fails — just log it
-            log.warning(
-                f"insert_restaurant: address creation failed for user {user_id}: {exc}"
-            )
-            address_id = None
+        # insert_address() handles the INSERT and returns the new PK.
+        # Any exception propagates up to transaction.atomic() in the view,
+        # which rolls back the whole registration — no silent swallowing.
+        address_id = insert_address(cursor, street_address, city, latitude, longitude)
 
     cursor.execute(
         """
@@ -100,7 +69,7 @@ def insert_restaurant(cursor, user_id, phone_number, data):
             phone_number,
             0.00, 0.00, 0, '',
             None, None,   # opening_time / closing_time — set later via BusinessProfile
-            address_id,   # NULL if no full address was provided
+            address_id,   # NULL when no full address was provided
         ]
     )
 
