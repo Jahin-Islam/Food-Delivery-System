@@ -1,10 +1,9 @@
 import React from 'react';
 import './Allcarts.css';
-import { COLORS, SHADOWS } from '../constants.js';
+import { COLORS } from '../constants.js';
 import { ShoppingCart, Utensils, Coins, X } from 'lucide-react';
 
 const AllCarts = ({ isOpen, onClose, cartItems = [], onCheckout, onNavigateToRestaurant }) => {
-  // Group cart items by restaurant
   const groupedCarts = cartItems.reduce((acc, item) => {
     const restaurantName = item.restaurant || 'Unknown Restaurant';
     if (!acc[restaurantName]) {
@@ -14,7 +13,7 @@ const AllCarts = ({ isOpen, onClose, cartItems = [], onCheckout, onNavigateToRes
         restaurantImage: item.restaurantImage || '',
         items: [],
         subtotal: 0,
-        savings: 0
+        savings: 0,
       };
     }
     acc[restaurantName].items.push(item);
@@ -36,19 +35,14 @@ const AllCarts = ({ isOpen, onClose, cartItems = [], onCheckout, onNavigateToRes
 
   return (
     <>
-      <div 
+      <div
         className={`all-carts-overlay ${isOpen ? 'active' : ''}`}
         onClick={onClose}
       />
-
       <aside className={`all-carts-sidebar ${isOpen ? 'visible' : 'hidden'}`}>
         <div className="all-carts-header">
           <h3 className="all-carts-title">All carts</h3>
-          <button 
-            className="close-all-carts-btn"
-            onClick={onClose}
-            aria-label="Close all carts"
-          >
+          <button className="close-all-carts-btn" onClick={onClose} aria-label="Close cart">
             <X size={16} />
           </button>
         </div>
@@ -63,7 +57,7 @@ const AllCarts = ({ isOpen, onClose, cartItems = [], onCheckout, onNavigateToRes
             <div className="restaurant-carts-list">
               {restaurantCarts.map((cart, index) => (
                 <div key={index} className="restaurant-cart-card">
-                  <div 
+                  <div
                     className="restaurant-cart-header"
                     onClick={() => handleRestaurantClick(cart.restaurantId)}
                     style={{ cursor: 'pointer' }}
@@ -74,7 +68,7 @@ const AllCarts = ({ isOpen, onClose, cartItems = [], onCheckout, onNavigateToRes
                           <img
                             src={cart.restaurantImage}
                             alt={cart.restaurantName}
-                            style={{width:'100%',height:'100%',objectFit:'cover',borderRadius:'inherit'}}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'inherit' }}
                             onError={(e) => { e.currentTarget.style.display = 'none'; }}
                           />
                         ) : (
@@ -86,12 +80,9 @@ const AllCarts = ({ isOpen, onClose, cartItems = [], onCheckout, onNavigateToRes
                         <p className="delivery-time">Pick-up in 6 mins</p>
                       </div>
                     </div>
-                    <button 
+                    <button
                       className="add-more-btn"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleRestaurantClick(cart.restaurantId);
-                      }}
+                      onClick={(e) => { e.stopPropagation(); handleRestaurantClick(cart.restaurantId); }}
                     >
                       +
                     </button>
@@ -103,7 +94,7 @@ const AllCarts = ({ isOpen, onClose, cartItems = [], onCheckout, onNavigateToRes
                         {item.image && item.image.startsWith('http') ? (
                           <img src={item.image} alt={item.name} />
                         ) : (
-                          <div className="item-emoji" style={{display:'flex',alignItems:'center',justifyContent:'center'}}>
+                          <div className="item-emoji" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             <Utensils size={28} color={COLORS.primary} />
                           </div>
                         )}
@@ -115,7 +106,7 @@ const AllCarts = ({ isOpen, onClose, cartItems = [], onCheckout, onNavigateToRes
                   </div>
 
                   {cart.savings > 0 && (
-                    <div className="cart-savings-banner" style={{display:'flex',alignItems:'center',gap:'6px'}}>
+                    <div className="cart-savings-banner" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <Coins size={14} /> Saving ৳{Math.round(cart.savings)}
                     </div>
                   )}
@@ -125,13 +116,9 @@ const AllCarts = ({ isOpen, onClose, cartItems = [], onCheckout, onNavigateToRes
                     <span className="subtotal-amount">৳{Math.round(cart.subtotal)}</span>
                   </div>
 
-                  <button 
+                  <button
                     className="cart-checkout-btn"
-                    onClick={() => {
-                      if (onCheckout) {
-                        onCheckout(cart.restaurantId);
-                      }
-                    }}
+                    onClick={() => { if (onCheckout) onCheckout(cart.restaurantId); }}
                   >
                     Go to checkout
                   </button>

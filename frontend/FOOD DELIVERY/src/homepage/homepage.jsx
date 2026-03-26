@@ -14,6 +14,7 @@ const Homepage = ({
   onRestaurantClick, onCheckout,
   onProfileClick, onOrdersClick, onLogoClick,
   onDeliveryClick, onPickupClick, onNearMeClick,
+  onFavouritesClick,
   activeTab = 'delivery',
   restaurants = [],
   currentAddress,
@@ -131,6 +132,7 @@ const Homepage = ({
         onCartClick={() => setShowCart(!showCart)} onLogout={onLogout}
         onProfileClick={onProfileClick} onOrdersClick={onOrdersClick} onLogoClick={onLogoClick}
         onDeliveryClick={onDeliveryClick} onPickupClick={onPickupClick} onNearMeClick={onNearMeClick}
+        onFavouritesClick={onFavouritesClick}
         activeTab={activeTab} showBanner={true}
         currentAddress={currentAddress || localAddress}
         onAddressChange={(addr) => { setLocalAddress(addr); onAddressChange?.(addr); }}

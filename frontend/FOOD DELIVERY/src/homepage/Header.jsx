@@ -13,12 +13,13 @@ const Header = ({
   isLoggedIn, user, cartItems = [],
   onLoginClick, onSignUpClick, onCartClick, onLogout,
   showBanner = false, onRestaurantSignUpClick,
-  onRiderSignUpClick,   // TASK 2: new prop for rider signup
+  onRiderSignUpClick,
   onProfileClick, onOrdersClick, onLogoClick,
   onDeliveryClick, onPickupClick, onNearMeClick,
   activeTab = 'delivery',
   currentAddress = '',
   onAddressChange,
+  onFavouritesClick,  // opens AllCarts sidebar on the favourites tab
 }) => {
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const [isDark,           setIsDark]           = useState(() => localStorage.getItem('theme') === 'dark');
@@ -255,15 +256,19 @@ const Header = ({
                 <motion.button className="header-btn cart-button" onClick={onCartClick} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}>
                   <ShoppingCart size={17} strokeWidth={2} />
                   <AnimatePresence>
-                    {cartItems?.length > 0 && (
-                      <motion.span className="cart-badge" key={cartItems.length} initial={{ scale: 0.4 }} animate={{ scale: 1 }} exit={{ scale: 0 }} transition={{ type: 'spring', stiffness: 400, damping: 20 }}>
-                        {cartItems.length}
-                      </motion.span>
-                    )}
+                    {cartItems?.length > 0 && (() => {
+                      const uniqueCount = new Set(cartItems.map(i => i.restaurantId)).size;
+                      return (
+                        <motion.span className="cart-badge" key={uniqueCount} initial={{ scale: 0.4 }} animate={{ scale: 1 }} exit={{ scale: 0 }} transition={{ type: 'spring', stiffness: 400, damping: 20 }}>
+                          {uniqueCount}
+                        </motion.span>
+                      );
+                    })()}
                   </AnimatePresence>
                   <span>CART</span>
                 </motion.button>
-                <motion.button className="header-btn favourite-btn" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}><Heart size={16} strokeWidth={2} /><span>FAVOURITES</span></motion.button>
+                <div style={{ width: 1, height: 24, background: 'var(--c-gray-200)', margin: '0 2px', alignSelf: 'center', flexShrink: 0 }} />
+                <motion.button className="header-btn favourite-btn" onClick={onFavouritesClick} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}><Heart size={16} strokeWidth={2} /><span>FAVOURITES</span></motion.button>
                 <motion.button className="header-btn profile-btn" onClick={() => setShowProfileDropdown(p => !p)} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}>
                   <User size={16} strokeWidth={2} /><span>{user?.first_name || 'PROFILE'}</span><ChevronDown size={13} strokeWidth={2.5} />
                 </motion.button>
@@ -285,6 +290,9 @@ const Header = ({
             </button>
             <button className={`nav-tab ${activeTab === 'nearme' ? 'active' : ''}`} onClick={onNearMeClick}>
               <Navigation size={16} strokeWidth={2} /><span>Restaurants Near Me</span>
+            </button>
+            <button className={`nav-tab ${activeTab === 'orders' ? 'active' : ''}`} onClick={onOrdersClick}>
+              <Store size={16} strokeWidth={2} /><span>My Orders</span>
             </button>
           </div>
         </div>

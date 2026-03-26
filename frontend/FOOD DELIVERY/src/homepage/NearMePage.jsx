@@ -230,6 +230,7 @@ export default function NearMePage({
   onLoginClick, onSignUpClick, onRestaurantSignUpClick,
   onLogout, onProfileClick, onOrdersClick,
   onLogoClick, onDeliveryClick, onPickupClick,
+  onFavouritesClick,
   onUpdateQuantity, onRemoveItem, onCheckout,
   onBack,
   restaurants = [],
@@ -391,6 +392,7 @@ export default function NearMePage({
         onNearMeClick={() => {}}
         activeTab="nearme"
         showBanner={false}
+        onFavouritesClick={onFavouritesClick}
         currentAddress={currentAddress}
         onAddressChange={onAddressChange}
       />

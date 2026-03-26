@@ -43,8 +43,18 @@ const Checkout = ({
   const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   const deliveryFee = deliveryOption === 'priority' ? 33 : 0;
   const serviceFee = 14;
-  const total = subtotal + deliveryFee + serviceFee + tipAmount;
-  const savings = 30;
+
+  // Find best applicable discount from restaurant.discounts
+  const discounts = restaurant?.discounts || [];
+  const applicableDiscount = discounts
+    .filter(d => d.is_active !== false && subtotal >= (parseFloat(d.min_order) || 0))
+    .sort((a, b) => parseFloat(b.percentage) - parseFloat(a.percentage))[0] || null;
+  const discountAmount = applicableDiscount
+    ? Math.round(subtotal * parseFloat(applicableDiscount.percentage) / 100)
+    : 0;
+
+  const total = subtotal - discountAmount + deliveryFee + serviceFee + tipAmount;
+  const savings = discountAmount;
 
   const handlePlaceOrder = () => {
     const orderData = {
@@ -62,6 +72,8 @@ const Checkout = ({
       personalDetails: { firstName, lastName, email, mobile },
       tip: tipAmount,
       subtotal,
+      discountAmount,
+      applicableDiscount,
       deliveryFee,
       serviceFee,
       total
@@ -350,6 +362,12 @@ const Checkout = ({
               <span>Subtotal</span>
               <span>৳{subtotal}</span>
             </div>
+            {discountAmount > 0 && (
+              <div className="summary-row" style={{ color: '#10b981', fontWeight: 700 }}>
+                <span>Discount ({applicableDiscount.percentage}% off)</span>
+                <span>-৳{discountAmount}</span>
+              </div>
+            )}
             <div className="summary-row">
               <span>Standard delivery</span>
               <span className="free-text">{deliveryFee === 0 ? 'Free' : `৳${deliveryFee}`}</span>
