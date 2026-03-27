@@ -24,43 +24,22 @@ const RestaurantLogin = ({ onSwitchToSignUp, onLoginSuccess }) => {
 
   const handleSubmit = async (e) => {
     e?.preventDefault();
-    const identifier = email;
-    if (!identifier || !password) { toast.error('Please fill in all fields'); return; }
+    if (!email || !password) { toast.error('Please fill in all fields'); return; }
 
     setLoading(true);
     try {
-      const response = await authService.login(identifier, password, 'email');
+      // FIX: use loginAsRestaurant — only RESTAURANT/VENDOR roles can log in here
+      const response = await authService.loginAsRestaurant(email, password);
 
-      const user = authService.getUser();
-      let role = (
-        user?.role || user?.user_type ||
-        response?.role || response?.user?.role || response?.user?.user_type || ''
-      ).toString().toUpperCase();
-
-      const hasRestaurantData = !!(response?.restaurant || authService.getRestaurantData());
-      let isVendor = role === 'RESTAURANT' || role === 'VENDOR' || hasRestaurantData;
-
-      if (!isVendor) {
-        try {
-          const details = await authService.fetchUserDetails();
-          const dr = (details?.role || details?.user_type || authService.getUser()?.role || '').toString().toUpperCase();
-          isVendor = dr === 'RESTAURANT' || dr === 'VENDOR' || !!authService.getRestaurantData();
-        } catch {}
-      }
-
-      if (!isVendor) {
-        toast.error('This account is not a restaurant partner account.');
-        await authService.logout();
-        setLoading(false);
-        return;
-      }
+      const user       = authService.getUser();
+      const restaurant = response?.restaurant || authService.getRestaurantData();
 
       toast.success('Welcome back, partner!');
       setTimeout(() => {
         onLoginSuccess({
           type: 'restaurant_partner',
-          user: authService.getUser(),
-          restaurant: response?.restaurant || authService.getRestaurantData(),
+          user,
+          restaurant,
         });
       }, 600);
     } catch (error) {
@@ -127,7 +106,7 @@ const RestaurantLogin = ({ onSwitchToSignUp, onLoginSuccess }) => {
           initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}>
 
-          <h2 className="login-title">Log in to your account</h2>
+          <h2 className="login-title">Log in to your restaurant account</h2>
 
           <form className="login-form" onSubmit={handleSubmit} noValidate>
 
@@ -140,7 +119,6 @@ const RestaurantLogin = ({ onSwitchToSignUp, onLoginSuccess }) => {
               </div>
             </div>
 
-            {/* Single password field — shared by both modes */}
             <div className={`form-group ${focused === 'password' ? 'focused' : ''}`}>
               <div className="input-wrapper password-wrapper">
                 <Lock size={15} className="input-icon" />
