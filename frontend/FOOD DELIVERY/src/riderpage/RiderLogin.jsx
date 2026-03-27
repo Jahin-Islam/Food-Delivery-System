@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
-  Eye, EyeOff, Mail, Lock, Bike,
-  ArrowRight, TrendingUp, MapPin, Star,
+  Eye, EyeOff, Mail, Lock, Phone, Bike,
+  ArrowRight, TrendingUp, MapPin, Star, Globe,
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import { BRAND, COLORS } from '../constants.js';
@@ -16,7 +16,8 @@ const HERO_FEATURES = [
 ];
 
 const RiderLogin = ({ onSwitchToSignUp, onLoginSuccess }) => {
-  const [formData,     setFormData]     = useState({ email: '', password: '' });
+  const [loginMode,    setLoginMode]    = useState('email');
+  const [formData,     setFormData]     = useState({ email: '', phone: '', password: '' });
   const [showPassword, setShowPassword] = useState(false);
   const [loading,      setLoading]      = useState(false);
   const [focused,      setFocused]      = useState(null);
@@ -26,12 +27,18 @@ const RiderLogin = ({ onSwitchToSignUp, onLoginSuccess }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.email || !formData.password) { toast.error('Please fill in all fields'); return; }
+    const identifier = loginMode === 'email' ? formData.email : formData.phone;
+    if (!identifier || !formData.password) { toast.error('Please fill in all fields'); return; }
 
     setLoading(true);
     try {
-      await authService.login(formData.email, formData.password, 'email');
+      await authService.login(identifier, formData.password, loginMode === 'phone' ? 'phone' : 'email');
       const user = authService.getUser();
+      if (user?.role !== 'RIDER') {
+        authService.logout();
+        toast.error('This account is not a rider account. Please use the correct login page.');
+        return;
+      }
       toast.success('Welcome back, rider! 🏍️');
       setTimeout(() => onLoginSuccess && onLoginSuccess({ type: 'rider', user }), 600);
     } catch (err) {
@@ -86,20 +93,51 @@ const RiderLogin = ({ onSwitchToSignUp, onLoginSuccess }) => {
 
           <div className="signin-header">
             <div className="signin-brand-pill">{BRAND.name} Rider</div>
-            <h1>Log in to your account</h1>
+            <h1>{loginMode === 'email' ? 'Log in with email' : 'Log in with phone'}</h1>
             <p>Welcome back! Sign in to your rider account.</p>
           </div>
 
+          {/* Mode toggle */}
+          <div style={{ display: 'flex', border: '2px solid var(--c-gray-200)', borderRadius: 'var(--radius)', overflow: 'hidden', marginBottom: 20 }}>
+            {['email', 'phone'].map(mode => (
+              <button key={mode} type="button"
+                onClick={() => setLoginMode(mode)}
+                style={{
+                  flex: 1, padding: '10px 0', border: 'none',
+                  background: loginMode === mode ? 'var(--c-primary)' : 'var(--c-gray-50)',
+                  color: loginMode === mode ? 'white' : 'var(--c-gray-500)',
+                  fontSize: 14, fontWeight: 600, cursor: 'pointer',
+                  fontFamily: 'var(--font)',
+                  borderRight: mode === 'email' ? '2px solid var(--c-gray-200)' : 'none',
+                  transition: 'background 0.2s, color 0.2s',
+                }}>
+                {mode === 'email' ? 'Email' : 'Phone Number'}
+              </button>
+            ))}
+          </div>
+
           <form onSubmit={handleSubmit} noValidate>
-            <div className={fg('email')}>
-              <label htmlFor="r-email">Email Address</label>
-              <div className="signin-input-wrapper">
-                <Mail size={15} className="signin-input-icon" />
-                <input type="email" id="r-email" name="email" placeholder="Enter your email"
-                  value={formData.email} onChange={handleChange}
-                  onFocus={() => setFocused('email')} onBlur={() => setFocused(null)} />
+            {loginMode === 'email' ? (
+              <div className={fg('email')}>
+                <label htmlFor="r-email">Email Address</label>
+                <div className="signin-input-wrapper">
+                  <Mail size={15} className="signin-input-icon" />
+                  <input type="email" id="r-email" name="email" placeholder="Enter your email"
+                    value={formData.email} onChange={handleChange}
+                    onFocus={() => setFocused('email')} onBlur={() => setFocused(null)} />
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="signin-form-group">
+                <label>Phone Number</label>
+                <div style={{ display: 'flex' }}>
+                  <span style={{ padding: '12px', background: 'var(--c-gray-100)', border: '2px solid var(--c-gray-200)', borderRight: 'none', borderRadius: 'var(--radius) 0 0 var(--radius)', fontSize: 14, fontWeight: 600, color: 'var(--c-gray-700)', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center' }}>+880</span>
+                  <input type="tel" name="phone" placeholder="1712345678"
+                    value={formData.phone} onChange={handleChange}
+                    style={{ flex: 1, padding: '12px', border: '2px solid var(--c-gray-200)', borderLeft: 'none', borderRadius: '0 var(--radius) var(--radius) 0', fontSize: 14, fontFamily: 'var(--font)', background: 'var(--c-gray-50)', color: 'var(--c-gray-900)', outline: 'none' }} />
+                </div>
+              </div>
+            )}
 
             <div className={fg('password')}>
               <label htmlFor="r-password">Password</label>

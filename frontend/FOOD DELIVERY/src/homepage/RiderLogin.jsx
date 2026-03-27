@@ -34,6 +34,11 @@ const RiderLogin = ({ onSwitchToSignUp, onLoginSuccess }) => {
     try {
       await authService.login(identifier, formData.password, loginMode === 'phone' ? 'phone' : 'email');
       const user = authService.getUser();
+      if (user?.role !== 'RIDER') {
+        authService.logout();
+        toast.error('This account is not a rider account. Please use the correct login page.');
+        return;
+      }
       toast.success('Welcome back, rider! 🏍️');
       setTimeout(() => onLoginSuccess && onLoginSuccess({ type: 'rider', user }), 600);
     } catch (err) {

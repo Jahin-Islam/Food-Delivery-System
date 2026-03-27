@@ -30,8 +30,14 @@ const SignIn = ({ onSwitchToSignUp, onLoginSuccess }) => {
     setLoading(true);
     try {
       await authService.login(formData.email, formData.password);
+      const user = authService.getUser();
+      if (user?.role !== 'CUSTOMER') {
+        authService.logout();
+        toast.error('This account is not a customer account. Please use the correct login page.');
+        return;
+      }
       toast.success('Welcome back!');
-      setTimeout(() => onLoginSuccess && onLoginSuccess(authService.getUser()), 500);
+      setTimeout(() => onLoginSuccess && onLoginSuccess(user), 500);
     } catch (err) {
       toast.error(err.message || 'Login failed. Please check your credentials.');
     } finally {

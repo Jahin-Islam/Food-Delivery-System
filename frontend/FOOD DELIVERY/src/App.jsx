@@ -82,15 +82,29 @@ function App() {
   useEffect(() => {
     const onPop = (e) => {
       const dest = e.state?.page ?? 'home';
-      if (BUSINESS_PAGES.has(currentPage) && !BUSINESS_PAGES.has(dest) && dest !== 'home') {
-        setCurrentPage('business-dashboard'); return;
+
+      // Restaurant owner: never allow back-navigation outside business pages
+      if (BUSINESS_PAGES.has(currentPage) && !BUSINESS_PAGES.has(dest)) {
+        window.history.pushState(
+          { page: 'business-welcome' }, '', '#business-welcome'
+        );
+        setCurrentPage('business-welcome');
+        return;
       }
-      if (RIDER_PAGES.has(currentPage) && dest !== 'rider-dashboard') {
-        setCurrentPage('rider-dashboard'); return;
+
+      // Rider: never allow back-navigation outside rider pages
+      if (RIDER_PAGES.has(currentPage) && !RIDER_PAGES.has(dest)) {
+        window.history.pushState(
+          { page: 'rider-dashboard' }, '', '#rider-dashboard'
+        );
+        setCurrentPage('rider-dashboard');
+        return;
       }
+
       setCurrentPage(dest);
       if (e.state?.restaurant) setSelectedRestaurant(e.state.restaurant);
-      if ('checkoutRestaurantId' in (e.state ?? {})) setCheckoutRestaurantId(e.state.checkoutRestaurantId);
+      if ('checkoutRestaurantId' in (e.state ?? {}))
+        setCheckoutRestaurantId(e.state.checkoutRestaurantId);
     };
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
