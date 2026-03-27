@@ -24,6 +24,12 @@ const FavouritesSidebar = ({ isOpen, onClose, onNavigateToRestaurant }) => {
     onClose();
   };
 
+  const handleRemoveFavourite = (favId) => {
+    const updated = favourites.filter(f => String(f.id) !== String(favId));
+    try { localStorage.setItem(FK, JSON.stringify(updated)); } catch {}
+    setFavourites(updated);
+  };
+
   return (
     <>
       {/* Overlay */}
@@ -103,12 +109,16 @@ const FavouritesSidebar = ({ isOpen, onClose, onNavigateToRestaurant }) => {
                       )}
                     </div>
 
-                    <Heart
+                    <button
                       className="fav-card-heart"
-                      size={16}
-                      fill={COLORS.primary}
-                      color={COLORS.primary}
-                    />
+                      onClick={() => handleRemoveFavourite(fav.id)}
+                      title="Remove from favourites"
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex', alignItems: 'center', borderRadius: '50%', transition: 'background 0.15s' }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'var(--c-primary-light)'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'none'}
+                    >
+                      <Heart size={16} fill={COLORS.primary} color={COLORS.primary} />
+                    </button>
                   </div>
 
                   {/* Go to restaurant */}

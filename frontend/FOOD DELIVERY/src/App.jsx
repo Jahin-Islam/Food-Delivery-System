@@ -26,6 +26,7 @@ import FavouritesSidebar from './homepage/FavouritesSideBar.jsx';
 const SK_PAGE        = 'fp_current_page';
 const SK_ROLE        = 'fp_user_role';
 const SK_RESTAURANT  = 'fp_restaurant';
+const SK_VIEWED_REST = 'fp_viewed_restaurant'; // customer-facing restaurant detail
 const SK_RIDER       = 'fp_rider';
 const SK_ADDRESS     = 'fp_delivery_address';
 const SK_ADDRESS_LAT = 'fp_delivery_lat';
@@ -130,6 +131,22 @@ function App() {
               const r = pickRestaurant();
               if (r) { setSelectedRestaurant(r); localStorage.setItem(SK_RESTAURANT, JSON.stringify(r)); }
             }
+            // Restore customer-viewed restaurant on refresh
+            if (savedPage === 'restaurant') {
+              try {
+                const vr = JSON.parse(localStorage.getItem(SK_VIEWED_REST) || 'null');
+                if (vr?.id) setSelectedRestaurant(vr);
+                else { localStorage.setItem(SK_PAGE, 'home'); setCurrentPage('home'); window.history.replaceState({ page: 'home' }, '', '#home'); return; }
+              } catch { localStorage.setItem(SK_PAGE, 'home'); setCurrentPage('home'); window.history.replaceState({ page: 'home' }, '', '#home'); return; }
+            }
+            // Restore checkout restaurant id on refresh
+            if (savedPage === 'checkout') {
+              try {
+                const crid = localStorage.getItem('fp_checkout_restaurant_id');
+                if (crid) setCheckoutRestaurantId(crid);
+                else { localStorage.setItem(SK_PAGE, 'home'); setCurrentPage('home'); window.history.replaceState({ page: 'home' }, '', '#home'); return; }
+              } catch { localStorage.setItem(SK_PAGE, 'home'); setCurrentPage('home'); window.history.replaceState({ page: 'home' }, '', '#home'); return; }
+            }
             if (RIDER_PAGES.has(savedPage)) {
               try { const rd = JSON.parse(localStorage.getItem(SK_RIDER) || 'null'); if (rd) setRiderData(rd); } catch {}
             }
@@ -158,6 +175,19 @@ function App() {
           }
         } else {
           setCartItems(cartService.loadCart());
+          // Restore restaurant page for unauthenticated users on refresh
+          const savedPageGuest = localStorage.getItem(SK_PAGE);
+          if (savedPageGuest === 'restaurant') {
+            try {
+              const vr = JSON.parse(localStorage.getItem(SK_VIEWED_REST) || 'null');
+              if (vr?.id) {
+                setSelectedRestaurant(vr);
+                setCurrentPage('restaurant');
+                window.history.replaceState({ page: 'restaurant' }, '', '#restaurant');
+                return;
+              }
+            } catch {}
+          }
           localStorage.removeItem(SK_PAGE);
           localStorage.removeItem(SK_ROLE);
           localStorage.removeItem(SK_RESTAURANT);
@@ -268,6 +298,7 @@ function App() {
 
   const goHome = useCallback(() => {
     setSelectedRestaurant(null); setCheckoutRestaurantId(null);
+    try { localStorage.removeItem(SK_VIEWED_REST); localStorage.removeItem('fp_checkout_restaurant_id'); } catch {}
     localStorage.setItem(SK_PAGE, 'home');
     window.history.pushState({ page: 'home' }, '', '#home');
     setCurrentPage('home');
@@ -277,6 +308,7 @@ function App() {
 
   const goToRestaurant = useCallback((restaurant) => {
     setSelectedRestaurant(restaurant);
+    try { localStorage.setItem(SK_VIEWED_REST, JSON.stringify(restaurant)); } catch {}
     localStorage.setItem(SK_PAGE, 'restaurant');
     window.history.pushState({ page: 'restaurant', restaurant }, '', '#restaurant');
     setCurrentPage('restaurant');
@@ -284,6 +316,7 @@ function App() {
 
   const goToCheckout = useCallback((restaurantId) => {
     setCheckoutRestaurantId(restaurantId);
+    try { localStorage.setItem('fp_checkout_restaurant_id', restaurantId); } catch {}
     push('checkout');
   }, [push]);
 

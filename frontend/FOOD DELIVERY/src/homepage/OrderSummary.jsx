@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import './OrderSummary.css';
 import { COLORS, SHADOWS } from '../constants.js';
 import { UtensilsCrossed, Trash2, Utensils, Coffee } from 'lucide-react';
@@ -10,8 +10,6 @@ const OrderSummary = ({
   onCheckout,
   restaurantName
 }) => {
-  const [deliveryMode, setDeliveryMode] = useState('delivery');
-
   const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   const serviceFee = 3;
   const total = subtotal + serviceFee;
@@ -24,21 +22,12 @@ const OrderSummary = ({
 
   return (
     <div className="order-summary-container">
+      {/* Delivery-only header — Pick-up removed */}
       <div className="delivery-mode-tabs">
-        <button
-          className={`mode-tab ${deliveryMode === 'delivery' ? 'active' : ''}`}
-          onClick={() => setDeliveryMode('delivery')}
-        >
+        <div className="mode-tab active" style={{ cursor: 'default' }}>
           <div className="mode-tab-title">Delivery</div>
           <div className="mode-tab-subtitle">Standard (10 - 25 mins)</div>
-        </button>
-        <button
-          className={`mode-tab ${deliveryMode === 'pickup' ? 'active' : ''}`}
-          onClick={() => setDeliveryMode('pickup')}
-        >
-          <div className="mode-tab-title">Pick-up</div>
-          <div className="mode-tab-subtitle">Standard (10 mins)</div>
-        </button>
+        </div>
       </div>
 
       <div className="order-summary-content">

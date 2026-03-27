@@ -32,9 +32,9 @@ const RestaurantCart = ({
       />
 
       <aside className={`restaurant-cart-sidebar ${isOpen ? 'cart-visible' : 'cart-hidden'}`}>
-        {/* Delivery-only header */}
+        {/* Delivery-only header — Pick-up removed */}
         <div className="delivery-mode-header">
-          <div className="mode-btn active" style={{ flex: 1, cursor: 'default' }}>
+          <div className="mode-btn active" style={{ flex: 1, cursor: 'default', borderRadius: 0 }}>
             <div className="mode-title">Delivery</div>
             <div className="mode-subtitle">Standard (10 - 25 mins)</div>
           </div>

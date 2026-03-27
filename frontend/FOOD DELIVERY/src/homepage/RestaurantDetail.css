@@ -117,6 +117,35 @@
 .see-reviews-btn:hover,
 .more-info-btn:hover { color: var(--c-primary-alt); }
 
+/* ── Add to Favourites ── */
+.add-to-favourites-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 14px;
+  padding: 9px 18px;
+  border: 1.5px solid var(--c-gray-300);
+  background: var(--gray-100);
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--c-gray-700);
+  cursor: pointer;
+  font-family: var(--font);
+  transition: all var(--t);
+}
+.add-to-favourites-btn:hover {
+  border-color: var(--c-primary);
+  color: var(--c-primary);
+  background: var(--c-primary-light);
+}
+.add-to-favourites-btn.saved,
+.add-to-favourites-btn[title="Remove from favourites"] {
+  border-color: var(--c-primary);
+  color: var(--c-primary);
+  background: var(--c-primary-light);
+}
+
 /* ── Deals ── */
 .deals-section-detail {
   background: var(--gray-100);

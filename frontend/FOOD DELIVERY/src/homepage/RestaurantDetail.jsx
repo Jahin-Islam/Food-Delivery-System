@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   AlertTriangle, Utensils, ChevronLeft, ChevronRight, Search,
-  X, Star, ThumbsUp, ChevronRight as Arrow,
+  X, Star, ThumbsUp, ChevronRight as Arrow, Heart,
 } from 'lucide-react';
 import './RestaurantDetail.css';
 import { COLORS } from '../constants.js';
@@ -267,6 +267,28 @@ const RestaurantDetail = ({
   const [showItemModal,     setShowItemModal]     = useState(false);
   const [showReviews,       setShowReviews]       = useState(false);
 
+  /* ── Favourites ── */
+  const FK = 'fp_favourites';
+  const getFavourites = () => { try { return JSON.parse(localStorage.getItem(FK) || '[]'); } catch { return []; } };
+  const [isFavourite, setIsFavourite] = useState(() =>
+    getFavourites().some(f => String(f.id) === String(restaurant?.id))
+  );
+  const toggleFavourite = () => {
+    const favs = getFavourites();
+    const rid  = String(displayRestaurant?.id ?? restaurant?.id);
+    if (isFavourite) {
+      localStorage.setItem(FK, JSON.stringify(favs.filter(f => String(f.id) !== rid)));
+    } else {
+      const r = displayRestaurant ?? restaurant;
+      localStorage.setItem(FK, JSON.stringify([...favs, {
+        id: r.id, name: r.name, image_url: r.image_url,
+        description: r.description, rating: r.rating,
+        address: r.address, min_order: r.min_order,
+      }]));
+    }
+    setIsFavourite(p => !p);
+  };
+
   const categoriesScrollRef   = useRef(null);
   const menuItemsContainerRef = useRef(null);
 
@@ -421,7 +443,7 @@ const RestaurantDetail = ({
 
   const handleCheckoutFromCart = (restaurantId) => {
     setShowCart(false);
-    if (onCheckout) onCheckout(restaurantId);
+    if (onCheckout && restaurantId === displayRestaurant.id) onCheckout(restaurantId);
   };
 
   return (
@@ -459,6 +481,20 @@ const RestaurantDetail = ({
             <button className="see-reviews-btn" onClick={() => setShowReviews(true)}>See reviews</button>
             <button className="more-info-btn">More info</button>
           </div>
+
+          {/* Add to favourites */}
+          <button
+            className="add-to-favourites-btn"
+            onClick={toggleFavourite}
+            title={isFavourite ? 'Remove from favourites' : 'Add to favourites'}
+          >
+            <Heart
+              size={16}
+              fill={isFavourite ? 'currentColor' : 'none'}
+              strokeWidth={2}
+            />
+            {isFavourite ? 'Saved to favourites' : 'Add to favourites'}
+          </button>
         </div>
       </div>
 
