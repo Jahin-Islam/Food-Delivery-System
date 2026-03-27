@@ -133,12 +133,13 @@ def insert_rider(cursor, user_id, request):
     )
 
     # 3 ── Core rider profile ─────────────────────────────────────────────
+    # FIX: 'verfied' has no database-level DEFAULT, so raw SQL must supply it.
     cursor.execute(
         """
         INSERT INTO riders_rider
             (user_id, is_available, vehicle, license_plate,
-                current_latitude, current_longitude)
-        VALUES (%s, %s, %s, %s, %s, %s)
+                current_latitude, current_longitude, verfied)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
         """,
         [
             user_id,
@@ -147,6 +148,7 @@ def insert_rider(cursor, user_id, request):
             data['license_plate'].strip(),
             None,
             None,
+            0,   # verfied = 0 (pending review)
         ]
     )
 

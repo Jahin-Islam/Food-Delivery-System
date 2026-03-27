@@ -15,6 +15,9 @@ class Rider(models.Model):
     current_latitude = models.FloatField(blank=True, null=True)
     current_longitude = models.FloatField(blank=True, null=True)
 
+    class Meta:
+        db_table = 'riders_rider'
+
 
 class Rider_Additional_Information(models.Model):
     rider = models.OneToOneField(Rider, on_delete=models.CASCADE)
@@ -27,4 +30,5 @@ class Rider_Additional_Information(models.Model):
     emergency_contact_name = models.CharField(max_length=20)
     emergency_contact_number = models.CharField(max_length=20)
 
-
+    class Meta:
+        db_table = 'riders_rider_additional_information'

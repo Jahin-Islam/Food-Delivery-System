@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Mail, Phone, Lock, Shield, Trash2, CheckCircle, XCircle, Edit2, X } from 'lucide-react';
+import {
+  User, Mail, Phone, Lock, Shield, Trash2,
+  CheckCircle, XCircle, Edit2, X, Heart, ShoppingCart,
+} from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import './Profile.css';
 import Header from './Header.jsx';
@@ -10,39 +13,45 @@ import { COLORS, MOTION } from '../constants.js';
 
 const Profile = ({
   isLoggedIn, user, onBack, onLoginClick, onSignUpClick, onLogout,
-  cartItems = [], onProfileClick, onOrdersClick, onLogoClick, onCheckout,
+  cartItems = [],
+  onUpdateQuantity, onRemoveItem,
+  onProfileClick, onOrdersClick, onLogoClick, onCheckout,
   currentAddress, onAddressChange,
-  onNearMeClick, onDeliveryClick, onPickupClick,  // fix: near me nav
+  onNearMeClick, onDeliveryClick, onPickupClick,
+  // FIX #8: App passes this so clicking Favourites opens the global sidebar
+  onFavouritesClick,
 }) => {
-  const [showCart,            setShowCart]            = useState(false);
-  const [showDeleteConfirm,   setShowDeleteConfirm]   = useState(false);  // fix: delete confirm
-  const [deleteLoading,       setDeleteLoading]       = useState(false);
-  const [formData,            setFormData]            = useState({ first_name: '', last_name: '', phone: '', email: '' });
-  const [passwordData,        setPasswordData]        = useState({ current_password: '', new_password: '' });
-  const [isEditing,           setIsEditing]           = useState(false);
-  const [isChangingPassword,  setIsChangingPassword]  = useState(false);
-  const [loading,             setLoading]             = useState(false);
-  const [message,             setMessage]             = useState({ type: '', text: '' });
+  const [showCart,           setShowCart]           = useState(false);
+  const [showDeleteConfirm,  setShowDeleteConfirm]  = useState(false);
+  const [deleteLoading,      setDeleteLoading]      = useState(false);
+  const [formData,           setFormData]           = useState({
+    first_name: '', last_name: '', phone: '', email: '',
+  });
+  const [passwordData,       setPasswordData]       = useState({
+    current_password: '', new_password: '',
+  });
+  const [isEditing,          setIsEditing]          = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [loading,            setLoading]            = useState(false);
+  const [message,            setMessage]            = useState({ type: '', text: '' });
 
   useEffect(() => {
-    // First fill from prop/localStorage so there's no flash of empty fields
     const u = user || authService.getUser();
     if (u) setFormData({
-      first_name: u.first_name || u.firstName || '',
-      last_name:  u.last_name  || u.lastName  || '',
-      phone:      u.phone_number || u.phone || '',
-      email:      u.email || '',
+      first_name: u.first_name  || u.firstName   || '',
+      last_name:  u.last_name   || u.lastName    || '',
+      phone:      u.phone_number || u.phone      || '',
+      email:      u.email       || '',
     });
 
-    // Then fetch fresh data from backend to get the latest values
     const fetchFresh = async () => {
       try {
         const fresh = await authService.fetchUserDetails();
         if (fresh) setFormData({
-          first_name: fresh.first_name || '',
-          last_name:  fresh.last_name  || '',
+          first_name: fresh.first_name   || '',
+          last_name:  fresh.last_name    || '',
           phone:      fresh.phone_number || '',
-          email:      fresh.email || '',
+          email:      fresh.email        || '',
         });
       } catch {}
     };
@@ -83,7 +92,6 @@ const Profile = ({
     }
     setLoading(true);
     try {
-      // Backend handles password change via the same PATCH /api/auth/profile/ endpoint
       await authService.authenticatedFetch('http://127.0.0.1:8000/api/auth/profile/', {
         method: 'PATCH',
         body: JSON.stringify({
@@ -107,7 +115,6 @@ const Profile = ({
       await authService.authenticatedFetch('http://127.0.0.1:8000/api/auth/profile/', {
         method: 'DELETE',
       });
-      // Wipe everything immediately — account no longer exists in DB
       authService.clearTokens();
       authService.clearUser();
       authService.clearRestaurantData();
@@ -117,7 +124,6 @@ const Profile = ({
       localStorage.removeItem('restaurantData');
       toast.success('Account deleted. Goodbye!');
       setShowDeleteConfirm(false);
-      // Small delay so user sees the toast, then call onLogout to reset all React state and go home
       setTimeout(() => { onLogout?.(); }, 1200);
     } catch (err) {
       toast.error(err.message || 'Failed to delete account. Please contact support.');
@@ -125,8 +131,10 @@ const Profile = ({
       setDeleteLoading(false);
     }
   };
+
   const initials = `${formData.first_name?.[0] || ''}${formData.last_name?.[0] || ''}`.toUpperCase() || 'U';
-  const fullName = `${formData.first_name} ${formData.last_name}`.trim() || 'User';
+  const fullName  = `${formData.first_name} ${formData.last_name}`.trim() || 'User';
+  const cartCount = cartItems.reduce((s, i) => s + (i.quantity || 1), 0);
 
   return (
     <div className="profile-container">
@@ -134,7 +142,9 @@ const Profile = ({
         style: { borderRadius: '10px', fontFamily: 'Segoe UI,sans-serif', fontSize: '14px' },
         success: { iconTheme: { primary: COLORS.primary, secondary: '#fff' } },
       }} />
-      <Header isLoggedIn={isLoggedIn} user={user} cartItems={cartItems}
+
+      <Header
+        isLoggedIn={isLoggedIn} user={user} cartItems={cartItems}
         onLoginClick={onLoginClick} onSignUpClick={onSignUpClick}
         onCartClick={() => setShowCart(!showCart)} onLogout={onLogout}
         onProfileClick={onProfileClick} onOrdersClick={onOrdersClick}
@@ -142,10 +152,71 @@ const Profile = ({
         onNearMeClick={onNearMeClick}
         onDeliveryClick={onDeliveryClick}
         onPickupClick={onPickupClick}
+        // FIX #8: pass through to Header so the Favourites nav tab works
+        onFavouritesClick={onFavouritesClick}
         currentAddress={currentAddress}
-        onAddressChange={onAddressChange} />
+        onAddressChange={onAddressChange}
+      />
 
       <div className="profile-content">
+
+        {/* ── Quick actions row (FIX #8) ── */}
+        <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
+          {/* Favourites button */}
+          <button
+            onClick={onFavouritesClick}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '10px 18px',
+              background: 'var(--c-white)',
+              border: `1.5px solid var(--c-gray-200)`,
+              borderRadius: 'var(--radius)',
+              fontSize: 14, fontWeight: 600,
+              color: COLORS.primary,
+              cursor: 'pointer',
+              boxShadow: 'var(--shadow-sm)',
+              transition: 'all 0.18s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = COLORS.primary; e.currentTarget.style.background = 'var(--c-primary-light)'; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--c-gray-200)'; e.currentTarget.style.background = 'var(--c-white)'; }}
+          >
+            <Heart size={16} fill={COLORS.primary} color={COLORS.primary} />
+            My Favourites
+          </button>
+
+          {/* Cart button — FIX #8: profile page can open cart sidebar */}
+          <button
+            onClick={() => setShowCart(true)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '10px 18px',
+              background: 'var(--c-white)',
+              border: `1.5px solid var(--c-gray-200)`,
+              borderRadius: 'var(--radius)',
+              fontSize: 14, fontWeight: 600,
+              color: 'var(--c-gray-700)',
+              cursor: 'pointer',
+              boxShadow: 'var(--shadow-sm)',
+              transition: 'all 0.18s',
+              position: 'relative',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--c-gray-400)'; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--c-gray-200)'; }}
+          >
+            <ShoppingCart size={16} />
+            My Cart
+            {cartCount > 0 && (
+              <span style={{
+                background: COLORS.primary, color: 'white',
+                fontSize: 10, fontWeight: 700,
+                padding: '1px 6px', borderRadius: 999, lineHeight: 1.6,
+              }}>
+                {cartCount}
+              </span>
+            )}
+          </button>
+        </div>
+
         {/* Avatar card */}
         <motion.div className="profile-section" {...MOTION.slideUp}>
           <div className="profile-avatar-section">
@@ -156,13 +227,13 @@ const Profile = ({
             </div>
           </div>
 
-          {/* Message */}
           <AnimatePresence>
             {message.text && (
-              <motion.div className={`profile-message ${message.type}`}
-                initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-                {message.type === 'success'
-                  ? <CheckCircle size={15} /> : <XCircle size={15} />}
+              <motion.div
+                className={`profile-message ${message.type}`}
+                initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+              >
+                {message.type === 'success' ? <CheckCircle size={15} /> : <XCircle size={15} />}
                 {message.text}
               </motion.div>
             )}
@@ -216,7 +287,7 @@ const Profile = ({
                 <div className="field-value">{formData.last_name || <span className="field-value muted">Not set</span>}</div>
               </div>
               <div className="field-group">
-                <div className="field-label"><Phone size={11} style={{marginRight:4}} />Phone</div>
+                <div className="field-label"><Phone size={11} style={{ marginRight: 4 }} />Phone</div>
                 <div className="field-value">{formData.phone || <span className="field-value muted">Not set</span>}</div>
               </div>
             </div>
@@ -248,7 +319,9 @@ const Profile = ({
           </div>
           <AnimatePresence>
             {isChangingPassword && (
-              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}>
+              <motion.div
+                initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+              >
                 <div className="field-group" style={{ marginBottom: 12 }}>
                   <label className="field-label">Current Password</label>
                   <input type="password" className="profile-input" placeholder="Enter current password"
@@ -283,7 +356,6 @@ const Profile = ({
           <p style={{ fontSize: 13, color: 'var(--c-gray-500)', marginBottom: 14, lineHeight: 1.5 }}>
             Permanently delete your account and all associated data. This action cannot be undone.
           </p>
-
           {!showDeleteConfirm ? (
             <button className="btn-danger" onClick={() => setShowDeleteConfirm(true)}>
               Delete My Account
@@ -306,18 +378,20 @@ const Profile = ({
         </motion.div>
       </div>
 
-      {/* All Carts Sidebar */}
+      {/* FIX #8: Cart sidebar accessible from Profile */}
       <AllCarts
         isOpen={showCart}
         onClose={() => setShowCart(false)}
         cartItems={cartItems}
+        onUpdateQuantity={onUpdateQuantity}
+        onRemoveItem={onRemoveItem}
         onCheckout={(restaurantId) => {
           setShowCart(false);
           if (onCheckout) onCheckout(restaurantId);
         }}
-        onNavigateToRestaurant={(restaurantId) => {
+        onNavigateToRestaurant={() => {
           setShowCart(false);
-          if (onBack) onBack(); // go back to home/restaurant list
+          if (onBack) onBack();
         }}
       />
     </div>

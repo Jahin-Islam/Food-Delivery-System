@@ -36,12 +36,14 @@ const fmt = n => `৳${Number(n).toFixed(2)}`;
 
 // ─── ORDER CARD ───────────────────────────────────────────────────────────────
 const OrderCard = ({ order, type, onAccept, onDeny, onMarkReady }) => (
-  <motion.div layout
-    initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }}
+  <motion.div
+    layout
+    initial={{ opacity: 0, y: 14 }}
+    animate={{ opacity: 1, y: 0 }}
     exit={{ opacity: 0, x: -28, scale: 0.97 }}
     transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-    className={`order-card ${type === 'new' ? 'new-order' : 'accepted-order'}`}>
-
+    className={`order-card ${type === 'new' ? 'new-order' : 'accepted-order'}`}
+  >
     <div className="order-header">
       <div className="order-header-left">
         <div className="customer-avatar">{order.customerName.charAt(0)}</div>
@@ -80,20 +82,22 @@ const OrderCard = ({ order, type, onAccept, onDeny, onMarkReady }) => (
 
       <div className="order-totals">
         <div className="total-row"><span>Subtotal</span><span>{fmt(order.subtotal)}</span></div>
-        {order.vat > 0 && <div className="total-row"><span>VAT</span><span>{fmt(order.vat)}</span></div>}
+        {order.vat > 0       && <div className="total-row"><span>VAT</span><span>{fmt(order.vat)}</span></div>}
         {order.deliveryFee > 0 && <div className="total-row"><span>Delivery Fee</span><span>{fmt(order.deliveryFee)}</span></div>}
-        {order.serviceFee > 0 && <div className="total-row"><span>Service Fee</span><span>{fmt(order.serviceFee)}</span></div>}
+        {order.serviceFee > 0  && <div className="total-row"><span>Service Fee</span><span>{fmt(order.serviceFee)}</span></div>}
         <div className="total-row total-final"><span>Total</span><span>{fmt(order.total)}</span></div>
       </div>
     </div>
 
     <div className="order-actions">
-      {type === 'new' && (<>
-        <button className="order-action-btn deny-btn" onClick={() => onDeny(order)}>Deny</button>
-        <button className="order-action-btn accept-btn" onClick={() => onAccept(order)}>
-          <CheckCircle size={14} style={{ marginRight: 5 }} />Accept Order
-        </button>
-      </>)}
+      {type === 'new' && (
+        <>
+          <button className="order-action-btn deny-btn"   onClick={() => onDeny(order)}>Deny</button>
+          <button className="order-action-btn accept-btn" onClick={() => onAccept(order)}>
+            <CheckCircle size={14} style={{ marginRight: 5 }} />Accept Order
+          </button>
+        </>
+      )}
       {type === 'accepted' && (
         <button className="order-action-btn mark-ready-btn" onClick={() => onMarkReady(order)}>
           <Package size={14} style={{ marginRight: 5 }} />Mark as Ready
@@ -104,9 +108,13 @@ const OrderCard = ({ order, type, onAccept, onDeny, onMarkReady }) => (
 );
 
 // ─── MAIN ─────────────────────────────────────────────────────────────────────
+// FIX #3: All navigation props renamed to match what BusinessHeader expects
 const Orders = ({
   isLoggedIn, user, restaurant, onLogout,
-  onNavigateToMenu, onNavigateToHistory, onNavigateToProfile,
+  // FIX #3: accept both naming conventions (App passes onNavigateToHistory)
+  onNavigateToMenu,
+  onNavigateToHistory,
+  onNavigateToProfile,
 }) => {
   const [newOrders,      setNewOrders]      = useState(INITIAL_NEW);
   const [acceptedOrders, setAcceptedOrders] = useState(INITIAL_ACCEPTED);
@@ -137,21 +145,21 @@ const Orders = ({
         success: { iconTheme: { primary: COLORS.primary, secondary: '#fff' } },
       }} />
 
-      {/* TASK 3: Pass all navigation props including history and profile */}
+      {/* FIX #3: All nav props passed to BusinessHeader */}
       <BusinessHeader
         activePage="orders"
         user={user}
         restaurant={restaurant}
         onLogout={onLogout}
         onNavigateToMenu={onNavigateToMenu}
-        onNavigateToOrders={() => {}}
+        onNavigateToOrders={() => {/* already here */}}
         onNavigateToHistory={onNavigateToHistory}
         onNavigateToProfile={onNavigateToProfile}
         newOrderCount={newOrders.length}
       />
 
       <div className="orders-content">
-        {/* New */}
+        {/* New Orders */}
         <div className="orders-section">
           <div className="orders-section-header">
             <h2 className="orders-section-title">New</h2>
@@ -160,13 +168,25 @@ const Orders = ({
           <div className="orders-list">
             <AnimatePresence>
               {newOrders.length > 0
-                ? newOrders.map(o => <OrderCard key={o.id} order={o} type="new" onAccept={handleAccept} onDeny={setDenyTarget} />)
-                : <div className="empty-state"><ShoppingBag size={52} color={COLORS.primary} strokeWidth={1} opacity={0.3} /><p className="empty-text">No new orders</p></div>}
+                ? newOrders.map(o => (
+                    <OrderCard
+                      key={o.id} order={o} type="new"
+                      onAccept={handleAccept}
+                      onDeny={setDenyTarget}
+                    />
+                  ))
+                : (
+                  <div className="empty-state">
+                    <ShoppingBag size={52} color={COLORS.primary} strokeWidth={1} opacity={0.3} />
+                    <p className="empty-text">No new orders</p>
+                  </div>
+                )
+              }
             </AnimatePresence>
           </div>
         </div>
 
-        {/* Accepted */}
+        {/* Accepted Orders */}
         <div className="orders-section">
           <div className="orders-section-header">
             <h2 className="orders-section-title">Accepted</h2>
@@ -175,8 +195,19 @@ const Orders = ({
           <div className="orders-list">
             <AnimatePresence>
               {acceptedOrders.length > 0
-                ? acceptedOrders.map(o => <OrderCard key={o.id} order={o} type="accepted" onMarkReady={handleMarkReady} />)
-                : <div className="empty-state"><CheckCircle size={52} color="#10b981" strokeWidth={1} opacity={0.3} /><p className="empty-text">No accepted orders</p></div>}
+                ? acceptedOrders.map(o => (
+                    <OrderCard
+                      key={o.id} order={o} type="accepted"
+                      onMarkReady={handleMarkReady}
+                    />
+                  ))
+                : (
+                  <div className="empty-state">
+                    <CheckCircle size={52} color="#10b981" strokeWidth={1} opacity={0.3} />
+                    <p className="empty-text">No accepted orders</p>
+                  </div>
+                )
+              }
             </AnimatePresence>
           </div>
         </div>
@@ -185,15 +216,19 @@ const Orders = ({
       {/* Deny modal */}
       <AnimatePresence>
         {denyTarget && (
-          <motion.div className="modal-overlay"
+          <motion.div
+            className="modal-overlay"
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            onClick={() => setDenyTarget(null)}>
-            <motion.div className="deny-modal"
+            onClick={() => setDenyTarget(null)}
+          >
+            <motion.div
+              className="deny-modal"
               initial={{ opacity: 0, y: 24, scale: 0.97 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 16, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0,  scale: 1    }}
+              exit={{    opacity: 0, y: 16, scale: 0.97 }}
               transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-              onClick={e => e.stopPropagation()}>
+              onClick={e => e.stopPropagation()}
+            >
               <div className="deny-modal-content">
                 <AlertTriangle size={50} color="#f59e0b" style={{ display: 'block', margin: '0 auto 16px' }} />
                 <h3 className="deny-title">Deny Order?</h3>
@@ -201,7 +236,7 @@ const Orders = ({
                   Are you sure you want to deny order <strong>{denyTarget?.id}</strong>? This cannot be undone.
                 </p>
                 <div className="deny-modal-actions">
-                  <button className="deny-cancel-btn" onClick={() => setDenyTarget(null)}>Cancel</button>
+                  <button className="deny-cancel-btn"  onClick={() => setDenyTarget(null)}>Cancel</button>
                   <button className="deny-confirm-btn" onClick={handleDenyConfirm}>Deny Order</button>
                 </div>
               </div>

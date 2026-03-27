@@ -1,13 +1,7 @@
 // RiderMap.jsx
-// Drop-in replacement for the map placeholder in RiderDashboard's StatusTab.
-//
-// Usage inside StatusTab:
-//   import RiderMap from './RiderMap.jsx';
-//   <RiderMap order={activeOrder} />
-//
-// Props:
-//   order  — the active order object (from MOCK_ORDERS shape), or null if idle
-//   isOnline — bool
+// FIX #5: Uses improved useRiderLocation hook with usingFallback flag.
+// Shows a soft yellow warning for fallback (approx location) vs a hard
+// red error for permission denied / unavailable.
 
 import { useState, useCallback } from 'react';
 import MapComponent from '../Mapcomponent.jsx';
@@ -15,10 +9,10 @@ import { useRiderLocation, haversineKm, formatDistance, etaMinutes } from '../Us
 import './RiderMap.css';
 
 export default function RiderMap({ order = null, isOnline = false }) {
-  const { position: riderPos, loading, error } = useRiderLocation();
+  const { position: riderPos, loading, error, usingFallback } = useRiderLocation();
   const [routeInfo, setRouteInfo] = useState(null);
 
-  // Extract positions from order (your backend returns lat/lng nested in address)
+  // Extract positions from order
   const restaurantPos = order?.restaurant?.lat
     ? { lat: order.restaurant.lat, lng: order.restaurant.lng }
     : null;
@@ -27,14 +21,12 @@ export default function RiderMap({ order = null, isOnline = false }) {
     ? { lat: order.delivery.lat, lng: order.delivery.lng }
     : null;
 
-  // Which waypoints exist right now
   const hasRoute      = !!(riderPos && (restaurantPos || customerPos));
   const distToPickup  = haversineKm(riderPos, restaurantPos);
   const distToDropoff = haversineKm(restaurantPos || riderPos, customerPos);
 
   const handleRouteInfo = useCallback((info) => setRouteInfo(info), []);
 
-  // ── Status label for the map badge ──
   const mapLabel = !isOnline
     ? '🔴 Offline — Waiting'
     : order
@@ -43,9 +35,15 @@ export default function RiderMap({ order = null, isOnline = false }) {
       : '📦 New Order'
     : '🟢 Online — No active order';
 
+  // FIX #5: different warning levels
+  const gpsWarningText = usingFallback
+    ? (error?.includes('denied')
+        ? '⚠️ Location permission denied — enable in browser settings for accurate tracking'
+        : '📍 Approximate location — GPS unavailable, showing Dhaka area')
+    : null;
+
   return (
     <div className="rmap-container">
-      {/* Map */}
       <div className="rmap-map-wrap">
         {loading ? (
           <div className="rmap-loading">
@@ -65,9 +63,17 @@ export default function RiderMap({ order = null, isOnline = false }) {
             zoom={14}
           />
         )}
-        {error && (
-          <div className="rmap-gps-warn">
-            ⚠️ GPS unavailable — showing approximate location
+
+        {/* FIX #5: show warning banner only when using fallback, not on successful GPS */}
+        {gpsWarningText && (
+          <div
+            className="rmap-gps-warn"
+            style={{
+              background: error?.includes('denied') ? '#fee2e2' : '#fef3c7',
+              color:       error?.includes('denied') ? '#991b1b' : '#92400e',
+            }}
+          >
+            {gpsWarningText}
           </div>
         )}
       </div>
@@ -77,7 +83,6 @@ export default function RiderMap({ order = null, isOnline = false }) {
         <div className="rmap-info-strip">
           {order ? (
             <>
-              {/* Pickup leg */}
               {restaurantPos && (
                 <div className="rmap-leg">
                   <div className="rmap-leg-dot" style={{ background: '#f97316' }} />
@@ -92,7 +97,6 @@ export default function RiderMap({ order = null, isOnline = false }) {
                 </div>
               )}
 
-              {/* Dropoff leg */}
               {customerPos && (
                 <div className="rmap-leg">
                   <div className="rmap-leg-dot" style={{ background: '#10b981' }} />
@@ -107,7 +111,6 @@ export default function RiderMap({ order = null, isOnline = false }) {
                 </div>
               )}
 
-              {/* OSRM route total */}
               {routeInfo && (
                 <div className="rmap-route-total">
                   <span>Total route</span>

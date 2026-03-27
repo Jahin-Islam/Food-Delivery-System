@@ -1,8 +1,13 @@
 import { useState } from 'react';
 import './RiderOnBoarding.css';
 import { COLORS } from '../constants.js';
+import authService from '../Authservice.js';
 
-const RiderOnBoarding = ({onCompletion}) => {
+// ── RiderOnBoarding receives step1Data from RiderSignUp (via App.jsx) ──────
+// Phase 1–3 collect additional docs locally.
+// Phase 4 "Start" fires the real backend call with ALL combined data.
+
+const RiderOnBoarding = ({ onCompletion, step1Data }) => {
   const [phaseStatus, setPhaseStatus] = useState({
     phase1: 'active',
     phase2: 'locked',
@@ -12,7 +17,8 @@ const RiderOnBoarding = ({onCompletion}) => {
   
   const [showPhase2Modal, setShowPhase2Modal] = useState(false);
   const [showPhase3Form, setShowPhase3Form] = useState(false);
-  
+
+  // Phase 3 collects NID images, emergency contact, etc.
   const [phase3Data, setPhase3Data] = useState({
     birthday: '',
     gender: '',
@@ -25,8 +31,11 @@ const RiderOnBoarding = ({onCompletion}) => {
     emergencyName: '',
     emergencyPhone: '',
     hearAbout: '',
-    vehicle: '' // Added vehicle field
   });
+
+  // Phase 4 backend call state
+  const [phase4Loading, setPhase4Loading] = useState(false);
+  const [phase4Error,   setPhase4Error]   = useState('');
 
   const locations = [
     {
@@ -49,7 +58,7 @@ const RiderOnBoarding = ({onCompletion}) => {
     }
   ];
 
-  // Phase 1 Handler
+  // ── Phase 1 ──
   const handlePhase1Start = () => {
     setPhaseStatus({
       phase1: 'complete',
@@ -59,7 +68,7 @@ const RiderOnBoarding = ({onCompletion}) => {
     });
   };
 
-  // Phase 2 Handler
+  // ── Phase 2 ──
   const handlePhase2Start = () => {
     setShowPhase2Modal(true);
   };
@@ -74,7 +83,7 @@ const RiderOnBoarding = ({onCompletion}) => {
     });
   };
 
-  // Phase 3 Handlers
+  // ── Phase 3 ──
   const handlePhase3Start = () => {
     setShowPhase3Form(true);
   };
@@ -93,6 +102,7 @@ const RiderOnBoarding = ({onCompletion}) => {
 
   const handlePhase3Submit = () => {
     const data = phase3Data;
+    const vehicle = step1Data?.vehicle || '';
     if (!data.birthday || !data.gender || !data.address || !data.nidNumber || 
         !data.nidFront || !data.nidBack || !data.emergencyName || 
         !data.emergencyPhone || !data.hearAbout) {
@@ -100,12 +110,12 @@ const RiderOnBoarding = ({onCompletion}) => {
       return;
     }
     
-    if (phase3Data.vehicle === 'Motorbike' && !data.drivingLicense) {
+    if (vehicle === 'Motorbike' && !data.drivingLicense) {
       alert('Please upload your driving license');
       return;
     }
     
-    if (phase3Data.vehicle === 'Bi-Cycle' && !data.bikeRegistration) {
+    if (vehicle === 'Bi-Cycle' && !data.bikeRegistration) {
       alert('Please upload your bike registration');
       return;
     }
@@ -119,12 +129,62 @@ const RiderOnBoarding = ({onCompletion}) => {
     });
   };
 
+  // ── Phase 4: REAL backend call with ALL combined data ──────────────────
+  const handlePhase4Complete = async () => {
+    if (!step1Data) {
+      setPhase4Error('Step 1 data is missing. Please go back and complete the sign-up form.');
+      return;
+    }
+
+    setPhase4Loading(true);
+    setPhase4Error('');
+
+    try {
+      // Combine step-1 (basic info) + step-3 (documents & extra details)
+      const combinedRiderData = {
+        // ── From step 1 (RiderSignUp.jsx) ──
+        email:     step1Data.email     || '',
+        password:  step1Data.password  || '',
+        password2: step1Data.password2 || step1Data.password || '',
+        name:      step1Data.name      || '',
+        surname:   step1Data.surname   || '',
+        phone:     step1Data.phone     || '',
+        vehicle:   step1Data.vehicle   || '',  // 'Motorbike' | 'Bi-Cycle'
+        city:      step1Data.city      || '',
+        latitude:  step1Data.cityLat   || null,
+        longitude: step1Data.cityLng   || null,
+
+        // ── From step 2 (RiderOnBoarding phase 3) ──
+        nidNumber:     phase3Data.nidNumber    || '',
+        nidFront:      phase3Data.nidFront     || null,
+        nidBack:       phase3Data.nidBack      || null,
+        gender:        phase3Data.gender       || '',
+        streetAddress: phase3Data.address      || step1Data.city || '',
+        emergencyName: phase3Data.emergencyName || '',
+        emergencyPhone:phase3Data.emergencyPhone || '',
+
+        // license_plate is required by the backend — collected at hub in person
+        licensePlate:  'PENDING',
+      };
+
+      await authService.registerRider(combinedRiderData);
+      const u = authService.getUser();
+      // Signal App.jsx that registration is complete, pass back the user
+      onCompletion?.(u ?? {});
+    } catch (err) {
+      console.error('Rider registration error:', err);
+      setPhase4Error(err.message || 'Registration failed. Please try again.');
+    } finally {
+      setPhase4Loading(false);
+    }
+  };
+
   return (
     <div className="onboarding-page">
       {/* Header */}
       <header className="onboarding-header">
         <div className="header-logo">
-          <span className="panda-emoji" style={{fontSize:'30px',fontWeight:'bold',color:COLORS.primary}}>fp</span>
+          <span className="panda-emoji" style={{ fontSize: '30px', fontWeight: 'bold', color: COLORS.primary }}>fp</span>
           <span className="logo-text">foodpanda</span>
         </div>
       </header>
@@ -135,6 +195,7 @@ const RiderOnBoarding = ({onCompletion}) => {
 
         {/* Phase Cards Grid */}
         <div className="phases-grid">
+
           {/* Phase 1 */}
           <div className="phase-box">
             <div className="phase-box-header">
@@ -143,9 +204,15 @@ const RiderOnBoarding = ({onCompletion}) => {
                 <h3 className="phase-name">Phase 1</h3>
                 <p className="phase-desc">Roughly 3 Minutes to complete</p>
               </div>
-              {phaseStatus.phase1 === 'complete' && <span className="check-mark"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={COLORS.primary} stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>}
+              {phaseStatus.phase1 === 'complete' && (
+                <span className="check-mark">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={COLORS.primary} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </span>
+              )}
             </div>
-            <div className="phase-emoji"><svg xmlns="http://www.w3.org/2000/svg" width="70" height="70" viewBox="0 0 24 24" fill="none" stroke={COLORS.primary} stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/></svg></div>
+            <div className="phase-emoji">
+              <svg xmlns="http://www.w3.org/2000/svg" width="70" height="70" viewBox="0 0 24 24" fill="none" stroke={COLORS.primary} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/></svg>
+            </div>
             <h4 className="phase-label">Welcome</h4>
             {phaseStatus.phase1 === 'complete' && (
               <div className="saved-badge">Submitted and saved</div>
@@ -162,15 +229,25 @@ const RiderOnBoarding = ({onCompletion}) => {
                 <span className="phase-counter">1/1</span>
                 <h3 className="phase-name">Phase 2</h3>
                 <p className="phase-desc">
-                  {phaseStatus.phase2 === 'locked' 
-                    ? 'You need to complete previous steps first' 
+                  {phaseStatus.phase2 === 'locked'
+                    ? 'You need to complete previous steps first'
                     : 'Roughly 3 Minutes to complete'}
                 </p>
               </div>
-              {phaseStatus.phase2 === 'locked' && <span className="lock-emoji"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>}
-              {phaseStatus.phase2 === 'complete' && <span className="check-mark"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={COLORS.primary} stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>}
+              {phaseStatus.phase2 === 'locked' && (
+                <span className="lock-emoji">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                </span>
+              )}
+              {phaseStatus.phase2 === 'complete' && (
+                <span className="check-mark">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={COLORS.primary} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </span>
+              )}
             </div>
-            <div className="phase-emoji"><svg xmlns="http://www.w3.org/2000/svg" width="70" height="70" viewBox="0 0 24 24" fill="none" stroke={COLORS.primary} stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/></svg></div>
+            <div className="phase-emoji">
+              <svg xmlns="http://www.w3.org/2000/svg" width="70" height="70" viewBox="0 0 24 24" fill="none" stroke={COLORS.primary} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/></svg>
+            </div>
             <h4 className="phase-label">Proceed to Onboarding</h4>
             {phaseStatus.phase2 === 'complete' && (
               <div className="saved-badge">Submitted and saved</div>
@@ -190,28 +267,37 @@ const RiderOnBoarding = ({onCompletion}) => {
                 <span className="phase-counter">1/1</span>
                 <h3 className="phase-name">Phase 3</h3>
                 <p className="phase-desc">
-                  {phaseStatus.phase3 === 'locked' 
-                    ? 'You need to complete previous steps first' 
+                  {phaseStatus.phase3 === 'locked'
+                    ? 'You need to complete previous steps first'
                     : showPhase3Form ? '0 questions answered' : 'Roughly 3 Minutes to complete'}
                 </p>
               </div>
-              {phaseStatus.phase3 === 'locked' && <span className="lock-emoji"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>}
-              {phaseStatus.phase3 === 'complete' && <span className="check-mark"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={COLORS.primary} stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>}
+              {phaseStatus.phase3 === 'locked' && (
+                <span className="lock-emoji">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                </span>
+              )}
+              {phaseStatus.phase3 === 'complete' && (
+                <span className="check-mark">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={COLORS.primary} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </span>
+              )}
             </div>
-            
-            {/* Only show emoji and label when form is NOT showing */}
+
             {!showPhase3Form && (
               <>
-                <div className="phase-emoji"><svg xmlns="http://www.w3.org/2000/svg" width="70" height="70" viewBox="0 0 24 24" fill="none" stroke={COLORS.primary} stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><line x1="10" x2="8" y1="9" y2="9"/></svg></div>
+                <div className="phase-emoji">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="70" height="70" viewBox="0 0 24 24" fill="none" stroke={COLORS.primary} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><line x1="10" x2="8" y1="9" y2="9"/></svg>
+                </div>
                 <h4 className="phase-label">Document collection</h4>
               </>
             )}
-            
-            {/* Phase 3 Form - Shows when active */}
+
+            {/* Phase 3 Form */}
             {phaseStatus.phase3 === 'active' && showPhase3Form && (
               <div className="inline-form">
                 <p className="form-section-title">Document collection</p>
-                
+
                 <input
                   type="date"
                   placeholder="Your Birthday (MM/DD/YYYY) *"
@@ -225,15 +311,11 @@ const RiderOnBoarding = ({onCompletion}) => {
                   <button
                     className={phase3Data.gender === 'Male' ? 'gender-btn selected' : 'gender-btn'}
                     onClick={() => handlePhase3Change('gender', 'Male')}
-                  >
-                    Male
-                  </button>
+                  >Male</button>
                   <button
                     className={phase3Data.gender === 'Female' ? 'gender-btn selected' : 'gender-btn'}
                     onClick={() => handlePhase3Change('gender', 'Female')}
-                  >
-                    Female
-                  </button>
+                  >Female</button>
                 </div>
 
                 <textarea
@@ -263,7 +345,7 @@ const RiderOnBoarding = ({onCompletion}) => {
                   onChange={(file) => handleFileUpload('nidBack', file)}
                 />
 
-                {phase3Data.vehicle === 'Motorbike' && (
+                {step1Data?.vehicle === 'Motorbike' && (
                   <FileUploadBox
                     label="Driving License Upload *"
                     file={phase3Data.drivingLicense}
@@ -271,7 +353,7 @@ const RiderOnBoarding = ({onCompletion}) => {
                   />
                 )}
 
-                {phase3Data.vehicle === 'Bi-Cycle' && (
+                {step1Data?.vehicle === 'Bi-Cycle' && (
                   <FileUploadBox
                     label="Bike Registration Paper Upload *"
                     file={phase3Data.bikeRegistration}
@@ -325,27 +407,59 @@ const RiderOnBoarding = ({onCompletion}) => {
             )}
           </div>
 
-          {/* Phase 4 */}
+          {/* Phase 4 — fires real backend call */}
           <div className="phase-box">
             <div className="phase-box-header">
               <div>
                 <span className="phase-counter">1/1</span>
                 <h3 className="phase-name">Phase 4</h3>
-                <p className="phase-desc">You need to complete previous steps first</p>
+                <p className="phase-desc">
+                  {phaseStatus.phase4 === 'locked'
+                    ? 'You need to complete previous steps first'
+                    : 'Review and submit your application'}
+                </p>
               </div>
-              {phaseStatus.phase4 === 'locked' && <span className="lock-emoji"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>}
+              {phaseStatus.phase4 === 'locked' && (
+                <span className="lock-emoji">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                </span>
+              )}
             </div>
-            <div className="phase-emoji"><svg xmlns="http://www.w3.org/2000/svg" width="70" height="70" viewBox="0 0 24 24" fill="none" stroke={COLORS.primary} stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg></div>
+            <div className="phase-emoji">
+              <svg xmlns="http://www.w3.org/2000/svg" width="70" height="70" viewBox="0 0 24 24" fill="none" stroke={COLORS.primary} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
+            </div>
             <h4 className="phase-label">Service Agreement</h4>
-            <p className="phase-info">This stage is to confirm the agreement for the terms and conditions.</p>
+            <p className="phase-info">
+              This stage confirms your agreement to the terms and submits your application to foodpanda.
+            </p>
+
+            {/* Show error if registration failed */}
+            {phase4Error && (
+              <div style={{
+                background: '#fee2e2', border: '1.5px solid #fca5a5',
+                borderRadius: 10, padding: '10px 14px', marginBottom: 12,
+                fontSize: 13, color: '#991b1b', fontWeight: 600,
+              }}>
+                {phase4Error}
+              </div>
+            )}
+
             {phaseStatus.phase4 === 'active' && (
-              <button className="phase-btn active" onClick={onCompletion}>Start</button>
+              <button
+                className="phase-btn active"
+                onClick={handlePhase4Complete}
+                disabled={phase4Loading}
+                style={{ opacity: phase4Loading ? 0.7 : 1, cursor: phase4Loading ? 'not-allowed' : 'pointer' }}
+              >
+                {phase4Loading ? 'Submitting…' : 'Submit & Complete'}
+              </button>
             )}
             {phaseStatus.phase4 === 'locked' && (
-              <button className="phase-btn disabled" disabled >Start</button>
+              <button className="phase-btn disabled" disabled>Start</button>
             )}
           </div>
-        </div>
+
+        </div>{/* end phases-grid */}
       </div>
 
       {/* Phase 2 Modal */}
@@ -357,8 +471,8 @@ const RiderOnBoarding = ({onCompletion}) => {
               <button className="popup-close" onClick={() => setShowPhase2Modal(false)}>→</button>
             </div>
             <p className="popup-info">
-              Come directly to the location of your choice to work as a delivery rider at foodpanda 
-              Bangladesh Limited. Scroll Down & Click OK to complete the Stage.
+              Come directly to the location of your choice to work as a delivery rider at foodpanda
+              Bangladesh Limited. Scroll Down &amp; Click OK to complete the Stage.
             </p>
             <h4 className="popup-subtitle">Hub Office Address:</h4>
             {locations.map((loc, idx) => (
@@ -377,15 +491,15 @@ const RiderOnBoarding = ({onCompletion}) => {
   );
 };
 
-// File Upload Component
+// ── File Upload Component ────────────────────────────────────────────────────
 const FileUploadBox = ({ label, file, onChange }) => {
   return (
     <div className="upload-section">
       <p className="upload-label">{label}</p>
       <div className="upload-area">
         <div className="upload-arrow">↑</div>
-        <button 
-          className="upload-btn" 
+        <button
+          className="upload-btn"
           onClick={() => document.getElementById(`file-${label}`).click()}
         >
           CHOOSE FILE

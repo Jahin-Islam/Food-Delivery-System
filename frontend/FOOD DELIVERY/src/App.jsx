@@ -3,7 +3,8 @@ import Homepage from './homepage/homepage.jsx';
 import NearMePage from './homepage/NearMePage.jsx';
 import RestaurantDetail from './homepage/RestaurantDetail.jsx';
 import BusinessDashboard from './business onwer page/Businessdashboard.jsx';
-import BusinessWelcome from './business onwer page/BusinessWelcome.jsx';
+import BusinessWelcome from './business onwer page/Businesswelcome.jsx';
+import BusinessProfile from './business onwer page/BusinessProfile.jsx';
 import Orders from './business onwer page/Orders.jsx';
 import OrderHistory from './business onwer page/Orderhistory.jsx';
 import Checkout from './homepage/Checkout.jsx';
@@ -20,18 +21,19 @@ import authService from './Authservice.js';
 import cartService from './Cartservice.js';
 import cartApiService from './Cartapiservice.js';
 import OrderStatus, { LS_KEY as ORDER_LS_KEY } from './homepage/OrderStatus.jsx';
-import FavouritesSidebar from './homepage/FavouritesSideBar.jsx'; // ← FIX 1: added import
+import FavouritesSidebar from './homepage/FavouritesSideBar.jsx';
 
-// ── Keys for session persistence ──────────────────────────────────────────
-const SK_PAGE       = 'fp_current_page';
-const SK_ROLE       = 'fp_user_role';       // 'customer' | 'restaurant' | 'rider'
-const SK_RESTAURANT = 'fp_restaurant';      // JSON string of restaurant object
-const SK_RIDER      = 'fp_rider';           // JSON string of rider object
+const SK_PAGE        = 'fp_current_page';
+const SK_ROLE        = 'fp_user_role';
+const SK_RESTAURANT  = 'fp_restaurant';
+const SK_RIDER       = 'fp_rider';
+const SK_ADDRESS     = 'fp_delivery_address';
+const SK_ADDRESS_LAT = 'fp_delivery_lat';
+const SK_ADDRESS_LNG = 'fp_delivery_lng';
+const SK_ACTIVE_TAB  = 'fp_active_tab';
 
-const BUSINESS_PAGES = new Set(['business-welcome', 'business-dashboard', 'orders', 'order-history']);
-const RIDER_PAGES    = new Set(['rider-dashboard']);
-
-// Pages that should NOT be persisted across refresh (auth / sign-up flows)
+const BUSINESS_PAGES  = new Set(['business-welcome', 'business-dashboard', 'orders', 'order-history', 'business-profile']);
+const RIDER_PAGES     = new Set(['rider-dashboard']);
 const TRANSIENT_PAGES = new Set([
   'login', 'signup', 'restaurant-login', 'restaurant-signup',
   'rider-signup', 'rider-onboarding', 'rider-login',
@@ -47,15 +49,34 @@ function App() {
   const [isInitializing,       setIsInitializing]       = useState(true);
   const [riderData,            setRiderData]            = useState(null);
   const [restaurants,          setRestaurants]          = useState([]);
-  const [showFavourites,       setShowFavourites]       = useState(false); // ← FIX 2: added state
+  // FIX #8: showFavourites lifted to App so Profile and other pages can open it
+  const [showFavourites,       setShowFavourites]       = useState(false);
+  const [riderSignupData,      setRiderSignupData]      = useState(null);
+  // FIX #6: activeTab managed in state (not just localStorage) so it persists across navigation
+  const [activeTab,            setActiveTab]            = useState(() => {
+    try { return localStorage.getItem(SK_ACTIVE_TAB) || 'delivery'; } catch { return 'delivery'; }
+  });
+  const [deliveryAddress, setDeliveryAddress] = useState(() => {
+    try { return localStorage.getItem(SK_ADDRESS) || ''; } catch { return ''; }
+  });
 
   const push = useCallback((page, extra = {}) => {
     window.history.pushState({ page, ...extra }, '', '#' + page);
     setCurrentPage(page);
-    // Persist non-transient pages so refresh restores them
     if (!TRANSIENT_PAGES.has(page)) {
       try { localStorage.setItem(SK_PAGE, page); } catch {}
     }
+  }, []);
+
+  const handleAddressChange = useCallback((address, lat, lng) => {
+    setDeliveryAddress(address);
+    try {
+      localStorage.setItem(SK_ADDRESS, address);
+      if (lat && lng) {
+        localStorage.setItem(SK_ADDRESS_LAT, String(lat));
+        localStorage.setItem(SK_ADDRESS_LNG, String(lng));
+      }
+    } catch {}
   }, []);
 
   useEffect(() => {
@@ -75,7 +96,6 @@ function App() {
     return () => window.removeEventListener('popstate', onPop);
   }, [currentPage]);
 
-  // ── Init: restore auth + page from localStorage ──────────────────────
   useEffect(() => {
     const init = async () => {
       try {
@@ -86,43 +106,34 @@ function App() {
         if (authState.isAuthenticated) {
           setCartItems(await cartApiService.getAllCarts());
 
-          const u = authState.user;
+          const u    = authState.user;
           const role = (u?.role || u?.user_type || '').toString().toUpperCase();
           const isVendor = role === 'RESTAURANT' || role === 'VENDOR' || !!authState.restaurant;
           const isRider  = role === 'RIDER';
 
-          // ── Restore page after refresh ──────────────────────────────
           const savedPage = localStorage.getItem(SK_PAGE);
 
-          // Fix stale role in localStorage
           if (isVendor) localStorage.setItem(SK_ROLE, 'restaurant');
           else if (isRider) localStorage.setItem(SK_ROLE, 'rider');
           else localStorage.setItem(SK_ROLE, 'customer');
 
-          // Helper: pick the best restaurant object, rejecting stale id:1 fallbacks
           const pickRestaurant = () => {
-            const fromAuth = authState.restaurant;
+            const fromAuth    = authState.restaurant;
             const fromStorage = (() => { try { return JSON.parse(localStorage.getItem(SK_RESTAURANT) || 'null'); } catch { return null; } })();
-            // Prefer whichever has a real id (not the legacy hardcoded 1)
             if (fromAuth?.id && fromAuth.id !== 1) return fromAuth;
             if (fromStorage?.id && fromStorage.id !== 1) return fromStorage;
-            return fromAuth ?? fromStorage ?? null; // last resort — dashboard will re-fetch
+            return fromAuth ?? fromStorage ?? null;
           };
 
           if (savedPage && !TRANSIENT_PAGES.has(savedPage)) {
-            // Restore restaurant/rider objects needed by business/rider pages
             if (BUSINESS_PAGES.has(savedPage)) {
               const r = pickRestaurant();
               if (r) { setSelectedRestaurant(r); localStorage.setItem(SK_RESTAURANT, JSON.stringify(r)); }
             }
             if (RIDER_PAGES.has(savedPage)) {
-              try {
-                const rd = JSON.parse(localStorage.getItem(SK_RIDER) || 'null');
-                if (rd) setRiderData(rd);
-              } catch {}
+              try { const rd = JSON.parse(localStorage.getItem(SK_RIDER) || 'null'); if (rd) setRiderData(rd); } catch {}
             }
 
-            // Guard: vendor must land on a business page
             if (isVendor && !BUSINESS_PAGES.has(savedPage)) {
               const r = pickRestaurant();
               if (r) { setSelectedRestaurant(r); localStorage.setItem(SK_RESTAURANT, JSON.stringify(r)); }
@@ -137,7 +148,6 @@ function App() {
               window.history.replaceState({ page: savedPage }, '', '#' + savedPage);
             }
           } else if (isVendor) {
-            // No saved page — send vendor to their dashboard
             const r = pickRestaurant();
             if (r) { setSelectedRestaurant(r); localStorage.setItem(SK_RESTAURANT, JSON.stringify(r)); }
             localStorage.setItem(SK_PAGE, 'business-welcome');
@@ -148,7 +158,6 @@ function App() {
           }
         } else {
           setCartItems(cartService.loadCart());
-          // Clear any stale page/role so logged-out user always gets home
           localStorage.removeItem(SK_PAGE);
           localStorage.removeItem(SK_ROLE);
           localStorage.removeItem(SK_RESTAURANT);
@@ -166,7 +175,6 @@ function App() {
     init();
   }, []);
 
-  // Fetch restaurants — runs on login state change
   useEffect(() => {
     const fetchRestaurants = async () => {
       try {
@@ -187,28 +195,20 @@ function App() {
           } catch { return r; }
         }));
 
-        // If the logged-in user is a restaurant owner, their own restaurant
-        // may not appear in the public list yet (e.g. is_active=False pending approval).
-        // Always include it so customers can navigate to it from the homepage.
         const ownRestaurant = authService.getRestaurantData();
         if (ownRestaurant?.id) {
           const alreadyInList = detailed.some(r => r.id === ownRestaurant.id);
           if (!alreadyInList) {
-            // Fetch the full detail for the owner's own restaurant
             try {
               let ownDetail;
               if (isLoggedIn) {
-                ownDetail = await authService.authenticatedFetch(
-                  `http://127.0.0.1:8000/api/v1/restaurants/${ownRestaurant.id}/`
-                );
+                ownDetail = await authService.authenticatedFetch(`http://127.0.0.1:8000/api/v1/restaurants/${ownRestaurant.id}/`);
               } else {
                 const dr = await fetch(`http://127.0.0.1:8000/api/v1/restaurants/${ownRestaurant.id}/`);
                 ownDetail = dr.ok ? await dr.json() : ownRestaurant;
               }
               detailed.push(ownDetail ?? ownRestaurant);
-            } catch {
-              detailed.push(ownRestaurant);
-            }
+            } catch { detailed.push(ownRestaurant); }
           }
         }
 
@@ -226,7 +226,6 @@ function App() {
     try { setCartItems(await cartApiService.getAllCarts()); } catch (e) { console.error(e); }
   };
 
-  // ── Cart ops ──────────────────────────────────────────────────────────
   const handleAddToCart = async (newItem) => {
     if (isLoggedIn && newItem.restaurantId) {
       try {
@@ -267,7 +266,6 @@ function App() {
     setCartItems(prev => prev.filter(i => i.id !== itemId));
   };
 
-  // ── Navigation ────────────────────────────────────────────────────────
   const goHome = useCallback(() => {
     setSelectedRestaurant(null); setCheckoutRestaurantId(null);
     localStorage.setItem(SK_PAGE, 'home');
@@ -275,9 +273,7 @@ function App() {
     setCurrentPage('home');
   }, []);
 
-  const goToNearMe = useCallback(() => {
-    push('near-me');
-  }, [push]);
+  const goToNearMe = useCallback(() => { push('near-me'); }, [push]);
 
   const goToRestaurant = useCallback((restaurant) => {
     setSelectedRestaurant(restaurant);
@@ -305,9 +301,7 @@ function App() {
   const goToBusinessPage = useCallback((page, restaurant) => {
     if (restaurant) {
       setSelectedRestaurant(restaurant);
-      try {
-        localStorage.setItem(SK_RESTAURANT, JSON.stringify(restaurant));
-      } catch {}
+      try { localStorage.setItem(SK_RESTAURANT, JSON.stringify(restaurant)); } catch {}
     }
     try {
       localStorage.setItem(SK_PAGE, page);
@@ -317,14 +311,12 @@ function App() {
     setCurrentPage(page);
   }, []);
 
-  // ── Auth ──────────────────────────────────────────────────────────────
   const handleLoginSuccess = async () => {
     setIsLoggedIn(true);
     const u = authService.getUser();
     setUser(u);
 
-    // Check if this user is actually a restaurant owner
-    const role = (u?.role || u?.user_type || '').toString().toUpperCase();
+    const role     = (u?.role || u?.user_type || '').toString().toUpperCase();
     const isVendor = role === 'RESTAURANT' || role === 'VENDOR' || !!authService.getRestaurantData();
 
     if (isVendor) {
@@ -351,7 +343,7 @@ function App() {
     const u = authService.getUser();
     setUser(u);
 
-    const role = (u?.role || u?.user_type || '').toString().toUpperCase();
+    const role     = (u?.role || u?.user_type || '').toString().toUpperCase();
     const isVendor = role === 'RESTAURANT' || role === 'VENDOR' || !!authService.getRestaurantData();
 
     if (isVendor) {
@@ -373,11 +365,12 @@ function App() {
     goHome();
   };
 
-  const handleRiderOnBoardingComplete = () => {
-    const u = authService.getUser();
+  const handleRiderOnBoardingComplete = (registeredUser) => {
+    const u = authService.getUser() ?? registeredUser ?? {};
     setIsLoggedIn(true);
     setUser(u);
-    goToRiderDashboard(u ?? {});
+    setRiderSignupData(null);
+    goToRiderDashboard(u);
   };
 
   const handleRiderLoginSuccess = (data) => {
@@ -391,7 +384,6 @@ function App() {
     setIsLoggedIn(true);
     const u = authService.getUser();
     setUser(u);
-    // Resolve the real restaurant — never fall back to a hardcoded id:1
     let r = authService.getRestaurantData() ?? userData?.restaurant ?? null;
     if (!r?.id) {
       try {
@@ -401,42 +393,24 @@ function App() {
           ?? (profile?.restaurant_id ? { id: profile.restaurant_id, name: profile.restaurant_name ?? 'My Restaurant' } : null);
       } catch (e) { console.warn('Could not fetch restaurant from profile', e); }
     }
-    if (!r?.id) {
-      console.error('No restaurant linked to this account. Check backend returns restaurant data on login.');
-      return;
-    }
+    if (!r?.id) { console.error('No restaurant linked to this account.'); return; }
     setSelectedRestaurant(r);
     goToBusinessPage('business-welcome', r);
   };
 
   const handleRestaurantSignUpSuccess = async (userData) => {
-    // At this point authService.login() has already run inside registerRestaurantPartner,
-    // so tokens + user + restaurantData are already stored in localStorage.
     setIsLoggedIn(true);
     const u = authService.getUser();
     setUser(u);
 
     let r = authService.getRestaurantData() ?? userData?.restaurant ?? null;
-
     if (!r?.id) {
       try {
         const profile = await authService.fetchUserDetails();
-        r = authService.getRestaurantData()
-          ?? profile?.restaurant_info
-          ?? profile?.restaurant
-          ?? null;
+        r = authService.getRestaurantData() ?? profile?.restaurant_info ?? profile?.restaurant ?? null;
       } catch (e) { console.warn('Could not fetch restaurant from profile:', e); }
     }
-
-    // Still no restaurant? Build a placeholder so we at least navigate.
-    // The dashboard will re-fetch on mount.
-    if (!r) {
-      r = {
-        id: null,
-        name: userData?.businessName ?? u?.first_name ?? 'My Restaurant',
-      };
-    }
-
+    if (!r) r = { id: null, name: userData?.businessName ?? u?.first_name ?? 'My Restaurant' };
     setSelectedRestaurant(r);
     goToBusinessPage('business-welcome', r);
   };
@@ -447,17 +421,21 @@ function App() {
     setUser(null);
     setSelectedRestaurant(null);
     setRiderData(null);
+    setRiderSignupData(null);
     setCartItems([]);
-    // Clear all persisted session data
+    setActiveTab('delivery');
     localStorage.removeItem(SK_PAGE);
     localStorage.removeItem(SK_ROLE);
     localStorage.removeItem(SK_RESTAURANT);
     localStorage.removeItem(SK_RIDER);
+    localStorage.removeItem(SK_ADDRESS);
+    localStorage.removeItem(SK_ADDRESS_LAT);
+    localStorage.removeItem(SK_ADDRESS_LNG);
+    localStorage.removeItem(SK_ACTIVE_TAB);
     goHome();
   };
 
   const handlePlaceOrder = (orderData) => {
-    // Save order to localStorage for OrderStatus page
     try {
       const existing = JSON.parse(localStorage.getItem(ORDER_LS_KEY) || '[]');
       const newOrder = {
@@ -478,6 +456,19 @@ function App() {
     push('order-status');
   };
 
+  // FIX #6: pickup/delivery tab handlers update both state AND localStorage
+  const handleDeliveryClick = useCallback(() => {
+    setActiveTab('delivery');
+    localStorage.setItem(SK_ACTIVE_TAB, 'delivery');
+    goHome();
+  }, [goHome]);
+
+  const handlePickupClick = useCallback(() => {
+    setActiveTab('pickup');
+    localStorage.setItem(SK_ACTIVE_TAB, 'pickup');
+    goHome();
+  }, [goHome]);
+
   if (isInitializing) return (
     <div style={{
       display: 'flex', justifyContent: 'center', alignItems: 'center',
@@ -488,7 +479,7 @@ function App() {
     </div>
   );
 
-  // ── Shared Header props ───────────────────────────────────────────────
+  // Shared header props passed to every customer-facing page
   const H = {
     isLoggedIn, user,
     onLoginClick:      () => push('login'),
@@ -497,10 +488,11 @@ function App() {
     onProfileClick:    () => push('profile'),
     onOrdersClick:     () => push('order-status'),
     onLogoClick:       goHome,
-    onDeliveryClick:   goHome,
-    onPickupClick:     goHome,
+    onDeliveryClick:   handleDeliveryClick,
+    onPickupClick:     handlePickupClick,
     onNearMeClick:     goToNearMe,
-    onFavouritesClick: () => setShowFavourites(true), // ← FIX 3: added prop
+    // FIX #8: favourites open from App-level state so Profile page can also open it
+    onFavouritesClick: () => setShowFavourites(true),
   };
 
   const CartOps = {
@@ -523,14 +515,18 @@ function App() {
       {currentPage === 'home' && (
         <Homepage
           {...H} {...CartOps}
-          activeTab="delivery"
+          // FIX #6: pass activeTab from state (not re-read localStorage) so pickup persists
+          activeTab={activeTab}
           restaurants={restaurants}
           cartItems={cartItems}
           setCartItems={setCartItems}
           onAddToCart={handleAddToCart}
           onRestaurantSignUpClick={() => push('restaurant-signup')}
+          onRiderSignUpClick={() => push('rider-signup')}
           onRestaurantClick={goToRestaurant}
           onBusinessDashboardClick={(r) => { setSelectedRestaurant(r); push('business-dashboard'); }}
+          currentAddress={deliveryAddress}
+          onAddressChange={handleAddressChange}
         />
       )}
 
@@ -542,11 +538,21 @@ function App() {
           restaurants={restaurants}
           onRestaurantClick={goToRestaurant}
           onBack={goHome}
+          currentAddress={deliveryAddress}
+          onAddressChange={handleAddressChange}
         />
       )}
 
       {currentPage === 'profile' && (
-        <Profile {...H} {...CartOps} cartItems={cartItems} onBack={goHome} />
+        <Profile
+          {...H} {...CartOps}
+          cartItems={cartItems}
+          onBack={goHome}
+          currentAddress={deliveryAddress}
+          onAddressChange={handleAddressChange}
+          // FIX #8: profile page can open global favourites sidebar
+          onFavouritesClick={() => setShowFavourites(true)}
+        />
       )}
 
       {currentPage === 'restaurant' && selectedRestaurant && (
@@ -560,14 +566,21 @@ function App() {
           onRemoveItem={handleRemoveItem}
           onCheckout={goToCheckout}
           onNavigateToRestaurant={goToRestaurant}
+          currentAddress={deliveryAddress}
+          onAddressChange={handleAddressChange}
         />
       )}
 
+      {/* ── BUSINESS PAGES ── */}
       {currentPage === 'business-welcome' && selectedRestaurant && (
         <BusinessWelcome
           user={user}
           restaurant={selectedRestaurant}
           onEnterDashboard={() => goToBusinessPage('business-dashboard', selectedRestaurant)}
+          onGoToDashboard={()   => goToBusinessPage('business-dashboard', selectedRestaurant)}
+          onGoToOrders={()      => goToBusinessPage('orders',             selectedRestaurant)}
+          onGoToOrderHistory={() => goToBusinessPage('order-history',     selectedRestaurant)}
+          onGoToProfile={()     => goToBusinessPage('business-profile',   selectedRestaurant)}
           onLogout={handleLogout}
         />
       )}
@@ -576,24 +589,43 @@ function App() {
         <BusinessDashboard
           {...H}
           restaurant={selectedRestaurant}
-          onBack={() => goToBusinessPage('business-welcome', selectedRestaurant)}
-          onNavigateToOrders={() => goToBusinessPage('orders', selectedRestaurant)}
+          onBack={()                  => goToBusinessPage('business-welcome', selectedRestaurant)}
+          onNavigateToOrders={()      => goToBusinessPage('orders',           selectedRestaurant)}
+          onNavigateToHistory={()     => goToBusinessPage('order-history',    selectedRestaurant)}
+          onNavigateToProfile={()     => goToBusinessPage('business-profile', selectedRestaurant)}
         />
       )}
 
-      {currentPage === 'orders' && (
+      {currentPage === 'orders' && selectedRestaurant && (
         <Orders
           {...H}
-          onNavigateToMenu={() => goToBusinessPage('business-dashboard', selectedRestaurant)}
-          onNavigateToOrderHistory={() => goToBusinessPage('order-history', selectedRestaurant)}
+          restaurant={selectedRestaurant}
+          onNavigateToMenu={()        => goToBusinessPage('business-dashboard', selectedRestaurant)}
+          onNavigateToHistory={()     => goToBusinessPage('order-history',      selectedRestaurant)}
+          onNavigateToProfile={()     => goToBusinessPage('business-profile',   selectedRestaurant)}
         />
       )}
 
-      {currentPage === 'order-history' && (
+      {currentPage === 'order-history' && selectedRestaurant && (
         <OrderHistory
           {...H}
-          onNavigateToMenu={() => goToBusinessPage('business-dashboard', selectedRestaurant)}
-          onNavigateToOrders={() => goToBusinessPage('orders', selectedRestaurant)}
+          restaurant={selectedRestaurant}
+          onNavigateToMenu={()    => goToBusinessPage('business-dashboard', selectedRestaurant)}
+          onNavigateToOrders={()  => goToBusinessPage('orders',             selectedRestaurant)}
+          onNavigateToProfile={() => goToBusinessPage('business-profile',   selectedRestaurant)}
+        />
+      )}
+
+      {currentPage === 'business-profile' && selectedRestaurant && (
+        <BusinessProfile
+          user={user}
+          restaurant={selectedRestaurant}
+          isLoggedIn={isLoggedIn}
+          onLogout={handleLogout}
+          onNavigateToMenu={()    => goToBusinessPage('business-dashboard', selectedRestaurant)}
+          onNavigateToOrders={()  => goToBusinessPage('orders',             selectedRestaurant)}
+          onNavigateToHistory={() => goToBusinessPage('order-history',      selectedRestaurant)}
+          onNavigateToProfile={() => goToBusinessPage('business-profile',   selectedRestaurant)}
         />
       )}
 
@@ -612,6 +644,8 @@ function App() {
           onBack={() => selectedRestaurant ? goToRestaurant(selectedRestaurant) : goHome()}
           onPlaceOrder={handlePlaceOrder}
           onCheckout={goToCheckout}
+          currentAddress={deliveryAddress}
+          onAddressChange={handleAddressChange}
         />
       )}
 
@@ -632,14 +666,16 @@ function App() {
 
       {currentPage === 'rider-signup' && (
         <RiderSignUp
-          onSignUpSuccess={handleLoginSuccess}
-          onRiderOnBoarding={() => push('rider-onboarding')}
+          onRiderOnBoarding={(step1Data) => { setRiderSignupData(step1Data); push('rider-onboarding'); }}
           onSwitchToLogin={() => push('rider-login')}
         />
       )}
 
       {currentPage === 'rider-onboarding' && (
-        <RiderOnBoarding onCompletion={handleRiderOnBoardingComplete} />
+        <RiderOnBoarding
+          step1Data={riderSignupData}
+          onCompletion={handleRiderOnBoardingComplete}
+        />
       )}
 
       {currentPage === 'rider-login' && (
@@ -657,12 +693,15 @@ function App() {
         <OrderStatus
           {...H}
           cartItems={cartItems}
+          // FIX #8: orders page can open cart sidebar via onCartClick
           onCartClick={() => {}}
           activeTab="orders"
+          currentAddress={deliveryAddress}
+          onAddressChange={handleAddressChange}
         />
       )}
 
-      {/* FIX 4: render FavouritesSidebar globally so it works on every page */}
+      {/* FIX #8: Global favourites sidebar — accessible from ANY page */}
       <FavouritesSidebar
         isOpen={showFavourites}
         onClose={() => setShowFavourites(false)}

@@ -47,11 +47,13 @@ const ConfirmDialog = ({ message, onConfirm, onCancel }) => (
   </div>
 );
 
-// ─────────────────────────────────────────────────────────────────────────────
-
 const BusinessDashboard = ({
   restaurant, onBack, isLoggedIn, user, onLoginClick, onSignUpClick, onLogout,
-  onNavigateToOrders, onNavigateToHistory, onNavigateToProfile,
+  // ── FIX: receive all navigation props from App.jsx ──
+  onNavigateToMenu,
+  onNavigateToOrders,
+  onNavigateToHistory,
+  onNavigateToProfile,
 }) => {
   const [activeTab, setActiveTab] = useState('menu');
   const [searchQuery, setSearchQuery] = useState('');
@@ -318,21 +320,20 @@ const BusinessDashboard = ({
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       {confirm && <ConfirmDialog message={confirm.message} onConfirm={confirm.onConfirm} onCancel={() => setConfirm(null)} />}
 
-      {/* ── Header — TASK 3: pass onNavigateToHistory correctly ── */}
+      {/* ── FIX: all 4 nav handlers passed correctly ── */}
       <BusinessHeader
         activePage="menu"
         user={user}
         restaurant={displayRestaurant}
         onLogout={onLogout}
-        onNavigateToMenu={() => {}}
-        onNavigateToOrders={() => onNavigateToOrders?.()}
-        onNavigateToHistory={() => onNavigateToHistory?.()}  // TASK 3: fixed
-        onNavigateToProfile={() => onNavigateToProfile?.()}
+        onNavigateToMenu={onNavigateToMenu ?? (() => {})}
+        onNavigateToOrders={onNavigateToOrders ?? (() => {})}
+        onNavigateToHistory={onNavigateToHistory ?? (() => {})}
+        onNavigateToProfile={onNavigateToProfile ?? (() => {})}
       />
 
-      {/* ── Restaurant Banner — TASK 2: back button REMOVED ── */}
+      {/* ── Restaurant Banner ── */}
       <div className="business-restaurant-banner">
-        {/* back button intentionally removed per task 2 */}
         <div className="business-banner-content">
           <div className="business-banner-image">
             {displayRestaurant?.image_url

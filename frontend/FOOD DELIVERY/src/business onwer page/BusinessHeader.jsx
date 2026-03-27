@@ -2,20 +2,36 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Utensils, ShoppingBag, Clock, Sun, Moon,
-  User, HelpCircle, LogOut, Package, Building2,
+  User, HelpCircle, LogOut, Building2,
   ChevronRight, UserCircle,
 } from 'lucide-react';
 import { BRAND, COLORS } from '../constants.js';
 
 // ─── PROFILE DROPDOWN ────────────────────────────────────────────────────────
-const BusinessProfileDropdown = ({ isOpen, onClose, user, restaurant, onLogout, onProfileClick }) => {
+const BusinessProfileDropdown = ({
+  isOpen, onClose, user, restaurant,
+  onLogout, onProfileClick,
+}) => {
   const initials = [user?.first_name, user?.last_name]
     .filter(Boolean).map(n => n[0]).join('').toUpperCase() || 'BP';
 
   const items = [
-    { Icon: Building2,  label: restaurant?.name || 'My Restaurant', sub: 'Restaurant Partner', noAction: true },
-    { Icon: User,       label: 'Profile',      action: () => { onProfileClick?.(); onClose(); } },
-    { Icon: HelpCircle, label: 'Help Center',  action: () => { window.open('https://www.foodpanda.com.bd/contents/help-center', '_blank'); onClose(); } },
+    {
+      Icon: Building2,
+      label: restaurant?.name || 'My Restaurant',
+      sub: 'Restaurant Partner',
+      noAction: true,
+    },
+    {
+      Icon: User,
+      label: 'Profile',
+      action: () => { onProfileClick?.(); onClose(); },
+    },
+    {
+      Icon: HelpCircle,
+      label: 'Help Center',
+      action: () => { window.open('https://www.foodpanda.com.bd/contents/help-center', '_blank'); onClose(); },
+    },
   ];
 
   return (
@@ -42,13 +58,16 @@ const BusinessProfileDropdown = ({ isOpen, onClose, user, restaurant, onLogout, 
 
             <div className="bh-dd-items">
               {items.map(({ Icon, label, sub, action, noAction }, i) => (
-                <motion.button key={i}
+                <motion.button
+                  key={i}
                   className={`bh-dd-item ${noAction ? 'no-action' : ''}`}
                   onClick={noAction ? undefined : action}
-                  initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
+                  initial={{ opacity: 0, x: -8 }}
+                  animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.04 + i * 0.04, duration: 0.15 }}
                   whileHover={noAction ? {} : { x: 3 }}
-                  style={{ cursor: noAction ? 'default' : 'pointer' }}>
+                  style={{ cursor: noAction ? 'default' : 'pointer' }}
+                >
                   <span className="bh-dd-item-icon"><Icon size={17} /></span>
                   <span className="bh-dd-item-text">
                     {label}
@@ -59,11 +78,14 @@ const BusinessProfileDropdown = ({ isOpen, onClose, user, restaurant, onLogout, 
 
               <div className="bh-dd-divider" />
 
-              <motion.button className="bh-dd-item bh-dd-logout"
+              <motion.button
+                className="bh-dd-item bh-dd-logout"
                 onClick={() => { onLogout?.(); onClose(); }}
-                initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
+                initial={{ opacity: 0, x: -8 }}
+                animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.2, duration: 0.15 }}
-                whileHover={{ x: 3 }}>
+                whileHover={{ x: 3 }}
+              >
                 <span className="bh-dd-item-icon"><LogOut size={17} /></span>
                 <span className="bh-dd-item-text">Logout</span>
               </motion.button>
@@ -76,6 +98,7 @@ const BusinessProfileDropdown = ({ isOpen, onClose, user, restaurant, onLogout, 
 };
 
 // ─── MAIN BUSINESS HEADER ─────────────────────────────────────────────────────
+// FIX #3: All 4 tabs are properly wired. No page traps the user.
 const BusinessHeader = ({
   activePage,
   user,
@@ -84,7 +107,7 @@ const BusinessHeader = ({
   onNavigateToMenu,
   onNavigateToOrders,
   onNavigateToHistory,
-  onNavigateToProfile,   // TASK 2: new prop for restaurant profile page
+  onNavigateToProfile,
   onProfileClick,
   newOrderCount = 0,
 }) => {
@@ -100,12 +123,33 @@ const BusinessHeader = ({
   const initials = [user?.first_name, user?.last_name]
     .filter(Boolean).map(n => n[0]).join('').toUpperCase() || 'BP';
 
-  // TASK 3: All 4 tabs now have their own click handlers — history always works
+  // FIX #3: All tabs now always call their respective navigation handlers
   const TABS = [
-    { id: 'menu',    label: 'Menu',            Icon: Utensils,    onClick: onNavigateToMenu    },
-    { id: 'orders',  label: 'Orders',          Icon: ShoppingBag, onClick: onNavigateToOrders, badge: newOrderCount },
-    { id: 'history', label: 'Order History',   Icon: Clock,       onClick: onNavigateToHistory },
-    { id: 'profile', label: 'Restaurant Info', Icon: UserCircle,  onClick: onNavigateToProfile },
+    {
+      id: 'menu',
+      label: 'Menu',
+      Icon: Utensils,
+      onClick: onNavigateToMenu,
+    },
+    {
+      id: 'orders',
+      label: 'Orders',
+      Icon: ShoppingBag,
+      onClick: onNavigateToOrders,
+      badge: newOrderCount,
+    },
+    {
+      id: 'history',
+      label: 'Order History',
+      Icon: Clock,
+      onClick: onNavigateToHistory,
+    },
+    {
+      id: 'profile',
+      label: 'Restaurant Info',
+      Icon: UserCircle,
+      onClick: onNavigateToProfile,
+    },
   ];
 
   return (
@@ -127,13 +171,17 @@ const BusinessHeader = ({
 
           {/* Right controls */}
           <div className="business-header-right">
-            <motion.button className="bh-icon-btn" onClick={() => setIsDark(p => !p)}
-              whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.92 }}
-              title={isDark ? 'Light mode' : 'Dark mode'}>
+            <motion.button
+              className="bh-icon-btn"
+              onClick={() => setIsDark(p => !p)}
+              whileHover={{ scale: 1.08 }}
+              whileTap={{ scale: 0.92 }}
+              title={isDark ? 'Light mode' : 'Dark mode'}
+            >
               <AnimatePresence mode="wait">
                 {isDark
-                  ? <motion.span key="sun"  initial={{ rotate: -90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate:  90, opacity: 0 }} transition={{ duration: 0.15 }} style={{ display:'flex' }}><Sun  size={16} /></motion.span>
-                  : <motion.span key="moon" initial={{ rotate:  90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: -90, opacity: 0 }} transition={{ duration: 0.15 }} style={{ display:'flex' }}><Moon size={16} /></motion.span>
+                  ? <motion.span key="sun"  initial={{ rotate: -90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate:  90, opacity: 0 }} transition={{ duration: 0.15 }} style={{ display: 'flex' }}><Sun  size={16} /></motion.span>
+                  : <motion.span key="moon" initial={{ rotate:  90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: -90, opacity: 0 }} transition={{ duration: 0.15 }} style={{ display: 'flex' }}><Moon size={16} /></motion.span>
                 }
               </AnimatePresence>
             </motion.button>
@@ -145,9 +193,16 @@ const BusinessHeader = ({
                   <span className="bh-profile-name">{user?.first_name || 'Partner'}</span>
                   <span className="bh-profile-role">Business Partner</span>
                 </div>
-                <ChevronRight size={13} className="bh-profile-chevron"
-                  style={{ transform: showDropdown ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }} />
+                <ChevronRight
+                  size={13}
+                  className="bh-profile-chevron"
+                  style={{
+                    transform: showDropdown ? 'rotate(90deg)' : 'none',
+                    transition: 'transform 0.2s',
+                  }}
+                />
               </button>
+
               <BusinessProfileDropdown
                 isOpen={showDropdown}
                 onClose={() => setShowDropdown(false)}
@@ -160,13 +215,18 @@ const BusinessHeader = ({
           </div>
         </div>
 
-        {/* Nav Tabs — TASK 3: history tab now always calls onNavigateToHistory */}
+        {/* Nav Tabs — FIX #3: each tab reliably calls its handler */}
         <nav className="business-nav-tabs">
           <div className="business-nav-tabs-content">
             {TABS.map(({ id, label, Icon, onClick, badge }) => (
-              <button key={id}
+              <button
+                key={id}
                 className={`business-nav-tab ${activePage === id ? 'active' : ''}`}
-                onClick={onClick}>
+                onClick={() => {
+                  // Always navigate even if already on this tab (safe re-render)
+                  if (typeof onClick === 'function') onClick();
+                }}
+              >
                 <Icon size={15} strokeWidth={activePage === id ? 2.5 : 1.8} />
                 {label}
                 {badge > 0 && <span className="bh-nav-badge">{badge}</span>}

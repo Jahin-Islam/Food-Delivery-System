@@ -2,12 +2,11 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import {
   MapPin, Bike, User, Mail, ChevronDown, ArrowRight,
-  UserCheck, ClipboardList, Car, FileText, LogIn,
+  UserCheck, ClipboardList, Car, FileText,
   TrendingUp, Star, Shield, Eye, EyeOff, Lock, Phone, X,
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import { BRAND, COLORS } from '../constants.js';
-import authService from '../Authservice.js';
 import './RiderSignUp.css';
 
 const VEHICLES = ['Motorbike', 'Bi-Cycle'];
@@ -66,6 +65,7 @@ function CityMapPicker({ onCitySelect }) {
   return <div ref={mapDivRef} style={{ width: '100%', height: '200px', borderRadius: 10, border: '2px solid var(--c-gray-200)', overflow: 'hidden', marginTop: 8 }} />;
 }
 
+// ─── Step 1: Collect basic info only — backend call happens in RiderOnBoarding phase 4 ───
 const RiderSignUp = ({ onRiderOnBoarding, onSwitchToLogin }) => {
   const [formData, setFormData] = useState({
     city: '', cityLat: null, cityLng: null, vehicle: '',
@@ -73,7 +73,6 @@ const RiderSignUp = ({ onRiderOnBoarding, onSwitchToLogin }) => {
     password: '', password2: '',
     isOver18: '', privacyAccepted: false,
   });
-  const [loading,        setLoading]        = useState(false);
   const [focused,        setFocused]        = useState(null);
   const [showMap,        setShowMap]        = useState(false);
   const [showPassword,   setShowPassword]   = useState(false);
@@ -86,6 +85,7 @@ const RiderSignUp = ({ onRiderOnBoarding, onSwitchToLogin }) => {
     const { name, value, type, checked } = e.target;
     setFormData(p => ({ ...p, [name]: type === 'checkbox' ? checked : value }));
   };
+
   const handleCitySelect = ({ city, lat, lng }) => {
     setFormData(p => ({ ...p, city, cityLat: lat, cityLng: lng }));
     setCitySuggestions([]);
@@ -103,7 +103,6 @@ const RiderSignUp = ({ onRiderOnBoarding, onSwitchToLogin }) => {
         { headers: { 'Accept-Language': 'en' } }
       );
       const data = await res.json();
-      // Deduplicate by city name
       const seen = new Set();
       const results = [];
       for (const r of data) {
@@ -126,46 +125,32 @@ const RiderSignUp = ({ onRiderOnBoarding, onSwitchToLogin }) => {
     debounceRef.current = setTimeout(() => fetchCitySuggestions(val), 400);
   };
 
-  const handleSubmit = async (e) => {
+  // ── STEP 1: Local validation only — backend call deferred to RiderOnBoarding phase 4 ──
+  const handleSubmit = (e) => {
     e.preventDefault();
-    if (!formData.city || !formData.vehicle || !formData.name || !formData.phone || !formData.email)
-      { toast.error('Please fill in all required fields'); return; }
-    if (!formData.password || formData.password.length < 8)
-      { toast.error('Password must be at least 8 characters'); return; }
-    if (formData.password !== formData.password2)
-      { toast.error('Passwords do not match'); return; }
-    if (formData.isOver18 === 'no') { toast.error('You must be over 18 to become a rider'); return; }
-    if (!formData.isOver18) { toast.error('Please confirm you are over 18'); return; }
-    if (!formData.privacyAccepted) { toast.error('Please accept the Rider Privacy Statement'); return; }
 
-    setLoading(true);
-    try {
-      await authService.registerRider({
-        email:     formData.email,
-        password:  formData.password,
-        password2: formData.password2,
-        name:      formData.name,
-        surname:   formData.surname,
-        phone:     formData.phone,
-        vehicle:   formData.vehicle,
-        city:      formData.city,
-        latitude:  formData.cityLat,
-        longitude: formData.cityLng,
-        // These are collected in RiderOnBoarding — send empty strings for now
-        // The backend validate_rider_fields requires them, so we set placeholders
-        license_plate:            'PENDING',
-        nid_number:               'PENDING',
-        gender:                   'OTHER',
-        emergency_contact_name:   'PENDING',
-        emergency_contact_number: '00000000000',
-        // NID images not available at this stage — onboarding handles them
-        // But backend requires them, so we note this in onboarding
-      });
-      toast.success('Account created! Complete your profile in onboarding.');
-      setTimeout(() => onRiderOnBoarding?.({ ...formData, type: 'rider' }), 800);
-    } catch (err) {
-      toast.error(err.message || 'Registration failed. Please try again.');
-    } finally { setLoading(false); }
+    if (!formData.city || !formData.vehicle || !formData.name || !formData.phone || !formData.email) {
+      toast.error('Please fill in all required fields'); return;
+    }
+    if (!formData.password || formData.password.length < 8) {
+      toast.error('Password must be at least 8 characters'); return;
+    }
+    if (formData.password !== formData.password2) {
+      toast.error('Passwords do not match'); return;
+    }
+    if (formData.isOver18 === 'no') {
+      toast.error('You must be over 18 to become a rider'); return;
+    }
+    if (!formData.isOver18) {
+      toast.error('Please confirm you are over 18'); return;
+    }
+    if (!formData.privacyAccepted) {
+      toast.error('Please accept the Rider Privacy Statement'); return;
+    }
+
+    // All good — pass step-1 data to onboarding; backend fires at phase 4
+    toast.success('Step 1 complete! Continue to onboarding.');
+    setTimeout(() => onRiderOnBoarding?.({ ...formData, type: 'rider' }), 600);
   };
 
   const fg = id => `signup-form-group ${focused === id ? 'focused' : ''}`;
@@ -177,13 +162,12 @@ const RiderSignUp = ({ onRiderOnBoarding, onSwitchToLogin }) => {
         success: { iconTheme: { primary: COLORS.primary, secondary: '#fff' } },
       }} />
 
-      {/* ── LEFT ── identical structure & classes to customer signup */}
+      {/* ── LEFT ── */}
       <div className="signup-left-side">
         <motion.div className="signup-logo-section"
           initial={{ opacity: 0, x: -24 }} animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}>
 
-          {/* Logo */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
             <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(255,255,255,0.18)', border: '1.5px solid rgba(255,255,255,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <Bike size={22} color="white" strokeWidth={2} />
@@ -197,7 +181,6 @@ const RiderSignUp = ({ onRiderOnBoarding, onSwitchToLogin }) => {
             Sign up today and be part of the {BRAND.name} rider family!
           </div>
 
-          {/* Feature cards — same style as customer signup */}
           <div className="signup-features">
             {HERO_FEATURES.map(({ Icon, text }, i) => (
               <motion.div key={i} className="signup-feature-item"
@@ -209,7 +192,6 @@ const RiderSignUp = ({ onRiderOnBoarding, onSwitchToLogin }) => {
             ))}
           </div>
 
-          {/* 4 steps card */}
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.55 }}
             style={{ marginTop: 20, background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 12, padding: '14px 16px' }}>
             <p style={{ fontSize: 12, fontWeight: 700, marginBottom: 10, opacity: 0.88 }}>Complete your application in 4 steps:</p>
@@ -226,16 +208,16 @@ const RiderSignUp = ({ onRiderOnBoarding, onSwitchToLogin }) => {
         </motion.div>
       </div>
 
-      {/* ── RIGHT ── identical structure & classes to customer signup */}
+      {/* ── RIGHT ── */}
       <div className="signup-right-side">
         <motion.div className="signup-card"
           initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}>
 
           <div className="signup-header">
-            <div className="signup-brand-pill">{BRAND.name} Rider</div>
+            <div className="signup-brand-pill">{BRAND.name} Rider — Step 1 of 2</div>
             <h1>Create your profile</h1>
-            <p>Earn up to 25,000 Taka per month on your schedule.</p>
+            <p>Fill in your basic info. You'll complete your documents in the next step.</p>
           </div>
 
           <form onSubmit={handleSubmit} noValidate>
@@ -426,12 +408,10 @@ const RiderSignUp = ({ onRiderOnBoarding, onSwitchToLogin }) => {
               </label>
             </div>
 
-            <motion.button type="submit" className="signup-submit-btn" disabled={loading}
-              whileHover={!loading ? { y: -2, boxShadow: '0 8px 22px rgba(215,15,100,0.38)' } : {}}
-              whileTap={!loading ? { y: 0 } : {}}>
-              {loading
-                ? <span className="signup-loading-dots"><span/><span/><span/></span>
-                : <>Submit <ArrowRight size={15} style={{ marginLeft: 5 }} /></>}
+            <motion.button type="submit" className="signup-submit-btn"
+              whileHover={{ y: -2, boxShadow: '0 8px 22px rgba(215,15,100,0.38)' }}
+              whileTap={{ y: 0 }}>
+              Continue to Onboarding <ArrowRight size={15} style={{ marginLeft: 5 }} />
             </motion.button>
           </form>
 

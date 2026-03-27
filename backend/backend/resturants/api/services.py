@@ -73,6 +73,14 @@ def insert_restaurant(cursor, user_id, phone_number, data):
         ]
     )
 
+    # FIX: mirror what insert_rider does — store the address on the user row too
+    # so users_user.address_id is never NULL for restaurant owners who picked a location.
+    if address_id:
+        cursor.execute(
+            "UPDATE users_user SET address_id = %s WHERE id = %s",
+            [address_id, user_id]
+        )
+
 
 def check_restaurant_owner(request):
     """
