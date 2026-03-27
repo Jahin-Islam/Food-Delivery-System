@@ -1,44 +1,125 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './Checkout.css';
-import { COLORS, SHADOWS } from '../constants.js';
 import Header from './Header.jsx';
 import AllCarts from './AllCarts.jsx';
 import DeliveryMapPicker from './DeliveryMapPicker.jsx';
-import { MapPin, Home, Briefcase, Heart, Plus } from 'lucide-react';
-import authService from '../Authservice.js';
+import {
+  MapPin, Home, Briefcase, Heart, Plus,
+  Pencil, Trash2, X, Check,
+} from 'lucide-react';
 
-const API_BASE = 'http://127.0.0.1:8000/api/customers';
-
-// ─── Address API helpers ───────────────────────────────────────────────────────
-
-async function fetchAddresses() {
-  return authService.authenticatedFetch(`${API_BASE}/me/addresses/`);
-}
-
-async function createAddress(payload) {
-  return authService.authenticatedFetch(`${API_BASE}/me/addresses/`, {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
-}
-
-async function updateAddress(addressId, payload) {
-  return authService.authenticatedFetch(`${API_BASE}/me/addresses/${addressId}/`, {
-    method: 'PATCH',
-    body: JSON.stringify(payload),
-  });
-}
-
-// Map label button value → backend address_type
-const LABEL_TO_TYPE = {
-  home:    'HOME',
-  work:    'WORK',
-  partner: 'PARTNER',
-  other:   'OTHER',
+/* ─── helpers ─────────────────────────────────────────────── */
+const LABEL_META = {
+  home:    { icon: <Home      size={14} />, text: 'Home'    },
+  work:    { icon: <Briefcase size={14} />, text: 'Work'    },
+  partner: { icon: <Heart     size={14} />, text: 'Partner' },
+  other:   { icon: <Plus      size={14} />, text: 'Other'   },
 };
 
-// ─── Component ────────────────────────────────────────────────────────────────
+const LABEL_CARD_ICON = {
+  home:    <Home      size={16} />,
+  work:    <Briefcase size={16} />,
+  partner: <Heart     size={16} />,
+  other:   <MapPin    size={16} />,
+};
 
+const emptyForm = () => ({
+  address: '', streetNumber: '', apartment: '', note: '', label: 'home',
+  lat: null, lng: null,
+});
+
+/* ─── Address Form Modal ──────────────────────────────────── */
+const AddressModal = ({ initial, onSave, onClose, takenLabels = [] }) => {
+  // When editing, the current label of the address being edited is NOT "taken" for the purpose of this form
+  const editingLabel = initial?.label ?? null;
+  const [form, setForm] = useState(initial ?? emptyForm());
+
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const handleSave = () => {
+    if (!form.address && !form.streetNumber) return;
+    onSave(form);
+  };
+
+  return (
+    <div className="addr-modal-overlay" onClick={onClose}>
+      <div className="addr-modal" onClick={e => e.stopPropagation()}>
+        {/* Header */}
+        <div className="addr-modal-header">
+          <h2 className="addr-modal-title">What's your exact location?</h2>
+          <button className="addr-modal-close" onClick={onClose}><X size={16} /></button>
+        </div>
+        <p className="addr-modal-subtitle">
+          Providing your location enables more accurate search and delivery ETA,
+          seamless order tracking and personalised recommendations.
+        </p>
+
+        {/* Map picker */}
+        <div className="addr-modal-map">
+          <DeliveryMapPicker
+            initialLat={form.lat ?? undefined}
+            initialLng={form.lng ?? undefined}
+            onLocationSelect={({ lat, lng, address }) => {
+              set('lat', lat);
+              set('lng', lng);
+              set('address', address);
+            }}
+          />
+        </div>
+
+        {/* Inputs */}
+        <div className="addr-modal-inputs">
+          <input
+            className="address-input"
+            placeholder="Street / house number"
+            value={form.streetNumber}
+            onChange={e => set('streetNumber', e.target.value)}
+          />
+          <input
+            className="address-input"
+            placeholder="Apartment #"
+            value={form.apartment}
+            onChange={e => set('apartment', e.target.value)}
+          />
+          <textarea
+            className="address-textarea"
+            placeholder="Note to rider – e.g. building, landmark"
+            rows={2}
+            value={form.note}
+            onChange={e => set('note', e.target.value)}
+          />
+
+          {/* Label */}
+          <p className="label-title">Add a Label</p>
+          <div className="label-options">
+            {Object.entries(LABEL_META).map(([key, { icon, text }]) => {
+              // A label is "taken" if another address already uses it (not the one being edited)
+              const isTaken = takenLabels.includes(key) && key !== editingLabel;
+              return (
+                <button
+                  key={key}
+                  className={`label-btn ${form.label === key ? 'active' : ''} ${isTaken ? 'disabled' : ''}`}
+                  onClick={() => !isTaken && set('label', key)}
+                  disabled={isTaken}
+                  title={isTaken ? `You already have a ${text} address` : ''}
+                  style={isTaken ? { opacity: 0.4, cursor: 'not-allowed' } : {}}
+                >
+                  {icon} {text}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <button className="addr-modal-submit" onClick={handleSave}>
+          SUBMIT
+        </button>
+      </div>
+    </div>
+  );
+};
+
+/* ─── Main Checkout ───────────────────────────────────────── */
 const Checkout = ({
   restaurant,
   cartItems = [],
@@ -57,157 +138,87 @@ const Checkout = ({
   currentAddress,
   onAddressChange,
 }) => {
-  // ── Address form state ──
-  const [deliveryAddress, setDeliveryAddress] = useState(currentAddress || '');
-  const [streetNumber,    setStreetNumber]    = useState('');
-  const [apartment,       setApartment]       = useState('');
+  /* ── address list (seed from user profile if available) ── */
+  const seedAddresses = () => {
+    const saved = user?.delivery_addresses ?? [];
+    if (saved.length > 0) {
+      return saved.map((a, i) => ({
+        id: Date.now() + i,
+        address: a.address ?? '',
+        streetNumber: a.street_number ?? '',
+        apartment: a.apartment ?? '',
+        note: a.note ?? '',
+        label: a.label ?? 'home',
+        lat: a.latitude ?? null,
+        lng: a.longitude ?? null,
+      }));
+    }
+    return [];
+  };
+
+  const [addresses,       setAddresses]       = useState(seedAddresses);
+  const [selectedAddrId,  setSelectedAddrId]  = useState(null);
+  const [showModal,       setShowModal]       = useState(false);
+  const [editingAddr,     setEditingAddr]     = useState(null); // null = new
+
   const [note,            setNote]            = useState('');
-  const [addressLabel,    setAddressLabel]    = useState('home');
-  const [deliveryLatLng,  setDeliveryLatLng]  = useState({ lat: null, lng: null });
+  const [firstName,       setFirstName]       = useState(user?.first_name || '');
+  const [lastName,        setLastName]        = useState(user?.last_name  || '');
+  const [email,           setEmail]           = useState(user?.email      || '');
+  const [mobile,          setMobile]          = useState('');
+  const [tipAmount,       setTipAmount]       = useState(0);
+  const [saveTip,         setSaveTip]         = useState(false);
+  const [contactless,     setContactless]     = useState(false);
+  const [deliveryOption,  setDeliveryOption]  = useState('standard');
+  const [showCart,        setShowCart]        = useState(false);
 
-  // ── Saved addresses from backend ──
-  // savedAddresses: array of address objects keyed by address_type
-  const [savedAddresses,  setSavedAddresses]  = useState([]);   // raw list from API
-  const [addressLoading,  setAddressLoading]  = useState(false);
-  const [addressSaving,   setAddressSaving]   = useState(false);
-  const [addressMsg,      setAddressMsg]      = useState('');   // success / error feedback
-
-  // Track what was last saved/loaded for the current label so we can detect changes
-  const savedStateRef = useRef(null); // { street_number, apartment_number, description, latitude, longitude }
-
-  // ── Other checkout state ──
-  const [contactlessDelivery, setContactlessDelivery] = useState(false);
-  const [deliveryOption,      setDeliveryOption]      = useState('standard');
-  const [firstName,           setFirstName]           = useState(user?.first_name || '');
-  const [lastName,            setLastName]            = useState(user?.last_name  || '');
-  const [email,               setEmail]               = useState(user?.email      || '');
-  const [mobile,              setMobile]              = useState('');
-  const [tipAmount,           setTipAmount]           = useState(0);
-  const [saveTip,             setSaveTip]             = useState(false);
-  const [showCart,            setShowCart]            = useState(false);
-
-  // ── Totals ──
-  const subtotal           = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const deliveryFee        = deliveryOption === 'priority' ? 33 : 0;
-  const serviceFee         = 14;
-  const discounts          = restaurant?.discounts || [];
+  /* ── financials ─────────────────────────────────────────── */
+  const subtotal = cartItems.reduce((sum, i) => sum + i.price * i.quantity, 0);
+  const deliveryFee = deliveryOption === 'priority' ? 33 : 0;
+  const serviceFee  = 14;
+  const discounts   = restaurant?.discounts ?? [];
   const applicableDiscount = discounts
     .filter(d => d.is_active !== false && subtotal >= (parseFloat(d.min_order) || 0))
-    .sort((a, b) => parseFloat(b.percentage) - parseFloat(a.percentage))[0] || null;
-  const discountAmount     = applicableDiscount
+    .sort((a, b) => parseFloat(b.percentage) - parseFloat(a.percentage))[0] ?? null;
+  const discountAmount = applicableDiscount
     ? Math.round(subtotal * parseFloat(applicableDiscount.percentage) / 100) : 0;
   const total   = subtotal - discountAmount + deliveryFee + serviceFee + tipAmount;
   const savings = discountAmount;
 
-  // ── Load all saved addresses on mount ──────────────────────────────────────
-  useEffect(() => {
-    if (!isLoggedIn) return;
-    setAddressLoading(true);
-    fetchAddresses()
-      .then(data => {
-        setSavedAddresses(Array.isArray(data) ? data : []);
-      })
-      .catch(() => setSavedAddresses([]))
-      .finally(() => setAddressLoading(false));
-  }, [isLoggedIn]);
+  /* ── address helpers ─────────────────────────────────────── */
+  const takenLabels = addresses.map(a => a.label);
+  const allLabelsTaken = Object.keys(LABEL_META).every(l => takenLabels.includes(l));
 
-  // ── When saved addresses load OR label changes, auto-fill the form ─────────
-  useEffect(() => {
-    const type    = LABEL_TO_TYPE[addressLabel];
-    const matched = savedAddresses.find(a => a.address_type === type);
+  const openAddModal  = ()      => { setEditingAddr(null);  setShowModal(true); };
+  const openEditModal = (addr)  => { setEditingAddr(addr);  setShowModal(true); };
+  const closeModal    = ()      => { setShowModal(false); setEditingAddr(null); };
 
-    if (matched) {
-      setStreetNumber(matched.street_number      || '');
-      setApartment(   matched.apartment_number   || '');
-      setNote(        matched.description        || '');
-      setDeliveryLatLng({
-        lat: matched.latitude  ?? null,
-        lng: matched.longitude ?? null,
-      });
-      // Record the baseline so we can detect dirty state
-      savedStateRef.current = {
-        street_number:    matched.street_number      || '',
-        apartment_number: matched.apartment_number   || '',
-        description:      matched.description        || '',
-        latitude:         matched.latitude  ?? null,
-        longitude:        matched.longitude ?? null,
-      };
+  const handleSaveAddr = (form) => {
+    if (editingAddr) {
+      setAddresses(prev => prev.map(a => a.id === editingAddr.id ? { ...form, id: a.id } : a));
     } else {
-      // No saved address for this label → clear the form
-      setStreetNumber('');
-      setApartment('');
-      setNote('');
-      setDeliveryLatLng({ lat: null, lng: null });
-      savedStateRef.current = null;
+      const newAddr = { ...form, id: Date.now() };
+      setAddresses(prev => [...prev, newAddr]);
+      setSelectedAddrId(newAddr.id);
     }
-    setAddressMsg('');
-  }, [addressLabel, savedAddresses]);
-
-  // ── Detect whether the form has changed from the saved baseline ───────────
-  const isFormDirty = () => {
-    const base = savedStateRef.current;
-    if (!base) {
-      // No saved address for this label → dirty only if something has been typed
-      return streetNumber.trim() !== '' || apartment.trim() !== '' || note.trim() !== '';
-    }
-    return (
-      streetNumber !== base.street_number    ||
-      apartment    !== base.apartment_number ||
-      note         !== base.description      ||
-      deliveryLatLng.lat !== base.latitude   ||
-      deliveryLatLng.lng !== base.longitude
-    );
+    closeModal();
   };
 
-  // ── Save and continue handler ──────────────────────────────────────────────
-  const handleSaveAndContinue = async () => {
-    setAddressMsg('');
-    const type    = LABEL_TO_TYPE[addressLabel];
-    const matched = savedAddresses.find(a => a.address_type === type);
-
-    const payload = {
-      address_type:     type,
-      street_number:    streetNumber    || null,
-      apartment_number: apartment       || null,
-      description:      note            || null,
-      latitude:         deliveryLatLng.lat ?? null,
-      longitude:        deliveryLatLng.lng ?? null,
-    };
-
-    setAddressSaving(true);
-    try {
-      if (matched) {
-        // Address of this type already exists → PATCH it
-        const { address_type, ...patchPayload } = payload; // address_type not updatable via PATCH in services.py
-        const result = await updateAddress(matched.id, patchPayload);
-        // Merge updated address back into savedAddresses
-        setSavedAddresses(prev =>
-          prev.map(a => a.id === matched.id ? { ...a, ...result.address } : a)
-        );
-        setAddressMsg('✓ Address updated successfully.');
-      } else {
-        // No address of this type → POST a new one
-        const result = await createAddress(payload);
-        // Re-fetch the full list so we have the new id
-        const refreshed = await fetchAddresses();
-        setSavedAddresses(Array.isArray(refreshed) ? refreshed : []);
-        setAddressMsg('✓ Address saved successfully.');
-      }
-    } catch (err) {
-      setAddressMsg(`✗ ${err.message || 'Failed to save address.'}`);
-    } finally {
-      setAddressSaving(false);
-    }
+  const handleDeleteAddr = (id) => {
+    setAddresses(prev => prev.filter(a => a.id !== id));
+    if (selectedAddrId === id) setSelectedAddrId(null);
   };
 
-  // ── Place order ────────────────────────────────────────────────────────────
+  /* ── place order ─────────────────────────────────────────── */
+  const selectedAddr = addresses.find(a => a.id === selectedAddrId) ?? null;
+
   const handlePlaceOrder = () => {
     const orderData = {
       restaurant,
       items: cartItems,
-      deliveryAddress: { address: deliveryAddress, streetNumber, apartment, note, label: addressLabel },
+      deliveryAddress: selectedAddr,
       deliveryOption,
-      contactlessDelivery,
+      contactlessDelivery: contactless,
       personalDetails: { firstName, lastName, email, mobile },
       tip: tipAmount,
       subtotal, discountAmount, applicableDiscount, deliveryFee, serviceFee, total,
@@ -226,164 +237,104 @@ const Checkout = ({
     if (onBack) onBack();
   };
 
-  const saveButtonDisabled = addressSaving || !isFormDirty();
-
-  // ── Render ─────────────────────────────────────────────────────────────────
+  /* ── render ─────────────────────────────────────────────── */
   return (
     <div className="checkout-container">
       <Header
-        isLoggedIn={isLoggedIn}
-        user={user}
-        cartItems={allCartItems}
-        onLoginClick={onLoginClick}
-        onSignUpClick={onSignUpClick}
-        onCartClick={() => setShowCart(!showCart)}
-        onLogout={onLogout}
-        onProfileClick={onProfileClick}
-        onOrdersClick={onOrdersClick}
-        onLogoClick={onLogoClick}
-        showBanner={false}
-        currentAddress={currentAddress}
-        onAddressChange={onAddressChange}
+        isLoggedIn={isLoggedIn} user={user} cartItems={allCartItems}
+        onLoginClick={onLoginClick} onSignUpClick={onSignUpClick}
+        onCartClick={() => setShowCart(!showCart)} onLogout={onLogout}
+        onProfileClick={onProfileClick} onOrdersClick={onOrdersClick}
+        onLogoClick={onLogoClick} showBanner={false}
+        currentAddress={currentAddress} onAddressChange={onAddressChange}
       />
 
       <div className="checkout-content">
         <div className="checkout-main">
           <h1 className="checkout-title">Review and place your order</h1>
 
-          {/* ── Delivery Address ── */}
+          {/* ── DELIVERY ADDRESS ── */}
           <section className="checkout-section">
-            <div className="section-header-checkout">
-              <h2 className="section-title-checkout">Delivery address</h2>
-              <button className="edit-btn">Edit</button>
-            </div>
+            <h2 className="section-title-checkout">Delivery address</h2>
 
-            <div className="map-container" style={{ height: 'auto', background: 'none', border: 'none', display: 'block', padding: 0 }}>
-              <DeliveryMapPicker
-                initialLat={deliveryLatLng.lat ?? user?.delivery_addresses?.[0]?.latitude ?? undefined}
-                initialLng={deliveryLatLng.lng ?? user?.delivery_addresses?.[0]?.longitude ?? undefined}
-                onLocationSelect={({ lat, lng, address }) => {
-                  setDeliveryLatLng({ lat, lng });
-                  setDeliveryAddress(address);
-                }}
-              />
-            </div>
+            {/* Saved address cards */}
+            {addresses.length > 0 && (
+              <>
+                <p className="saved-addr-label">Saved Addresses</p>
+                <div className="saved-addresses-list">
+                  {addresses.map(addr => (
+                    <div
+                      key={addr.id}
+                      className={`saved-addr-card ${selectedAddrId === addr.id ? 'selected' : ''}`}
+                      onClick={() => setSelectedAddrId(addr.id)}
+                    >
+                      {/* Radio */}
+                      <div className={`addr-radio ${selectedAddrId === addr.id ? 'checked' : ''}`}>
+                        {selectedAddrId === addr.id && <Check size={12} />}
+                      </div>
 
-            <div className="address-details">
-              <p className="missing-info">We're missing your street - house number</p>
+                      {/* Icon — correct icon per label */}
+                      <div className="addr-card-icon">
+                        {LABEL_CARD_ICON[addr.label] ?? <MapPin size={16} />}
+                      </div>
 
-              <input
-                type="text"
-                placeholder="Street / house number"
-                value={streetNumber}
-                onChange={(e) => setStreetNumber(e.target.value)}
-                className="address-input"
-              />
-
-              <input
-                type="text"
-                placeholder="Apartment #"
-                value={apartment}
-                onChange={(e) => setApartment(e.target.value)}
-                className="address-input"
-              />
-
-              <textarea
-                placeholder="Note to rider - e.g. building, landmark"
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                className="address-textarea"
-                rows={3}
-              />
-
-              {/* ── Label buttons ── */}
-              <div className="address-labels">
-                <p className="label-title">Add a Label</p>
-                {addressLoading && (
-                  <p style={{ fontSize: '12px', color: '#888', marginBottom: '8px' }}>
-                    Loading saved addresses…
-                  </p>
-                )}
-                <div className="label-options">
-                  {[
-                    { key: 'home',    icon: <Home    size={14} />, label: 'Home'    },
-                    { key: 'work',    icon: <Briefcase size={14} />, label: 'Work' },
-                    { key: 'partner', icon: <Heart   size={14} />, label: 'Partner' },
-                    { key: 'other',   icon: <Plus    size={14} />, label: 'Other'   },
-                  ].map(({ key, icon, label }) => {
-                    const isSaved = savedAddresses.some(
-                      a => a.address_type === LABEL_TO_TYPE[key]
-                    );
-                    return (
-                      <button
-                        key={key}
-                        className={`label-btn ${addressLabel === key ? 'active' : ''}`}
-                        onClick={() => setAddressLabel(key)}
-                        style={{ display: 'flex', alignItems: 'center', gap: '6px', position: 'relative' }}
-                        title={isSaved ? `${label} address saved` : `No ${label} address saved yet`}
-                      >
-                        {icon} {label}
-                        {/* Small dot indicator when an address is already saved for this type */}
-                        {isSaved && (
-                          <span style={{
-                            display: 'inline-block',
-                            width: '6px', height: '6px',
-                            borderRadius: '50%',
-                            background: '#10b981',
-                            marginLeft: '2px',
-                            verticalAlign: 'middle',
-                          }} />
+                      {/* Content — always show label badge for every label type */}
+                      <div className="addr-card-content">
+                        {addr.label && (
+                          <span className="addr-card-label-badge" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                            {LABEL_META[addr.label]?.icon}
+                            {LABEL_META[addr.label]?.text ?? addr.label.charAt(0).toUpperCase() + addr.label.slice(1)}
+                          </span>
                         )}
-                      </button>
-                    );
-                  })}
+                        <p className="addr-card-main">
+                          {[addr.streetNumber, addr.address].filter(Boolean).join(' ') || 'Address'}
+                        </p>
+                        {addr.apartment && <p className="addr-card-sub">Flat Number: {addr.apartment}</p>}
+                        <p className="addr-card-sub">Note to rider: {addr.note || 'none'}</p>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="addr-card-actions" onClick={e => e.stopPropagation()}>
+                        <button className="addr-action-btn" onClick={() => openEditModal(addr)} title="Edit">
+                          <Pencil size={15} />
+                        </button>
+                        <button className="addr-action-btn danger" onClick={() => handleDeleteAddr(addr.id)} title="Delete">
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              </div>
+              </>
+            )}
 
-              {/* ── Save and continue ── */}
-              <button
-                className="save-continue-btn"
-                onClick={handleSaveAndContinue}
-                disabled={saveButtonDisabled}
-                style={{ opacity: saveButtonDisabled ? 0.5 : 1, cursor: saveButtonDisabled ? 'not-allowed' : 'pointer' }}
-              >
-                {addressSaving ? 'Saving…' : 'Save and continue'}
+            {/* Add address — only show if not all 4 label slots are taken */}
+            {!allLabelsTaken && (
+              <button className="add-address-btn" onClick={openAddModal}>
+                <Plus size={16} /> Add address
               </button>
+            )}
 
-              {/* Feedback message */}
-              {addressMsg && (
-                <p style={{
-                  marginTop: '8px',
-                  fontSize: '13px',
-                  color: addressMsg.startsWith('✓') ? '#10b981' : '#ef4444',
-                  fontWeight: 500,
-                }}>
-                  {addressMsg}
-                </p>
-              )}
+            <div className="section-divider" />
 
-              <div className="contactless-option">
-                <span>Contactless delivery</span>
-                <label className="toggle-switch-checkout">
-                  <input
-                    type="checkbox"
-                    checked={contactlessDelivery}
-                    onChange={(e) => setContactlessDelivery(e.target.checked)}
-                  />
-                  <span className="toggle-slider-checkout"></span>
-                </label>
-              </div>
+            {/* Contactless */}
+            <div className="contactless-option">
+              <span>Contactless delivery</span>
+              <label className="toggle-switch-checkout">
+                <input type="checkbox" checked={contactless} onChange={e => setContactless(e.target.checked)} />
+                <span className="toggle-slider-checkout" />
+              </label>
             </div>
           </section>
 
-          {/* ── Delivery options ── */}
+          {/* ── DELIVERY OPTIONS ── */}
           <section className="checkout-section">
             <h2 className="section-title-checkout">Delivery options</h2>
             <div className="delivery-options">
               <label className="delivery-option-card">
                 <input type="radio" name="delivery" value="standard"
                   checked={deliveryOption === 'standard'}
-                  onChange={(e) => setDeliveryOption(e.target.value)} />
+                  onChange={() => setDeliveryOption('standard')} />
                 <div className="option-content">
                   <div className="option-info">
                     <span className="option-label">Standard</span>
@@ -394,7 +345,7 @@ const Checkout = ({
               <label className="delivery-option-card">
                 <input type="radio" name="delivery" value="priority"
                   checked={deliveryOption === 'priority'}
-                  onChange={(e) => setDeliveryOption(e.target.value)} />
+                  onChange={() => setDeliveryOption('priority')} />
                 <div className="option-content">
                   <div className="option-info">
                     <span className="option-label">Priority</span>
@@ -406,27 +357,27 @@ const Checkout = ({
             </div>
           </section>
 
-          {/* ── Personal details ── */}
+          {/* ── PERSONAL DETAILS ── */}
           <section className="checkout-section">
             <div className="section-header-checkout">
               <h2 className="section-title-checkout">Personal details</h2>
               <button className="cancel-btn">Cancel</button>
             </div>
             <div className="personal-details-form">
-              <input type="email" placeholder="Email" value={email}
-                onChange={(e) => setEmail(e.target.value)} className="personal-input" />
+              <input className="personal-input" type="email" placeholder="Email"
+                value={email} onChange={e => setEmail(e.target.value)} />
               <div className="name-row">
-                <input type="text" placeholder="First name" value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)} className="personal-input half" />
-                <input type="text" placeholder="Last name" value={lastName}
-                  onChange={(e) => setLastName(e.target.value)} className="personal-input half" />
+                <input className="personal-input half" type="text" placeholder="First name"
+                  value={firstName} onChange={e => setFirstName(e.target.value)} />
+                <input className="personal-input half" type="text" placeholder="Last name"
+                  value={lastName} onChange={e => setLastName(e.target.value)} />
               </div>
-              <input type="tel" placeholder="Mobile number" value={mobile}
-                onChange={(e) => setMobile(e.target.value)} className="personal-input" />
+              <input className="personal-input" type="tel" placeholder="Mobile number"
+                value={mobile} onChange={e => setMobile(e.target.value)} />
             </div>
           </section>
 
-          {/* ── Tip ── */}
+          {/* ── TIP ── */}
           <section className="checkout-section">
             <h2 className="section-title-checkout">Tip your rider</h2>
             <br />
@@ -442,32 +393,27 @@ const Checkout = ({
             </div>
             <p className="tip-note">More common</p>
             <div className="save-tip-option">
-              <input type="checkbox" id="saveTip" checked={saveTip}
-                onChange={(e) => setSaveTip(e.target.checked)} />
+              <input type="checkbox" id="saveTip" checked={saveTip} onChange={e => setSaveTip(e.target.checked)} />
               <label htmlFor="saveTip">Save it for the next order</label>
             </div>
           </section>
 
-          <button className="place-order-btn" onClick={handlePlaceOrder}>
-            Place order
-          </button>
-
+          <button className="place-order-btn" onClick={handlePlaceOrder}>Place order</button>
           <p className="terms-text">
-            By making this purchase you agree to our{' '}
-            <a href="#">terms and conditions</a>.
+            By making this purchase you agree to our <a href="#">terms and conditions</a>.
           </p>
           <p className="terms-text">
-            I agree that placing the order places the order under an obligation to make a payment in accordance with the{' '}
-            <a href="#">General Terms and Conditions</a>.
+            I agree that placing the order places the order under an obligation to make a payment in
+            accordance with the <a href="#">General Terms and Conditions</a>.
           </p>
         </div>
 
-        {/* ── Order summary sidebar ── */}
+        {/* ── ORDER SUMMARY SIDEBAR ── */}
         <aside className="order-summary-sidebar">
           <h3 className="summary-title">Your order from</h3>
           <p className="restaurant-name-summary">{restaurant?.name || 'Restaurant'}</p>
           <div className="summary-items">
-            {cartItems.map((item) => (
+            {cartItems.map(item => (
               <div key={item.id} className="summary-item">
                 <span className="item-qty">{item.quantity} ×</span>
                 <span className="item-name-summary">{item.name}</span>
@@ -475,7 +421,14 @@ const Checkout = ({
               </div>
             ))}
           </div>
-          <div className="summary-divider"></div>
+
+          {/* Add more items link */}
+          <button className="add-more-items-btn" onClick={onBack}>
+            <Plus size={14} /> Add more items
+          </button>
+
+          <div className="summary-divider" />
+
           <div className="summary-totals">
             <div className="summary-row"><span>Subtotal</span><span>৳{subtotal}</span></div>
             {discountAmount > 0 && (
@@ -493,7 +446,9 @@ const Checkout = ({
               <div className="summary-row"><span>Tip</span><span>৳{tipAmount}</span></div>
             )}
           </div>
-          <div className="summary-divider"></div>
+
+          <div className="summary-divider" />
+
           <div className="summary-total">
             <div className="total-row-checkout">
               <span className="total-label-checkout">Total</span>
@@ -505,11 +460,19 @@ const Checkout = ({
         </aside>
       </div>
 
+      {/* ── ADDRESS MODAL ── */}
+      {showModal && (
+        <AddressModal
+          initial={editingAddr}
+          onSave={handleSaveAddr}
+          onClose={closeModal}
+          takenLabels={takenLabels}
+        />
+      )}
+
       <AllCarts
-        isOpen={showCart}
-        onClose={() => setShowCart(false)}
-        cartItems={allCartItems}
-        onCheckout={handleCheckoutFromCart}
+        isOpen={showCart} onClose={() => setShowCart(false)}
+        cartItems={allCartItems} onCheckout={handleCheckoutFromCart}
         onNavigateToRestaurant={handleNavigateToRestaurant}
       />
     </div>

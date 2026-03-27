@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Sun, Moon, MapPin, Globe, ShoppingCart, Heart,
-  User, Truck, PackageOpen, Navigation, Store,
+  User, Truck, Navigation, Store,
   ChevronDown, Utensils, LocateFixed, ArrowRight, X, Search, Bike,
 } from 'lucide-react';
 import './Header.css';
@@ -284,9 +284,6 @@ const Header = ({
           <div className="nav-tabs-content">
             <button className={`nav-tab ${activeTab === 'delivery' ? 'active' : ''}`} onClick={onDeliveryClick ?? onLogoClick}>
               <Truck size={16} strokeWidth={2} /><span>Delivery</span>
-            </button>
-            <button className={`nav-tab ${activeTab === 'pickup' ? 'active' : ''}`} onClick={onPickupClick}>
-              <PackageOpen size={16} strokeWidth={2} /><span>Pick-up</span>
             </button>
             <button className={`nav-tab ${activeTab === 'nearme' ? 'active' : ''}`} onClick={onNearMeClick}>
               <Navigation size={16} strokeWidth={2} /><span>Restaurants Near Me</span>

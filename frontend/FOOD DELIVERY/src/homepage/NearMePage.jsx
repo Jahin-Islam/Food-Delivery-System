@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import Header from './Header.jsx';
 import AllCarts from './AllCarts.jsx';
-import { useRiderLocation, haversineKm, formatDistance } from '../Useriderlocation.js';
+import { haversineKm, formatDistance } from '../Useriderlocation.js';
 import './NearMePage.css';
 
 // ── Toast ─────────────────────────────────────────────────────────────────
@@ -242,7 +242,11 @@ export default function NearMePage({
   currentAddress,
   onAddressChange,
 }) {
-  const { position: gpsPos, loading: locLoading, error: locError } = useRiderLocation();
+  // NearMePage does NOT use useRiderLocation (which starts watchPosition immediately
+  // and competes with / blocks the manual getCurrentPosition call on many browsers).
+  // Instead we manage location state locally: everything is driven by the
+  // "Locate Me" button (one-shot getCurrentPosition) or the saved localStorage coords.
+  const [locError, setLocError] = useState(null);
   const { toasts, toast, removeToast } = useToast();
 
   const [radius,         setRadius]         = useState(5);
@@ -258,42 +262,48 @@ export default function NearMePage({
   const geocodingRef  = useRef(false);
   const shownLocToast = useRef(false);
 
-  // Read saved delivery lat/lng from localStorage first
+  // Restore saved position on mount — runs once only so navigation never resets it.
+  // Priority: raw lat/lng keys -> geocode saved address text.
   useEffect(() => {
     const savedLat = parseFloat(localStorage.getItem('fp_delivery_lat'));
     const savedLng = parseFloat(localStorage.getItem('fp_delivery_lng'));
-
-    if (savedLat && savedLng && !isNaN(savedLat) && !isNaN(savedLng)) {
+    if (!isNaN(savedLat) && !isNaN(savedLng) && savedLat !== 0 && savedLng !== 0) {
       setAddressPos({ lat: savedLat, lng: savedLng });
       return;
     }
-
-    if (!currentAddress) return;
-    const geocodeDeliveryAddress = async () => {
+    const addr = localStorage.getItem('fp_delivery_address') || currentAddress;
+    if (!addr) return;
+    (async () => {
       try {
-        const q   = encodeURIComponent(currentAddress + ', Bangladesh');
-        const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1`);
+        const q   = encodeURIComponent(addr + ', Bangladesh');
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1`,
+          { headers: { 'Accept-Language': 'en' } }
+        );
         const data = await res.json();
         if (data?.[0]) {
-          setAddressPos({ lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) });
+          const lat = parseFloat(data[0].lat);
+          const lng = parseFloat(data[0].lon);
+          setAddressPos({ lat, lng });
+          try {
+            localStorage.setItem('fp_delivery_lat', String(lat));
+            localStorage.setItem('fp_delivery_lng', String(lng));
+          } catch {}
         }
       } catch {}
-    };
-    geocodeDeliveryAddress();
-  }, [currentAddress]);
+    })();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // userPos = saved address coords if set, otherwise real GPS
-  const userPos = addressPos || gpsPos;
+  // userPos is purely the position the user explicitly provided (Locate Me or saved coords)
+  const userPos = addressPos;
 
   useEffect(() => {
-    if (userPos && !locLoading && !shownLocToast.current) {
+    if (userPos && !shownLocToast.current) {
       shownLocToast.current = true;
-      const label = addressPos
-        ? `Showing restaurants near ${currentAddress || 'your delivery address'}.`
-        : 'Location found! Showing restaurants near you.';
+      const label = `Showing restaurants near ${currentAddress || 'your location'}.`;
       toast(label, 'success');
     }
-  }, [userPos, locLoading, addressPos]);
+  }, [userPos]);
 
   useEffect(() => {
     if (locError && !addressPos) toast('Could not get your location. Showing all restaurants on map.', 'warning', 5000);
@@ -357,11 +367,11 @@ export default function NearMePage({
 
   const geocodingCount = Object.values(geocoded).filter(v => v === 'pending').length;
 
-  // ── FIX: Locate Me — one-shot getCurrentPosition, always resolves ─────
-  // The useRiderLocation hook uses watchPosition which can silently stall on
-  // some browsers/devices. This button uses a direct getCurrentPosition call
-  // with an explicit timeout, plus a 12-second safety net, so it ALWAYS
-  // clears the loading state whether GPS succeeds, fails, or times out.
+  // ── Locate Me — one-shot getCurrentPosition ───────────────────────────────
+  // We deliberately avoid watchPosition here. watchPosition with
+  // enableHighAccuracy:true fires a browser permission prompt that can block
+  // any subsequent getCurrentPosition call on the same page, making the button
+  // appear to hang forever. One-shot getCurrentPosition is all we need.
   const handleLocateMe = useCallback(() => {
     if (!navigator.geolocation) {
       toast('Geolocation is not supported by this browser.', 'error');
@@ -369,35 +379,47 @@ export default function NearMePage({
     }
 
     setManualLocating(true);
-    shownLocToast.current = false; // allow the success toast again
+    setLocError(null);
+    shownLocToast.current = false;
 
-    // Safety net: clear loading after 12 s no matter what
+    // Hard safety-net: clear spinner after 14 s no matter what
     const safetyTimer = setTimeout(() => {
       setManualLocating(false);
       toast('Location request timed out. Check GPS/browser permissions.', 'warning', 5000);
-    }, 12000);
+    }, 14000);
 
     navigator.geolocation.getCurrentPosition(
       async ({ coords: { latitude: lat, longitude: lng } }) => {
         clearTimeout(safetyTimer);
 
+        // 1. Update map immediately — don't wait for reverse-geocode
         setAddressPos({ lat, lng });
+
+        // 2. Persist raw coords right away
         try {
           localStorage.setItem('fp_delivery_lat', String(lat));
           localStorage.setItem('fp_delivery_lng', String(lng));
         } catch {}
 
-        // Reverse-geocode so the Header address bar also updates
+        // 3. Reverse-geocode with a strict 5 s abort so the spinner
+        //    never hangs on a slow Nominatim response
+        let addr = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
         try {
+          const controller = new AbortController();
+          const geocodeTimer = setTimeout(() => controller.abort(), 5000);
           const res  = await fetch(
             `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`,
-            { headers: { 'Accept-Language': 'en' } }
+            { headers: { 'Accept-Language': 'en' }, signal: controller.signal }
           );
+          clearTimeout(geocodeTimer);
           const data = await res.json();
-          const addr = data.display_name || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-          onAddressChange?.(addr);
-          localStorage.setItem('fp_delivery_address', addr);
-        } catch {}
+          if (data.display_name) addr = data.display_name;
+        } catch { /* timeout or network — coordinate string fallback is fine */ }
+
+        // 4. Persist address and notify App (address, lat, lng) so App saves
+        //    both the text and raw coords to localStorage
+        try { localStorage.setItem('fp_delivery_address', addr); } catch {}
+        onAddressChange?.(addr, lat, lng);
 
         toast('Location updated! Showing restaurants near you.', 'success');
         setManualLocating(false);
@@ -408,22 +430,22 @@ export default function NearMePage({
           err.code === 1 ? 'Location permission denied. Please allow it in browser settings.'
           : err.code === 2 ? 'Could not determine your position. Check your GPS or WiFi.'
           : 'Location request timed out. Please try again.';
+        setLocError(msg);
         toast(msg, 'error', 5000);
         setManualLocating(false);
       },
-      // timeout must be shorter than safetyTimer so the browser error callback
-      // fires first (and we clearTimeout the safety net properly)
+      // GPS timeout shorter than safetyTimer so browser error callback fires first
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
   }, [onAddressChange, toast]);
+
+  // isAutoLocating no longer exists — location only starts when user clicks Locate Me
+  const isAutoLocating = false;
 
   const handleNavigateToRestaurant = (restaurantId) => {
     const r = restaurants.find(x => x.id == restaurantId);
     if (r) { setShowCart(false); onRestaurantClick?.(r); }
   };
-
-  // Show spinner in pill only when auto-GPS is still loading AND we have no position yet
-  const isAutoLocating = locLoading && !userPos;
 
   return (
     <div className="nmp-root">
@@ -461,14 +483,13 @@ export default function NearMePage({
         showBanner={false}
         onFavouritesClick={onFavouritesClick}
         currentAddress={currentAddress}
-        onAddressChange={(addr) => {
-          onAddressChange?.(addr);
-          // When Header picks a new address, immediately read the saved coords
-          setTimeout(() => {
-            const lat = parseFloat(localStorage.getItem('fp_delivery_lat'));
-            const lng = parseFloat(localStorage.getItem('fp_delivery_lng'));
-            if (!isNaN(lat) && !isNaN(lng)) setAddressPos({ lat, lng });
-          }, 200);
+        onAddressChange={(addr, lat, lng) => {
+          onAddressChange?.(addr, lat, lng);
+          const resolvedLat = lat ?? parseFloat(localStorage.getItem('fp_delivery_lat'));
+          const resolvedLng = lng ?? parseFloat(localStorage.getItem('fp_delivery_lng'));
+          if (!isNaN(resolvedLat) && !isNaN(resolvedLng) && resolvedLat !== 0 && resolvedLng !== 0) {
+            setAddressPos({ lat: resolvedLat, lng: resolvedLng });
+          }
         }}
       />
 
