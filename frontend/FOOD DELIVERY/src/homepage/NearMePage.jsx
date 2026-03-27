@@ -1,5 +1,11 @@
 // NearMePage.jsx — Standalone "Restaurants Near Me" page
-// All emojis and images replaced with Lucide icons
+// FIXES applied on top of the original working code:
+//   1. Locate Me no longer freezes — uses a one-shot getCurrentPosition with a
+//      proper timeout + 12s safety-net timer, clears loading in BOTH success and error.
+//   2. Restaurant fetching pipeline is 100% identical to the original working version
+//      (adapted → geocoded → withCoords → allMappable → nearbyList). Nothing skipped.
+//   3. A Navigation (locate) button sits beside the search box for manual triggering.
+//   4. Map pans to new userPos whenever Locate Me succeeds.
 
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import {
@@ -94,10 +100,8 @@ function NearMeLeafletMap({ userPos, restaurants, selectedId, radius, onMarkerCl
       mapInst.current = map;
     };
 
-    // If already loaded (e.g. DeliveryMapPicker loaded it first), init immediately
     if (window.L) { initMap(); return; }
 
-    // Inject Leaflet CSS
     if (!document.getElementById('leaflet-css')) {
       const link = document.createElement('link');
       link.id   = 'leaflet-css';
@@ -106,7 +110,6 @@ function NearMeLeafletMap({ userPos, restaurants, selectedId, radius, onMarkerCl
       document.head.appendChild(link);
     }
 
-    // Inject Leaflet JS
     if (!document.getElementById('leaflet-js')) {
       const script    = document.createElement('script');
       script.id       = 'leaflet-js';
@@ -115,18 +118,20 @@ function NearMeLeafletMap({ userPos, restaurants, selectedId, radius, onMarkerCl
       script.onerror  = () => console.error('[NearMeMap] Failed to load Leaflet from CDN.');
       document.head.appendChild(script);
     } else {
-      // Script tag exists but may still be loading
       document.getElementById('leaflet-js').addEventListener('load', initMap);
     }
   }, []);
 
-  // User marker + radius circle
+  // User marker + radius circle — also pans map to new position
   useEffect(() => {
     const L = leafRef.current; const map = mapInst.current;
     if (!L || !map) return;
     if (userMarkerRef.current) { userMarkerRef.current.remove(); userMarkerRef.current = null; }
     if (circleRef.current)     { circleRef.current.remove();     circleRef.current = null; }
     if (!userPos) return;
+
+    // Pan smoothly to new user position
+    map.setView([userPos.lat, userPos.lng], map.getZoom(), { animate: true });
 
     const userIcon = L.divIcon({
       className: '',
@@ -142,7 +147,6 @@ function NearMeLeafletMap({ userPos, restaurants, selectedId, radius, onMarkerCl
     userMarkerRef.current = L.marker([userPos.lat, userPos.lng], { icon: userIcon, zIndexOffset: 1000 })
       .addTo(map).bindPopup('<strong>You are here</strong>');
 
-    // Large dashed radius circle
     circleRef.current = L.circle([userPos.lat, userPos.lng], {
       radius: radius * 1000,
       color: '#d70f64', fillColor: '#d70f64',
@@ -241,30 +245,29 @@ export default function NearMePage({
   const { position: gpsPos, loading: locLoading, error: locError } = useRiderLocation();
   const { toasts, toast, removeToast } = useToast();
 
-  const [radius,      setRadius]      = useState(5);
-  const [selected,    setSelected]    = useState(null);
-  const [geocoded,    setGeocoded]    = useState({});
-  const [search,      setSearch]      = useState('');
-  const [filterOpen,  setFilterOpen]  = useState(false);
-  const [showCart,    setShowCart]    = useState(false);
-  const [addressPos,  setAddressPos]  = useState(null);
+  const [radius,         setRadius]         = useState(5);
+  const [selected,       setSelected]       = useState(null);
+  const [geocoded,       setGeocoded]       = useState({});
+  const [search,         setSearch]         = useState('');
+  const [filterOpen,     setFilterOpen]     = useState(false);
+  const [showCart,       setShowCart]       = useState(false);
+  const [addressPos,     setAddressPos]     = useState(null);
+  // FIX: dedicated loading flag for the manual Locate Me button so it never freezes
+  const [manualLocating, setManualLocating] = useState(false);
 
   const geocodingRef  = useRef(false);
   const shownLocToast = useRef(false);
 
-  // Read saved delivery lat/lng from localStorage first (set by Header when user picks a suggestion)
-  // If not available, geocode the address text as fallback
+  // Read saved delivery lat/lng from localStorage first
   useEffect(() => {
     const savedLat = parseFloat(localStorage.getItem('fp_delivery_lat'));
     const savedLng = parseFloat(localStorage.getItem('fp_delivery_lng'));
 
     if (savedLat && savedLng && !isNaN(savedLat) && !isNaN(savedLng)) {
-      // Use the exact coordinates the user picked
       setAddressPos({ lat: savedLat, lng: savedLng });
       return;
     }
 
-    // Fallback: geocode the address text if no stored coords
     if (!currentAddress) return;
     const geocodeDeliveryAddress = async () => {
       try {
@@ -296,6 +299,7 @@ export default function NearMePage({
     if (locError && !addressPos) toast('Could not get your location. Showing all restaurants on map.', 'warning', 5000);
   }, [locError, addressPos]);
 
+  // ── Original restaurant pipeline (unchanged — this is why it was fetching correctly) ──
   const adapted = useMemo(() =>
     restaurants.map(r => ({ ...r, ...extractCoords(r) })),
     [restaurants]
@@ -353,10 +357,73 @@ export default function NearMePage({
 
   const geocodingCount = Object.values(geocoded).filter(v => v === 'pending').length;
 
+  // ── FIX: Locate Me — one-shot getCurrentPosition, always resolves ─────
+  // The useRiderLocation hook uses watchPosition which can silently stall on
+  // some browsers/devices. This button uses a direct getCurrentPosition call
+  // with an explicit timeout, plus a 12-second safety net, so it ALWAYS
+  // clears the loading state whether GPS succeeds, fails, or times out.
+  const handleLocateMe = useCallback(() => {
+    if (!navigator.geolocation) {
+      toast('Geolocation is not supported by this browser.', 'error');
+      return;
+    }
+
+    setManualLocating(true);
+    shownLocToast.current = false; // allow the success toast again
+
+    // Safety net: clear loading after 12 s no matter what
+    const safetyTimer = setTimeout(() => {
+      setManualLocating(false);
+      toast('Location request timed out. Check GPS/browser permissions.', 'warning', 5000);
+    }, 12000);
+
+    navigator.geolocation.getCurrentPosition(
+      async ({ coords: { latitude: lat, longitude: lng } }) => {
+        clearTimeout(safetyTimer);
+
+        setAddressPos({ lat, lng });
+        try {
+          localStorage.setItem('fp_delivery_lat', String(lat));
+          localStorage.setItem('fp_delivery_lng', String(lng));
+        } catch {}
+
+        // Reverse-geocode so the Header address bar also updates
+        try {
+          const res  = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`,
+            { headers: { 'Accept-Language': 'en' } }
+          );
+          const data = await res.json();
+          const addr = data.display_name || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+          onAddressChange?.(addr);
+          localStorage.setItem('fp_delivery_address', addr);
+        } catch {}
+
+        toast('Location updated! Showing restaurants near you.', 'success');
+        setManualLocating(false);
+      },
+      (err) => {
+        clearTimeout(safetyTimer);
+        const msg =
+          err.code === 1 ? 'Location permission denied. Please allow it in browser settings.'
+          : err.code === 2 ? 'Could not determine your position. Check your GPS or WiFi.'
+          : 'Location request timed out. Please try again.';
+        toast(msg, 'error', 5000);
+        setManualLocating(false);
+      },
+      // timeout must be shorter than safetyTimer so the browser error callback
+      // fires first (and we clearTimeout the safety net properly)
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  }, [onAddressChange, toast]);
+
   const handleNavigateToRestaurant = (restaurantId) => {
     const r = restaurants.find(x => x.id == restaurantId);
     if (r) { setShowCart(false); onRestaurantClick?.(r); }
   };
+
+  // Show spinner in pill only when auto-GPS is still loading AND we have no position yet
+  const isAutoLocating = locLoading && !userPos;
 
   return (
     <div className="nmp-root">
@@ -394,7 +461,15 @@ export default function NearMePage({
         showBanner={false}
         onFavouritesClick={onFavouritesClick}
         currentAddress={currentAddress}
-        onAddressChange={onAddressChange}
+        onAddressChange={(addr) => {
+          onAddressChange?.(addr);
+          // When Header picks a new address, immediately read the saved coords
+          setTimeout(() => {
+            const lat = parseFloat(localStorage.getItem('fp_delivery_lat'));
+            const lng = parseFloat(localStorage.getItem('fp_delivery_lng'));
+            if (!isNaN(lat) && !isNaN(lng)) setAddressPos({ lat, lng });
+          }, 200);
+        }}
       />
 
       {/* ── Body ─────────────────────────────────────────────────────── */}
@@ -417,12 +492,12 @@ export default function NearMePage({
 
           {/* Location status pill */}
           <div className="nmp-location-pill">
-            {locLoading ? (
+            {(isAutoLocating || manualLocating) ? (
               <span className="nmp-pill nmp-pill--loading">
                 <span className="nmp-spinner" />
-                Getting your location…
+                {manualLocating ? 'Locating…' : 'Getting your location…'}
               </span>
-            ) : locError ? (
+            ) : locError && !addressPos ? (
               <span className="nmp-pill nmp-pill--error">
                 <AlertTriangle size={12} />
                 Location unavailable
@@ -435,7 +510,7 @@ export default function NearMePage({
             ) : null}
           </div>
 
-          {/* Search + filter toggle */}
+          {/* Search + locate + filter row */}
           <div className="nmp-search-row">
             <div className="nmp-search-box">
               <Search size={14} className="nmp-search-icon" />
@@ -451,6 +526,21 @@ export default function NearMePage({
                 </button>
               )}
             </div>
+
+            {/* FIX: Locate Me button — uses getCurrentPosition, always resolves */}
+            <button
+              className={`nmp-filter-btn ${manualLocating ? 'active' : ''}`}
+              onClick={handleLocateMe}
+              disabled={manualLocating}
+              title="Use my current location"
+              style={{ minWidth: 36 }}
+            >
+              {manualLocating
+                ? <span className="nmp-spinner" style={{ width: 14, height: 14, borderWidth: 2 }} />
+                : <Navigation size={15} />
+              }
+            </button>
+
             <button
               className={`nmp-filter-btn ${filterOpen ? 'active' : ''}`}
               onClick={() => setFilterOpen(p => !p)}
@@ -537,10 +627,8 @@ export default function NearMePage({
                     toast(`${r.name} selected`, 'info', 2000);
                   }}
                 >
-                  {/* Thumbnail — image with Lucide fallback, no emoji */}
                   <RestaurantThumb src={r.image_url ?? r.logo} alt={r.name} />
 
-                  {/* Info */}
                   <div className="nmp-card-info">
                     <div className="nmp-card-name">{r.name}</div>
                     <div className="nmp-card-addr">
@@ -571,7 +659,6 @@ export default function NearMePage({
                     </div>
                   </div>
 
-                  {/* Right */}
                   <div className="nmp-card-right">
                     {r.distKm != null && (
                       <span className="nmp-card-dist">
@@ -596,7 +683,6 @@ export default function NearMePage({
         {/* ── Map Panel ────────────────────────────────────────────── */}
         <div className="nmp-map-panel">
 
-          {/* Floating chips */}
           <div className="nmp-map-chips">
             {userPos && (
               <div className="nmp-chip nmp-chip--you">
@@ -623,7 +709,6 @@ export default function NearMePage({
             })()}
           </div>
 
-          {/* Leaflet map */}
           <NearMeLeafletMap
             userPos={userPos}
             restaurants={allMappable}
@@ -635,8 +720,7 @@ export default function NearMePage({
             }}
           />
 
-          {/* No location overlay */}
-          {!userPos && !locLoading && (
+          {!userPos && !isAutoLocating && !manualLocating && (
             <div className="nmp-map-overlay">
               <div className="nmp-map-overlay-card">
                 <Navigation size={26} />
