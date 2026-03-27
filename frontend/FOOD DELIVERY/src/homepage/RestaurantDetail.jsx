@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   AlertTriangle, Utensils, ChevronLeft, ChevronRight, Search,
-  X, Star, ThumbsUp, ChevronRight as Arrow, Heart, MapPin, Clock,
+  X, Star, ThumbsUp, ChevronRight as Arrow,
 } from 'lucide-react';
 import './RestaurantDetail.css';
 import { COLORS } from '../constants.js';
@@ -229,101 +229,6 @@ const ReviewsModal = ({ isOpen, onClose, restaurant }) => {
   );
 };
 
-// ─── MORE INFO MODAL ──────────────────────────────────────────────────────────
-const MoreInfoModal = ({ isOpen, onClose, restaurant }) => {
-  if (!restaurant) return null;
-  const address = typeof restaurant.address === 'string'
-    ? restaurant.address
-    : restaurant.address?.street_address ?? 'Dhaka, Bangladesh';
-  const lat = restaurant.address?.latitude ?? restaurant.latitude ?? null;
-  const lng = restaurant.address?.longitude ?? restaurant.longitude ?? null;
-
-  return (
-    <AnimatePresence>
-      {isOpen && (
-        <motion.div
-          initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-          onClick={onClose}
-          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20, scale: 0.97 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 20, scale: 0.97 }}
-            transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-            onClick={e => e.stopPropagation()}
-            style={{ background: 'var(--c-white)', borderRadius: 16, width: '100%', maxWidth: 500, maxHeight: '88vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.22)' }}>
-
-            {/* Header */}
-            <div style={{ padding: '18px 20px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1.5px solid var(--c-gray-100)' }}>
-              <h2 style={{ fontSize: 18, fontWeight: 800, color: 'var(--c-gray-900)', margin: 0 }}>{restaurant.name}</h2>
-              <button onClick={onClose} style={{ background: 'var(--c-gray-100)', border: 'none', borderRadius: '50%', width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--c-gray-500)' }}>
-                <X size={16} />
-              </button>
-            </div>
-
-            <div style={{ padding: '0 20px 20px' }}>
-
-              {/* Opening hours */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 0', borderBottom: '1px solid var(--c-gray-100)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <Clock size={18} color="var(--c-gray-500)" />
-                  <div>
-                    <span style={{ fontSize: 14, fontWeight: 700, color: '#10b981' }}>Now open</span>
-                    {restaurant.opening_time && restaurant.closing_time && (
-                      <span style={{ fontSize: 14, color: 'var(--c-gray-600)' }}> until {restaurant.closing_time}</span>
-                    )}
-                    {restaurant.opening_time && (
-                      <div style={{ fontSize: 12, color: 'var(--c-gray-400)', marginTop: 2 }}>
-                        {restaurant.opening_time} – {restaurant.closing_time}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Address */}
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '16px 0', borderBottom: '1px solid var(--c-gray-100)' }}>
-                <MapPin size={18} color="var(--c-gray-500)" style={{ flexShrink: 0, marginTop: 2 }} />
-                <p style={{ fontSize: 14, color: 'var(--c-gray-700)', margin: 0, lineHeight: 1.5 }}>{address}</p>
-              </div>
-
-              {/* Map */}
-              {lat && lng && (
-                <div style={{ margin: '14px 0', borderRadius: 10, overflow: 'hidden', border: '1.5px solid var(--c-gray-200)' }}>
-                  <StaticMap
-                    lat={lat} lng={lng}
-                    label={restaurant.name}
-                    pinColor="var(--c-primary)"
-                    address={address}
-                    height="180px"
-                  />
-                </div>
-              )}
-
-              {/* Delivery fee */}
-              <div style={{ padding: '14px 0', borderBottom: '1px solid var(--c-gray-100)' }}>
-                <h4 style={{ fontSize: 14, fontWeight: 700, color: 'var(--c-gray-900)', margin: '0 0 4px' }}>Delivery fee</h4>
-                <p style={{ fontSize: 13, color: 'var(--c-gray-500)', margin: 0 }}>Delivery fee is charged based on time of day, distance, and surge conditions</p>
-              </div>
-
-              {/* Minimum order */}
-              <div style={{ padding: '14px 0' }}>
-                <h4 style={{ fontSize: 14, fontWeight: 700, color: 'var(--c-gray-900)', margin: '0 0 4px' }}>Minimum order</h4>
-                <p style={{ fontSize: 13, color: 'var(--c-gray-500)', margin: 0 }}>
-                  {restaurant.min_order
-                    ? `For orders below ৳${restaurant.min_order}, we charge a small order fee.`
-                    : 'No minimum order required.'}
-                </p>
-              </div>
-            </div>
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
-  );
-};
-
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 
 const RestaurantDetail = ({
@@ -347,7 +252,6 @@ const RestaurantDetail = ({
   onNearMeClick,
   onDeliveryClick,
   onPickupClick,
-  onFavouritesClick,
   currentAddress,
   onAddressChange,
 }) => {
@@ -362,40 +266,6 @@ const RestaurantDetail = ({
   const [selectedItem,      setSelectedItem]      = useState(null);
   const [showItemModal,     setShowItemModal]     = useState(false);
   const [showReviews,       setShowReviews]       = useState(false);
-  const [showMoreInfo,      setShowMoreInfo]      = useState(false);
-  const [isFavourited,      setIsFavourited]      = useState(false);
-
-  // Load favourites from localStorage on mount
-  useEffect(() => {
-    if (!restaurant?.id) return;
-    try {
-      const favs = JSON.parse(localStorage.getItem('fp_favourites') || '[]');
-      setIsFavourited(favs.some(f => String(f.id) === String(restaurant.id)));
-    } catch {}
-  }, [restaurant?.id]);
-
-  const handleToggleFavourite = () => {
-    if (!restaurant?.id) return;
-    try {
-      const favs = JSON.parse(localStorage.getItem('fp_favourites') || '[]');
-      const exists = favs.some(f => String(f.id) === String(restaurant.id));
-      let updated;
-      if (exists) {
-        updated = favs.filter(f => String(f.id) !== String(restaurant.id));
-      } else {
-        const dr = restaurantDetails || restaurant;
-        updated = [...favs, {
-          id: dr.id,
-          name: dr.name,
-          image_url: dr.image_url || '',
-          rating: dr.rating,
-          delivery_time: dr.delivery_time,
-        }];
-      }
-      localStorage.setItem('fp_favourites', JSON.stringify(updated));
-      setIsFavourited(!exists);
-    } catch {}
-  };
 
   const categoriesScrollRef   = useRef(null);
   const menuItemsContainerRef = useRef(null);
@@ -442,7 +312,6 @@ const RestaurantDetail = ({
     onNearMeClick,
     onDeliveryClick: onDeliveryClick ?? onLogoClick,
     onPickupClick,
-    onFavouritesClick,
     currentAddress,
     onAddressChange,
   };
@@ -560,7 +429,7 @@ const RestaurantDetail = ({
       <Header {...commonHeaderProps} />
 
       {/* ── Restaurant Banner ── */}
-      <div className="restaurant-banner" style={{ position: 'relative' }}>
+      <div className="restaurant-banner">
         <div className="banner-image">
           {displayRestaurant.image_url ? (
             <>
@@ -588,29 +457,9 @@ const RestaurantDetail = ({
           <div className="restaurant-rating-info">
             <span><img className="star-icon" src="/images/accessories/star.png" alt="Rating" /> {displayRestaurant.rating} ({displayRestaurant.total_rated || 0})</span>
             <button className="see-reviews-btn" onClick={() => setShowReviews(true)}>See reviews</button>
-            <button className="more-info-btn" onClick={() => setShowMoreInfo(true)}>More info</button>
+            <button className="more-info-btn">More info</button>
           </div>
         </div>
-
-        {/* Favourite button — top right of banner */}
-        <button
-          onClick={handleToggleFavourite}
-          style={{
-            position: 'absolute', top: 16, right: 16,
-            display: 'flex', alignItems: 'center', gap: 6,
-            background: 'var(--c-white)', border: '1.5px solid var(--c-gray-200)',
-            borderRadius: 999, padding: '8px 16px', cursor: 'pointer',
-            fontSize: 13, fontWeight: 700, color: isFavourited ? 'var(--c-primary)' : 'var(--c-gray-600)',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.10)', transition: 'all 0.18s',
-            fontFamily: 'var(--font)',
-          }}
-          onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--c-primary)'}
-          onMouseLeave={e => e.currentTarget.style.borderColor = isFavourited ? 'var(--c-primary)' : 'var(--c-gray-200)'}
-        >
-          <Heart size={16} fill={isFavourited ? 'var(--c-primary)' : 'none'} color={isFavourited ? 'var(--c-primary)' : 'var(--c-gray-500)'} />
-          {isFavourited ? 'Saved' : 'Add to favourites'}
-        </button>
-
       </div>
 
       {/* Available Deals */}
@@ -760,13 +609,6 @@ const RestaurantDetail = ({
           <p>Delivery fee may vary</p>
         </div>
       </div>
-
-      {/* More Info Modal */}
-      <MoreInfoModal
-        isOpen={showMoreInfo}
-        onClose={() => setShowMoreInfo(false)}
-        restaurant={displayRestaurant}
-      />
 
       {/* Reviews Modal */}
       <ReviewsModal

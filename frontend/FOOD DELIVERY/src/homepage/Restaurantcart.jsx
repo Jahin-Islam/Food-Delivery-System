@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React from 'react';
 import './Restaurantcart.css';
-import { COLORS, SHADOWS } from '../constants.js';
+import { COLORS } from '../constants.js';
 import { ShoppingCart, Trash2, UtensilsCrossed, Utensils, Coffee } from 'lucide-react';
 
 const RestaurantCart = ({ 
@@ -12,8 +12,6 @@ const RestaurantCart = ({
   onCheckout,
   restaurantName
 }) => {
-  const [deliveryMode, setDeliveryMode] = useState('delivery');
-
   const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   const serviceFee = 3;
   const deliveryFee = 0;
@@ -34,27 +32,18 @@ const RestaurantCart = ({
       />
 
       <aside className={`restaurant-cart-sidebar ${isOpen ? 'cart-visible' : 'cart-hidden'}`}>
+        {/* Delivery-only header */}
         <div className="delivery-mode-header">
-          <button
-            className={`mode-btn ${deliveryMode === 'delivery' ? 'active' : ''}`}
-            onClick={() => setDeliveryMode('delivery')}
-          >
+          <div className="mode-btn active" style={{ flex: 1, cursor: 'default' }}>
             <div className="mode-title">Delivery</div>
             <div className="mode-subtitle">Standard (10 - 25 mins)</div>
-          </button>
-          <button
-            className={`mode-btn ${deliveryMode === 'pickup' ? 'active' : ''}`}
-            onClick={() => setDeliveryMode('pickup')}
-          >
-            <div className="mode-title">Pick-up</div>
-            <div className="mode-subtitle">Standard (10 mins)</div>
-          </button>
+          </div>
         </div>
 
         <div className="restaurant-cart-content">
           {cartItems.length === 0 ? (
             <div className="cart-empty">
-              <div className="empty-cart-icon" style={{display:'flex',justifyContent:'center',opacity:0.5}}>
+              <div className="empty-cart-icon" style={{ display: 'flex', justifyContent: 'center', opacity: 0.5 }}>
                 <ShoppingCart size={80} strokeWidth={1} />
               </div>
               <p className="empty-cart-text">Your cart is empty</p>
@@ -73,7 +62,7 @@ const RestaurantCart = ({
                           {item.image && item.image.startsWith('http') ? (
                             <img src={item.image} alt={item.name} />
                           ) : (
-                            <div className="item-emoji" style={{display:'flex',alignItems:'center',justifyContent:'center'}}>
+                            <div className="item-emoji" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                               <UtensilsCrossed size={32} color={COLORS.primary} />
                             </div>
                           )}
@@ -124,7 +113,7 @@ const RestaurantCart = ({
                   {popularSuggestions.map((item) => (
                     <div key={item.id} className="popular-item-card">
                       <div className="popular-item-image">
-                        <span className="popular-emoji" style={{display:'flex',alignItems:'center',justifyContent:'center'}}>
+                        <span className="popular-emoji" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                           <Coffee size={48} color={COLORS.primary} />
                         </span>
                         <button className="add-popular-btn">+</button>
@@ -154,7 +143,7 @@ const RestaurantCart = ({
 
               <div className="cutlery-option">
                 <div className="cutlery-info">
-                  <span className="cutlery-icon" style={{display:'flex',alignItems:'center'}}>
+                  <span className="cutlery-icon" style={{ display: 'flex', alignItems: 'center' }}>
                     <Utensils size={20} />
                   </span>
                   <div>
