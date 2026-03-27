@@ -1,14 +1,19 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import './Checkout.css';
 import Header from './Header.jsx';
-import AllCarts from './AllCarts.jsx';
+import AllCarts from './Allcarts.jsx';          // ← exact filename on disk
 import DeliveryMapPicker from './DeliveryMapPicker.jsx';
+import cartApiService from '../Cartapiservice.js'; // ← has _rawFetch with auth built-in
 import {
   MapPin, Home, Briefcase, Heart, Plus,
-  Pencil, Trash2, X, Check,
+  Pencil, Trash2, X, Check, Loader2,
 } from 'lucide-react';
 
-/* ─── helpers ─────────────────────────────────────────────── */
+/* ─────────────────────────────────────────────────────────────
+   CONSTANTS
+───────────────────────────────────────────────────────────── */
+const API_BASE = 'http://127.0.0.1:8000/api';
+
 const LABEL_META = {
   home:    { icon: <Home      size={14} />, text: 'Home'    },
   work:    { icon: <Briefcase size={14} />, text: 'Work'    },
@@ -23,17 +28,105 @@ const LABEL_CARD_ICON = {
   other:   <MapPin    size={16} />,
 };
 
+// Backend stores address_type as uppercase (HOME / WORK / PARTNER / OTHER)
+const toBackendType  = (label) => (label ?? 'home').toUpperCase();
+const toFrontendType = (type)  => (type  ?? 'HOME').toLowerCase();
+
 const emptyForm = () => ({
-  address: '', streetNumber: '', apartment: '', note: '', label: 'home',
-  lat: null, lng: null,
+  address: '', streetNumber: '', apartment: '', note: '',
+  label: 'home', lat: null, lng: null,
 });
 
-/* ─── Address Form Modal ──────────────────────────────────── */
-const AddressModal = ({ initial, onSave, onClose, takenLabels = [] }) => {
-  // When editing, the current label of the address being edited is NOT "taken" for the purpose of this form
+/* ─────────────────────────────────────────────────────────────
+   ADDRESS API HELPERS
+   All HTTP calls go through cartApiService._rawFetch which
+   already handles Bearer-token injection and 401→refresh→retry,
+   so Checkout.jsx never needs to import authService directly.
+   _rawFetch treats any "http…" string as an absolute URL and
+   skips its own cart-specific base-URL prefix.
+───────────────────────────────────────────────────────────── */
+function apiFetch(path, options = {}) {
+  return cartApiService._rawFetch(`${API_BASE}${path}`, options);
+}
+
+async function fetchAddresses() {
+  const res = await apiFetch('/customers/me/addresses/');
+  if (!res.ok) throw new Error('Failed to load addresses.');
+  return res.json();
+}
+
+async function createAddress(form) {
+  const res = await apiFetch('/customers/me/addresses/', {
+    method: 'POST',
+    body: JSON.stringify({
+      address_type:     toBackendType(form.label),
+      street_number:    form.streetNumber || null,
+      apartment_number: form.apartment    || null,
+      description:      form.note         || null,
+      latitude:         form.lat          ?? null,
+      longitude:        form.lng          ?? null,
+    }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || 'Failed to save address.');
+  }
+  return res.json(); // { message, address_id }
+}
+
+async function updateAddress(id, form) {
+  const payload = {};
+  if (form.streetNumber !== undefined) payload.street_number    = form.streetNumber || null;
+  if (form.apartment    !== undefined) payload.apartment_number = form.apartment    || null;
+  if (form.note         !== undefined) payload.description      = form.note         || null;
+  if (form.lat          !== undefined) payload.latitude         = form.lat          ?? null;
+  if (form.lng          !== undefined) payload.longitude        = form.lng          ?? null;
+
+  const res = await apiFetch(`/customers/me/addresses/${id}/`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || 'Failed to update address.');
+  }
+  return res.json(); // { message, address }
+}
+
+async function deleteAddress(id) {
+  const res = await apiFetch(`/customers/me/addresses/${id}/`, { method: 'DELETE' });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || 'Failed to delete address.');
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   NORMALISE  backend shape → frontend shape
+   Backend:  { id, address_type, street_number,
+               apartment_number, description, latitude, longitude }
+   Frontend: { id, label, streetNumber, apartment, note,
+               address (map text), lat, lng }
+───────────────────────────────────────────────────────────── */
+function normalize(a) {
+  return {
+    id:           a.id,
+    label:        toFrontendType(a.address_type),
+    streetNumber: a.street_number    ?? '',
+    apartment:    a.apartment_number ?? '',
+    note:         a.description      ?? '',
+    address:      '',   // reverse-geocoded text; not persisted by backend
+    lat:          a.latitude  != null ? parseFloat(a.latitude)  : null,
+    lng:          a.longitude != null ? parseFloat(a.longitude) : null,
+  };
+}
+
+/* ─────────────────────────────────────────────────────────────
+   ADDRESS FORM MODAL
+───────────────────────────────────────────────────────────── */
+const AddressModal = ({ initial, onSave, onClose, takenLabels = [], saving }) => {
   const editingLabel = initial?.label ?? null;
   const [form, setForm] = useState(initial ?? emptyForm());
-
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   const handleSave = () => {
@@ -44,17 +137,17 @@ const AddressModal = ({ initial, onSave, onClose, takenLabels = [] }) => {
   return (
     <div className="addr-modal-overlay" onClick={onClose}>
       <div className="addr-modal" onClick={e => e.stopPropagation()}>
-        {/* Header */}
+
         <div className="addr-modal-header">
           <h2 className="addr-modal-title">What's your exact location?</h2>
           <button className="addr-modal-close" onClick={onClose}><X size={16} /></button>
         </div>
+
         <p className="addr-modal-subtitle">
           Providing your location enables more accurate search and delivery ETA,
           seamless order tracking and personalised recommendations.
         </p>
 
-        {/* Map picker */}
         <div className="addr-modal-map">
           <DeliveryMapPicker
             initialLat={form.lat ?? undefined}
@@ -67,7 +160,6 @@ const AddressModal = ({ initial, onSave, onClose, takenLabels = [] }) => {
           />
         </div>
 
-        {/* Inputs */}
         <div className="addr-modal-inputs">
           <input
             className="address-input"
@@ -89,11 +181,9 @@ const AddressModal = ({ initial, onSave, onClose, takenLabels = [] }) => {
             onChange={e => set('note', e.target.value)}
           />
 
-          {/* Label */}
           <p className="label-title">Add a Label</p>
           <div className="label-options">
             {Object.entries(LABEL_META).map(([key, { icon, text }]) => {
-              // A label is "taken" if another address already uses it (not the one being edited)
               const isTaken = takenLabels.includes(key) && key !== editingLabel;
               return (
                 <button
@@ -111,15 +201,21 @@ const AddressModal = ({ initial, onSave, onClose, takenLabels = [] }) => {
           </div>
         </div>
 
-        <button className="addr-modal-submit" onClick={handleSave}>
-          SUBMIT
+        <button className="addr-modal-submit" onClick={handleSave} disabled={saving}>
+          {saving
+            ? <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Loader2 size={14} className="spin" /> Saving…
+              </span>
+            : 'SUBMIT'}
         </button>
       </div>
     </div>
   );
 };
 
-/* ─── Main Checkout ───────────────────────────────────────── */
+/* ─────────────────────────────────────────────────────────────
+   MAIN CHECKOUT COMPONENT
+───────────────────────────────────────────────────────────── */
 const Checkout = ({
   restaurant,
   cartItems = [],
@@ -135,44 +231,51 @@ const Checkout = ({
   onProfileClick,
   onOrdersClick,
   onLogoClick,
+  onDeliveryClick,   // passed from App via {...H}
+  onPickupClick,     // passed from App via {...H}
+  onNearMeClick,     // passed from App via {...H}
+  onFavouritesClick, // passed from App via {...H}
   currentAddress,
   onAddressChange,
 }) => {
-  /* ── address list (seed from user profile if available) ── */
-  const seedAddresses = () => {
-    const saved = user?.delivery_addresses ?? [];
-    if (saved.length > 0) {
-      return saved.map((a, i) => ({
-        id: Date.now() + i,
-        address: a.address ?? '',
-        streetNumber: a.street_number ?? '',
-        apartment: a.apartment ?? '',
-        note: a.note ?? '',
-        label: a.label ?? 'home',
-        lat: a.latitude ?? null,
-        lng: a.longitude ?? null,
-      }));
-    }
-    return [];
-  };
 
-  const [addresses,       setAddresses]       = useState(seedAddresses);
-  const [selectedAddrId,  setSelectedAddrId]  = useState(null);
-  const [showModal,       setShowModal]       = useState(false);
-  const [editingAddr,     setEditingAddr]     = useState(null); // null = new
+  /* ── Address state ──────────────────────────────────────── */
+  const [addresses,      setAddresses]      = useState([]);
+  const [addrLoading,    setAddrLoading]    = useState(false);
+  const [addrError,      setAddrError]      = useState('');
+  const [selectedAddrId, setSelectedAddrId] = useState(null);
+  const [showModal,      setShowModal]      = useState(false);
+  const [editingAddr,    setEditingAddr]    = useState(null);
+  const [saving,         setSaving]         = useState(false);
+  const [actionError,    setActionError]    = useState('');
 
-  const [note,            setNote]            = useState('');
-  const [firstName,       setFirstName]       = useState(user?.first_name || '');
-  const [lastName,        setLastName]        = useState(user?.last_name  || '');
-  const [email,           setEmail]           = useState(user?.email      || '');
-  const [mobile,          setMobile]          = useState('');
-  const [tipAmount,       setTipAmount]       = useState(0);
-  const [saveTip,         setSaveTip]         = useState(false);
-  const [contactless,     setContactless]     = useState(false);
-  const [deliveryOption,  setDeliveryOption]  = useState('standard');
-  const [showCart,        setShowCart]        = useState(false);
+  /* ── Form / UI state ────────────────────────────────────── */
+  const [firstName,      setFirstName]      = useState(user?.first_name || '');
+  const [lastName,       setLastName]       = useState(user?.last_name  || '');
+  const [email,          setEmail]          = useState(user?.email      || '');
+  const [mobile,         setMobile]         = useState('');
+  const [tipAmount,      setTipAmount]      = useState(0);
+  const [saveTip,        setSaveTip]        = useState(false);
+  const [contactless,    setContactless]    = useState(false);
+  const [deliveryOption, setDeliveryOption] = useState('standard');
+  const [showCart,       setShowCart]       = useState(false);
 
-  /* ── financials ─────────────────────────────────────────── */
+  /* ── Fetch addresses on mount ───────────────────────────── */
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    setAddrLoading(true);
+    setAddrError('');
+    fetchAddresses()
+      .then(data => {
+        const normalised = data.map(normalize);
+        setAddresses(normalised);
+        if (normalised.length > 0) setSelectedAddrId(normalised[0].id);
+      })
+      .catch(err => setAddrError(err.message))
+      .finally(() => setAddrLoading(false));
+  }, [isLoggedIn]);
+
+  /* ── Financials ─────────────────────────────────────────── */
   const subtotal = cartItems.reduce((sum, i) => sum + i.price * i.quantity, 0);
   const deliveryFee = deliveryOption === 'priority' ? 33 : 0;
   const serviceFee  = 14;
@@ -185,31 +288,54 @@ const Checkout = ({
   const total   = subtotal - discountAmount + deliveryFee + serviceFee + tipAmount;
   const savings = discountAmount;
 
-  /* ── address helpers ─────────────────────────────────────── */
-  const takenLabels = addresses.map(a => a.label);
+  /* ── Address helpers ────────────────────────────────────── */
+  const takenLabels    = addresses.map(a => a.label);
   const allLabelsTaken = Object.keys(LABEL_META).every(l => takenLabels.includes(l));
 
-  const openAddModal  = ()      => { setEditingAddr(null);  setShowModal(true); };
-  const openEditModal = (addr)  => { setEditingAddr(addr);  setShowModal(true); };
-  const closeModal    = ()      => { setShowModal(false); setEditingAddr(null); };
+  const openAddModal  = ()     => { setEditingAddr(null); setShowModal(true); setActionError(''); };
+  const openEditModal = (addr) => { setEditingAddr(addr); setShowModal(true); setActionError(''); };
+  const closeModal    = ()     => { setShowModal(false);  setEditingAddr(null); };
 
-  const handleSaveAddr = (form) => {
-    if (editingAddr) {
-      setAddresses(prev => prev.map(a => a.id === editingAddr.id ? { ...form, id: a.id } : a));
-    } else {
-      const newAddr = { ...form, id: Date.now() };
-      setAddresses(prev => [...prev, newAddr]);
-      setSelectedAddrId(newAddr.id);
+  /* ── Save (create or update) ────────────────────────────── */
+  const handleSaveAddr = async (form) => {
+    setSaving(true);
+    setActionError('');
+    try {
+      if (editingAddr) {
+        const { address: updated } = await updateAddress(editingAddr.id, form);
+        const merged = { ...normalize(updated), address: form.address };
+        setAddresses(prev => prev.map(a => a.id === editingAddr.id ? merged : a));
+      } else {
+        const { address_id } = await createAddress(form);
+        const newAddr = { ...form, id: address_id };
+        setAddresses(prev => [...prev, newAddr]);
+        setSelectedAddrId(address_id);
+      }
+      closeModal();
+    } catch (err) {
+      setActionError(err.message);
+    } finally {
+      setSaving(false);
     }
-    closeModal();
   };
 
-  const handleDeleteAddr = (id) => {
-    setAddresses(prev => prev.filter(a => a.id !== id));
-    if (selectedAddrId === id) setSelectedAddrId(null);
+  /* ── Delete ─────────────────────────────────────────────── */
+  const handleDeleteAddr = async (id) => {
+    setActionError('');
+    try {
+      await deleteAddress(id);
+      setAddresses(prev => {
+        const remaining = prev.filter(a => a.id !== id);
+        if (selectedAddrId === id)
+          setSelectedAddrId(remaining.length > 0 ? remaining[0].id : null);
+        return remaining;
+      });
+    } catch (err) {
+      setActionError(err.message);
+    }
   };
 
-  /* ── place order ─────────────────────────────────────────── */
+  /* ── Place order ────────────────────────────────────────── */
   const selectedAddr = addresses.find(a => a.id === selectedAddrId) ?? null;
 
   const handlePlaceOrder = () => {
@@ -221,7 +347,8 @@ const Checkout = ({
       contactlessDelivery: contactless,
       personalDetails: { firstName, lastName, email, mobile },
       tip: tipAmount,
-      subtotal, discountAmount, applicableDiscount, deliveryFee, serviceFee, total,
+      subtotal, discountAmount, applicableDiscount,
+      deliveryFee, serviceFee, total,
     };
     if (onPlaceOrder) onPlaceOrder(orderData);
     else alert('Order placed successfully!');
@@ -237,97 +364,140 @@ const Checkout = ({
     if (onBack) onBack();
   };
 
-  /* ── render ─────────────────────────────────────────────── */
+  /* ── Render ─────────────────────────────────────────────── */
   return (
     <div className="checkout-container">
       <Header
-        isLoggedIn={isLoggedIn} user={user} cartItems={allCartItems}
-        onLoginClick={onLoginClick} onSignUpClick={onSignUpClick}
-        onCartClick={() => setShowCart(!showCart)} onLogout={onLogout}
-        onProfileClick={onProfileClick} onOrdersClick={onOrdersClick}
-        onLogoClick={onLogoClick} showBanner={false}
-        currentAddress={currentAddress} onAddressChange={onAddressChange}
+        isLoggedIn={isLoggedIn}
+        user={user}
+        cartItems={allCartItems}
+        onLoginClick={onLoginClick}
+        onSignUpClick={onSignUpClick}
+        onCartClick={() => setShowCart(prev => !prev)}
+        onLogout={onLogout}
+        onProfileClick={onProfileClick}
+        onOrdersClick={onOrdersClick}
+        onLogoClick={onLogoClick}
+        onDeliveryClick={onDeliveryClick}
+        onPickupClick={onPickupClick}
+        onNearMeClick={onNearMeClick}
+        onFavouritesClick={onFavouritesClick}
+        showBanner={false}
+        currentAddress={currentAddress}
+        onAddressChange={onAddressChange}
       />
 
       <div className="checkout-content">
         <div className="checkout-main">
           <h1 className="checkout-title">Review and place your order</h1>
 
-          {/* ── DELIVERY ADDRESS ── */}
+          {/* ── DELIVERY ADDRESS ─────────────────────────── */}
           <section className="checkout-section">
             <h2 className="section-title-checkout">Delivery address</h2>
 
-            {/* Saved address cards */}
-            {addresses.length > 0 && (
+            {/* Error banner */}
+            {(addrError || actionError) && (
+              <div style={{
+                background: '#fef2f2', border: '1px solid #fca5a5', color: '#dc2626',
+                borderRadius: 8, padding: '8px 12px', marginBottom: 12, fontSize: 13,
+              }}>
+                {addrError || actionError}
+              </div>
+            )}
+
+            {addrLoading ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8,
+                            color: '#6b7280', padding: '12px 0' }}>
+                <Loader2 size={16} className="spin" />
+                <span>Loading your saved addresses…</span>
+              </div>
+            ) : (
               <>
-                <p className="saved-addr-label">Saved Addresses</p>
-                <div className="saved-addresses-list">
-                  {addresses.map(addr => (
-                    <div
-                      key={addr.id}
-                      className={`saved-addr-card ${selectedAddrId === addr.id ? 'selected' : ''}`}
-                      onClick={() => setSelectedAddrId(addr.id)}
-                    >
-                      {/* Radio */}
-                      <div className={`addr-radio ${selectedAddrId === addr.id ? 'checked' : ''}`}>
-                        {selectedAddrId === addr.id && <Check size={12} />}
-                      </div>
+                {addresses.length > 0 && (
+                  <>
+                    <p className="saved-addr-label">Saved Addresses</p>
+                    <div className="saved-addresses-list">
+                      {addresses.map(addr => (
+                        <div
+                          key={addr.id}
+                          className={`saved-addr-card ${selectedAddrId === addr.id ? 'selected' : ''}`}
+                          onClick={() => setSelectedAddrId(addr.id)}
+                        >
+                          <div className={`addr-radio ${selectedAddrId === addr.id ? 'checked' : ''}`}>
+                            {selectedAddrId === addr.id && <Check size={12} />}
+                          </div>
 
-                      {/* Icon — correct icon per label */}
-                      <div className="addr-card-icon">
-                        {LABEL_CARD_ICON[addr.label] ?? <MapPin size={16} />}
-                      </div>
+                          <div className="addr-card-icon">
+                            {LABEL_CARD_ICON[addr.label] ?? <MapPin size={16} />}
+                          </div>
 
-                      {/* Content — always show label badge for every label type */}
-                      <div className="addr-card-content">
-                        {addr.label && (
-                          <span className="addr-card-label-badge" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                            {LABEL_META[addr.label]?.icon}
-                            {LABEL_META[addr.label]?.text ?? addr.label.charAt(0).toUpperCase() + addr.label.slice(1)}
-                          </span>
-                        )}
-                        <p className="addr-card-main">
-                          {[addr.streetNumber, addr.address].filter(Boolean).join(' ') || 'Address'}
-                        </p>
-                        {addr.apartment && <p className="addr-card-sub">Flat Number: {addr.apartment}</p>}
-                        <p className="addr-card-sub">Note to rider: {addr.note || 'none'}</p>
-                      </div>
+                          <div className="addr-card-content">
+                            {addr.label && (
+                              <span className="addr-card-label-badge"
+                                style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                {LABEL_META[addr.label]?.icon}
+                                {LABEL_META[addr.label]?.text
+                                  ?? addr.label.charAt(0).toUpperCase() + addr.label.slice(1)}
+                              </span>
+                            )}
+                            <p className="addr-card-main">
+                              {[addr.streetNumber, addr.address].filter(Boolean).join(' ') || 'Address'}
+                            </p>
+                            {addr.apartment && (
+                              <p className="addr-card-sub">Flat Number: {addr.apartment}</p>
+                            )}
+                            <p className="addr-card-sub">Note to rider: {addr.note || 'none'}</p>
+                          </div>
 
-                      {/* Actions */}
-                      <div className="addr-card-actions" onClick={e => e.stopPropagation()}>
-                        <button className="addr-action-btn" onClick={() => openEditModal(addr)} title="Edit">
-                          <Pencil size={15} />
-                        </button>
-                        <button className="addr-action-btn danger" onClick={() => handleDeleteAddr(addr.id)} title="Delete">
-                          <Trash2 size={15} />
-                        </button>
-                      </div>
+                          <div className="addr-card-actions" onClick={e => e.stopPropagation()}>
+                            <button className="addr-action-btn"
+                              onClick={() => openEditModal(addr)} title="Edit">
+                              <Pencil size={15} />
+                            </button>
+                            <button className="addr-action-btn danger"
+                              onClick={() => handleDeleteAddr(addr.id)} title="Delete">
+                              <Trash2 size={15} />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  </>
+                )}
+
+                {!isLoggedIn && addresses.length === 0 && (
+                  <p style={{ color: '#6b7280', fontSize: 13 }}>
+                    Please{' '}
+                    <button onClick={onLoginClick}
+                      style={{ color: '#4f46e5', background: 'none', border: 'none',
+                               cursor: 'pointer', padding: 0, fontSize: 13 }}>
+                      log in
+                    </button>
+                    {' '}to load your saved addresses.
+                  </p>
+                )}
               </>
             )}
 
-            {/* Add address — only show if not all 4 label slots are taken */}
             {!allLabelsTaken && (
-              <button className="add-address-btn" onClick={openAddModal}>
+              <button className="add-address-btn" onClick={openAddModal} disabled={addrLoading}>
                 <Plus size={16} /> Add address
               </button>
             )}
 
             <div className="section-divider" />
 
-            {/* Contactless */}
             <div className="contactless-option">
               <span>Contactless delivery</span>
               <label className="toggle-switch-checkout">
-                <input type="checkbox" checked={contactless} onChange={e => setContactless(e.target.checked)} />
+                <input type="checkbox" checked={contactless}
+                  onChange={e => setContactless(e.target.checked)} />
                 <span className="toggle-slider-checkout" />
               </label>
             </div>
           </section>
 
-          {/* ── DELIVERY OPTIONS ── */}
+          {/* ── DELIVERY OPTIONS ──────────────────────────── */}
           <section className="checkout-section">
             <h2 className="section-title-checkout">Delivery options</h2>
             <div className="delivery-options">
@@ -357,11 +527,16 @@ const Checkout = ({
             </div>
           </section>
 
-          {/* ── PERSONAL DETAILS ── */}
+          {/* ── PERSONAL DETAILS ──────────────────────────── */}
           <section className="checkout-section">
             <div className="section-header-checkout">
               <h2 className="section-title-checkout">Personal details</h2>
-              <button className="cancel-btn">Cancel</button>
+              <button className="cancel-btn" onClick={() => {
+                setFirstName(user?.first_name || '');
+                setLastName(user?.last_name   || '');
+                setEmail(user?.email          || '');
+                setMobile('');
+              }}>Cancel</button>
             </div>
             <div className="personal-details-form">
               <input className="personal-input" type="email" placeholder="Email"
@@ -377,7 +552,7 @@ const Checkout = ({
             </div>
           </section>
 
-          {/* ── TIP ── */}
+          {/* ── TIP ──────────────────────────────────────── */}
           <section className="checkout-section">
             <h2 className="section-title-checkout">Tip your rider</h2>
             <br />
@@ -393,7 +568,8 @@ const Checkout = ({
             </div>
             <p className="tip-note">More common</p>
             <div className="save-tip-option">
-              <input type="checkbox" id="saveTip" checked={saveTip} onChange={e => setSaveTip(e.target.checked)} />
+              <input type="checkbox" id="saveTip" checked={saveTip}
+                onChange={e => setSaveTip(e.target.checked)} />
               <label htmlFor="saveTip">Save it for the next order</label>
             </div>
           </section>
@@ -403,15 +579,16 @@ const Checkout = ({
             By making this purchase you agree to our <a href="#">terms and conditions</a>.
           </p>
           <p className="terms-text">
-            I agree that placing the order places the order under an obligation to make a payment in
-            accordance with the <a href="#">General Terms and Conditions</a>.
+            I agree that placing the order places the order under an obligation to make
+            a payment in accordance with the <a href="#">General Terms and Conditions</a>.
           </p>
         </div>
 
-        {/* ── ORDER SUMMARY SIDEBAR ── */}
+        {/* ── ORDER SUMMARY SIDEBAR ─────────────────────── */}
         <aside className="order-summary-sidebar">
           <h3 className="summary-title">Your order from</h3>
           <p className="restaurant-name-summary">{restaurant?.name || 'Restaurant'}</p>
+
           <div className="summary-items">
             {cartItems.map(item => (
               <div key={item.id} className="summary-item">
@@ -422,7 +599,6 @@ const Checkout = ({
             ))}
           </div>
 
-          {/* Add more items link */}
           <button className="add-more-items-btn" onClick={onBack}>
             <Plus size={14} /> Add more items
           </button>
@@ -460,19 +636,23 @@ const Checkout = ({
         </aside>
       </div>
 
-      {/* ── ADDRESS MODAL ── */}
+      {/* ── ADDRESS MODAL ─────────────────────────────── */}
       {showModal && (
         <AddressModal
           initial={editingAddr}
           onSave={handleSaveAddr}
           onClose={closeModal}
           takenLabels={takenLabels}
+          saving={saving}
         />
       )}
 
+      {/* ── ALL CARTS SIDEBAR ─────────────────────────── */}
       <AllCarts
-        isOpen={showCart} onClose={() => setShowCart(false)}
-        cartItems={allCartItems} onCheckout={handleCheckoutFromCart}
+        isOpen={showCart}
+        onClose={() => setShowCart(false)}
+        cartItems={allCartItems}
+        onCheckout={handleCheckoutFromCart}
         onNavigateToRestaurant={handleNavigateToRestaurant}
       />
     </div>
