@@ -9,11 +9,18 @@ import {
 } from 'lucide-react';
 
 /* ─── helpers ─────────────────────────────────────────────── */
-const LABEL_ICONS = {
-  home:    <Home    size={14} />,
-  work:    <Briefcase size={14} />,
-  partner: <Heart   size={14} />,
-  other:   <Plus    size={14} />,
+const LABEL_META = {
+  home:    { icon: <Home      size={14} />, text: 'Home'    },
+  work:    { icon: <Briefcase size={14} />, text: 'Work'    },
+  partner: { icon: <Heart     size={14} />, text: 'Partner' },
+  other:   { icon: <Plus      size={14} />, text: 'Other'   },
+};
+
+const LABEL_CARD_ICON = {
+  home:    <Home      size={16} />,
+  work:    <Briefcase size={16} />,
+  partner: <Heart     size={16} />,
+  other:   <MapPin    size={16} />,
 };
 
 const emptyForm = () => ({
@@ -22,7 +29,9 @@ const emptyForm = () => ({
 });
 
 /* ─── Address Form Modal ──────────────────────────────────── */
-const AddressModal = ({ initial, onSave, onClose }) => {
+const AddressModal = ({ initial, onSave, onClose, takenLabels = [] }) => {
+  // When editing, the current label of the address being edited is NOT "taken" for the purpose of this form
+  const editingLabel = initial?.label ?? null;
   const [form, setForm] = useState(initial ?? emptyForm());
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
@@ -83,15 +92,22 @@ const AddressModal = ({ initial, onSave, onClose }) => {
           {/* Label */}
           <p className="label-title">Add a Label</p>
           <div className="label-options">
-            {Object.entries(LABEL_ICONS).map(([key, icon]) => (
-              <button
-                key={key}
-                className={`label-btn ${form.label === key ? 'active' : ''}`}
-                onClick={() => set('label', key)}
-              >
-                {icon} {key.charAt(0).toUpperCase() + key.slice(1)}
-              </button>
-            ))}
+            {Object.entries(LABEL_META).map(([key, { icon, text }]) => {
+              // A label is "taken" if another address already uses it (not the one being edited)
+              const isTaken = takenLabels.includes(key) && key !== editingLabel;
+              return (
+                <button
+                  key={key}
+                  className={`label-btn ${form.label === key ? 'active' : ''} ${isTaken ? 'disabled' : ''}`}
+                  onClick={() => !isTaken && set('label', key)}
+                  disabled={isTaken}
+                  title={isTaken ? `You already have a ${text} address` : ''}
+                  style={isTaken ? { opacity: 0.4, cursor: 'not-allowed' } : {}}
+                >
+                  {icon} {text}
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -170,6 +186,9 @@ const Checkout = ({
   const savings = discountAmount;
 
   /* ── address helpers ─────────────────────────────────────── */
+  const takenLabels = addresses.map(a => a.label);
+  const allLabelsTaken = Object.keys(LABEL_META).every(l => takenLabels.includes(l));
+
   const openAddModal  = ()      => { setEditingAddr(null);  setShowModal(true); };
   const openEditModal = (addr)  => { setEditingAddr(addr);  setShowModal(true); };
   const closeModal    = ()      => { setShowModal(false); setEditingAddr(null); };
@@ -254,15 +273,18 @@ const Checkout = ({
                         {selectedAddrId === addr.id && <Check size={12} />}
                       </div>
 
-                      {/* Icon */}
+                      {/* Icon — correct icon per label */}
                       <div className="addr-card-icon">
-                        {addr.label === 'work' ? <Briefcase size={16} /> : <MapPin size={16} />}
+                        {LABEL_CARD_ICON[addr.label] ?? <MapPin size={16} />}
                       </div>
 
-                      {/* Content */}
+                      {/* Content — always show label badge for every label type */}
                       <div className="addr-card-content">
-                        {addr.label !== 'home' && addr.label && (
-                          <span className="addr-card-label-badge">{addr.label.charAt(0).toUpperCase() + addr.label.slice(1)}</span>
+                        {addr.label && (
+                          <span className="addr-card-label-badge" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                            {LABEL_META[addr.label]?.icon}
+                            {LABEL_META[addr.label]?.text ?? addr.label.charAt(0).toUpperCase() + addr.label.slice(1)}
+                          </span>
                         )}
                         <p className="addr-card-main">
                           {[addr.streetNumber, addr.address].filter(Boolean).join(' ') || 'Address'}
@@ -286,10 +308,12 @@ const Checkout = ({
               </>
             )}
 
-            {/* Add address */}
-            <button className="add-address-btn" onClick={openAddModal}>
-              <Plus size={16} /> Add address
-            </button>
+            {/* Add address — only show if not all 4 label slots are taken */}
+            {!allLabelsTaken && (
+              <button className="add-address-btn" onClick={openAddModal}>
+                <Plus size={16} /> Add address
+              </button>
+            )}
 
             <div className="section-divider" />
 
@@ -449,6 +473,7 @@ const Checkout = ({
           initial={editingAddr}
           onSave={handleSaveAddr}
           onClose={closeModal}
+          takenLabels={takenLabels}
         />
       )}
 

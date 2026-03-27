@@ -421,7 +421,7 @@ const RestaurantDetail = ({
 
   const handleCheckoutFromCart = (restaurantId) => {
     setShowCart(false);
-    if (onCheckout && restaurantId === displayRestaurant.id) onCheckout(restaurantId);
+    if (onCheckout) onCheckout(restaurantId);
   };
 
   return (
