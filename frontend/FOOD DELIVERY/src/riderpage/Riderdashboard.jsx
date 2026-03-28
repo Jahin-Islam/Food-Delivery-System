@@ -333,10 +333,10 @@ const RiderDashboard = ({ rider = {}, onLogout }) => {
 
       {/* Stats bar */}
       <div className="rdb-stats-bar">
-        <div className="rdb-stat"><span className="rdb-stat-label">Today's Earnings</span><span className="rdb-stat-val" style={{ color: COLORS.success }}>৳{todayEarnings}</span></div>
-        <div className="rdb-stat"><span className="rdb-stat-label">Orders Today</span><span className="rdb-stat-val" style={{ color: COLORS.primary }}>{ordersToday}</span></div>
-        <div className="rdb-stat"><span className="rdb-stat-label">Rating</span><span className="rdb-stat-val" style={{ color: '#f59e0b' }}>⭐ {riderData.rating}</span></div>
-        <div className="rdb-stat"><span className="rdb-stat-label">Status</span><span className="rdb-stat-val" style={{ color: isOnline ? '#10b981' : '#6b7280' }}>{isOnline ? '🟢 Online' : '🔴 Offline'}</span></div>
+        <div className="rdb-stat"><span className="rdb-stat-label">Today's Earnings</span><span className="rdb-stat-val rdb-stat-earnings">৳{todayEarnings}</span></div>
+        <div className="rdb-stat"><span className="rdb-stat-label">Orders Today</span><span className="rdb-stat-val rdb-stat-orders">{ordersToday}</span></div>
+        <div className="rdb-stat"><span className="rdb-stat-label">Rating</span><span className="rdb-stat-val rdb-stat-rating"><Star size={13} fill="currentColor" style={{ verticalAlign: 'middle', marginRight: 3, marginTop: -2 }} /> {riderData.rating}</span></div>
+        <div className="rdb-stat"><span className="rdb-stat-label">Status</span><span className={`rdb-stat-val rdb-stat-status ${isOnline ? 'online' : 'offline'}`}>{isOnline ? 'Online' : 'Offline'}</span></div>
       </div>
 
       {/* Tab content */}
@@ -367,42 +367,34 @@ const StatusTab = ({ isOnline, activeOrder, onToggleOnline }) => (
 
     <RiderMap order={activeOrder} isOnline={isOnline} />
 
-    <div style={{ background: 'var(--white)', borderRadius: 14, padding: '20px 22px',
-      border: '1.5px solid var(--gray-200)', boxShadow: 'var(--shadow-sm)', marginBottom: 16 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--gray-900)', marginBottom: 4 }}>
-            {isOnline ? '🟢 You are Online' : '🔴 You are Offline'}
-          </p>
-          <p style={{ fontSize: 13, color: 'var(--gray-500)' }}>
-            {isOnline ? 'You are visible to customers and can receive orders.' : 'Toggle to go online and start receiving orders.'}
-          </p>
-        </div>
-        <button onClick={onToggleOnline}
-          style={{ padding: '10px 22px', borderRadius: 999, border: 'none', cursor: 'pointer',
-            fontWeight: 700, fontSize: 14, fontFamily: 'var(--font)', color: 'white',
-            background: isOnline ? 'linear-gradient(135deg,#dc2626,#b91c1c)' : 'linear-gradient(135deg,#10b981,#059669)',
-            boxShadow: isOnline ? '0 4px 12px rgba(220,38,38,0.3)' : '0 4px 12px rgba(16,185,129,0.3)' }}>
-          {isOnline ? 'Go Offline' : 'Go Online'}
-        </button>
+    <div className="rdb-online-toggle-card">
+      <div>
+        <p className={`rdb-online-toggle-title ${isOnline ? 'online' : 'offline'}`}>
+          <span className={`rdb-mini-dot ${isOnline ? 'online' : ''}`} />
+          {isOnline ? 'You are Online' : 'You are Offline'}
+        </p>
+        <p className="rdb-online-toggle-desc">
+          {isOnline ? 'You are visible to customers and can receive orders.' : 'Toggle to go online and start receiving orders.'}
+        </p>
       </div>
+      <button onClick={onToggleOnline} className={`rdb-go-toggle-btn ${isOnline ? 'go-offline' : 'go-online'}`}>
+        {isOnline ? 'Go Offline' : 'Go Online'}
+      </button>
     </div>
 
     {activeOrder ? (
-      <div style={{ background: 'var(--primary-bg)', borderRadius: 12, padding: '14px 16px',
-        border: '1.5px solid var(--primary-light)' }}>
-        <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--primary)', marginBottom: 6 }}>📦 Active Order</p>
-        <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--gray-900)' }}>{activeOrder.id} — {activeOrder.customer?.name}</p>
-        <p style={{ fontSize: 12, color: 'var(--gray-500)', marginTop: 3 }}>
-          {activeOrder.status === 'ongoing' ? '🍳 Preparing at restaurant' : '🚴 On the way to customer'}
+      <div className="rdb-active-order-banner">
+        <div className="rdb-aob-label"><Package size={14} /> Active Order</div>
+        <p className="rdb-aob-id">{activeOrder.id} — {activeOrder.customer?.name}</p>
+        <p className="rdb-aob-status">
+          {activeOrder.status === 'ongoing' ? 'Preparing at restaurant' : 'On the way to customer'}
         </p>
       </div>
     ) : isOnline ? (
-      <div style={{ textAlign: 'center', padding: '28px 20px', background: 'var(--gray-50)',
-        borderRadius: 12, border: '1.5px dashed var(--gray-200)' }}>
-        <Bike size={48} color={COLORS.primary} opacity={0.4} strokeWidth={1} style={{ marginBottom: 12 }} />
-        <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--gray-600)' }}>Waiting for orders…</p>
-        <p style={{ fontSize: 13, color: 'var(--gray-400)', marginTop: 6 }}>Check the Deliveries tab for orders near you.</p>
+      <div className="rdb-waiting-state">
+        <Bike size={48} strokeWidth={1} className="rdb-waiting-icon" />
+        <p className="rdb-waiting-title">Waiting for orders…</p>
+        <p className="rdb-waiting-sub">Check the Deliveries tab for orders near you.</p>
       </div>
     ) : null}
   </motion.div>
@@ -444,9 +436,7 @@ const DeliveriesTab = ({ nearbyOrders, ongoingOrders, completedOrders, orderTab,
       </div>
 
       {orderTab === 'nearby' && !isOnline && (
-        <div style={{ background: '#fef3c7', border: '1.5px solid #f59e0b', borderRadius: 10,
-          padding: '12px 16px', marginBottom: 12, fontSize: 13, fontWeight: 600, color: '#92400e',
-          display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div className="rdb-offline-warning">
           <AlertCircle size={16} />
           Go online in the Status tab to receive orders.
         </div>
@@ -513,7 +503,7 @@ const NearbyOrderCard = ({ order, onAccept, onDecline }) => {
         </div>
       </div>
       {order.distance_km && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 8, fontSize: 12, fontWeight: 600, color: COLORS.primary }}>
+        <div className="rdb-noc-distance">
           <Navigation size={12} /> {order.distance_km.toFixed(1)} km away
         </div>
       )}
@@ -542,7 +532,10 @@ const NearbyOrderCard = ({ order, onAccept, onDecline }) => {
 
 const OngoingOrderCard = ({ order, onPickedUp }) => (
   <div className="rdb-ongoing-card">
-    <div className="rdb-ongoing-header"><p className="rdb-ongoing-id">{order.id}</p><span className="rdb-ongoing-badge preparing">🍳 Preparing</span></div>
+    <div className="rdb-ongoing-header">
+      <p className="rdb-ongoing-id">{order.id}</p>
+      <span className="rdb-ongoing-badge preparing">Preparing</span>
+    </div>
     <p className="rdb-ongoing-restaurant">{order.restaurant?.name}</p>
     <p className="rdb-ongoing-addr">{order.restaurant?.address}</p>
     <div className="rdb-ongoing-status-bar">
@@ -557,7 +550,10 @@ const OngoingOrderCard = ({ order, onPickedUp }) => (
 
 const PickedUpCard = ({ order, onDelivered }) => (
   <div className="rdb-ongoing-card delivering">
-    <div className="rdb-ongoing-header"><p className="rdb-ongoing-id">{order.id}</p><span className="rdb-ongoing-badge delivering">🚴 Delivering</span></div>
+    <div className="rdb-ongoing-header">
+      <p className="rdb-ongoing-id">{order.id}</p>
+      <span className="rdb-ongoing-badge delivering">Delivering</span>
+    </div>
     <p className="rdb-ongoing-restaurant">{order.customer?.name}</p>
     <p className="rdb-ongoing-addr">{order.delivery?.address}</p>
     <div className="rdb-ongoing-status-bar">
@@ -566,7 +562,7 @@ const PickedUpCard = ({ order, onDelivered }) => (
       <div className="rdb-status-step done"><Check size={12} /> Picked Up</div>
       <div className="rdb-status-step active pulse"><MapPin size={12} /> Delivering</div>
     </div>
-    <button className="rdb-deliver-btn" onClick={onDelivered}><CheckCircle size={16} /> Dropped Off — Order Complete</button>
+    <button className="rdb-deliver-btn" onClick={onDelivered}><Check size={16} /> Dropped Off — Order Complete</button>
   </div>
 );
 
@@ -607,7 +603,7 @@ const HistoryTab = () => {
                   <div className="rdb-pay-row sub"><span>Hours ({entry.hoursWorked})</span><span>৳0.00</span></div>
                   {entry.tips > 0 && <div className="rdb-pay-row sub tips"><span>Tips</span><span>৳{entry.tips}</span></div>}
                   <div className="rdb-pay-row sub deliveries"><span>Deliveries ({entry.deliveries})</span><span>৳{entry.totalEarnings - entry.tips}</span></div>
-                  {entry.orders.map(o => <div key={o.id} className="rdb-pay-order-row"><span className="rdb-pay-order-icon">📦</span><span className="rdb-pay-order-id">{o.id}</span><span className="rdb-pay-order-time">{o.completedAt}</span><span className="rdb-pay-order-amt">৳{o.amount}</span></div>)}
+                  {entry.orders.map(o => <div key={o.id} className="rdb-pay-order-row"><Package size={13} className="rdb-pay-order-icon" /><span className="rdb-pay-order-id">{o.id}</span><span className="rdb-pay-order-time">{o.completedAt}</span><span className="rdb-pay-order-amt">৳{o.amount}</span></div>)}
                 </div>
               )}
             </div>
@@ -627,7 +623,7 @@ const WalletTab = ({ balance }) => {
       <div className="rdb-wallet-card">
         <p className="rdb-wallet-label">Current balance</p>
         <p className="rdb-wallet-balance">৳{(balance / 100).toFixed(2)}</p>
-        <button className="rdb-payout-btn" onClick={() => setShowPayout(true)}>💸 Payout</button>
+        <button className="rdb-payout-btn" onClick={() => setShowPayout(true)}>Request Payout</button>
       </div>
       <div className="rdb-earning-cards">
         <div className="rdb-earning-card received"><p className="rdb-ec-label">Amount Received</p><p className="rdb-ec-amount">৳97.05</p><p className="rdb-ec-sub">This week</p></div>

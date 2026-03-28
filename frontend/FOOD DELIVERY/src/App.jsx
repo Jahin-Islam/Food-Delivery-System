@@ -22,11 +22,13 @@ import cartService from './Cartservice.js';
 import cartApiService from './Cartapiservice.js';
 import OrderStatus, { LS_KEY as ORDER_LS_KEY } from './homepage/OrderStatus.jsx';
 import FavouritesSidebar from './homepage/FavouritesSideBar.jsx';
+// FIX 1: Import AllCarts globally so cart icon works from every page (OrderStatus, etc.)
+import AllCarts from './homepage/Allcarts.jsx';
 
 const SK_PAGE        = 'fp_current_page';
 const SK_ROLE        = 'fp_user_role';
 const SK_RESTAURANT  = 'fp_restaurant';
-const SK_VIEWED_REST = 'fp_viewed_restaurant'; // customer-facing restaurant detail
+const SK_VIEWED_REST = 'fp_viewed_restaurant';
 const SK_RIDER       = 'fp_rider';
 const SK_ADDRESS     = 'fp_delivery_address';
 const SK_ADDRESS_LAT = 'fp_delivery_lat';
@@ -50,10 +52,10 @@ function App() {
   const [isInitializing,       setIsInitializing]       = useState(true);
   const [riderData,            setRiderData]            = useState(null);
   const [restaurants,          setRestaurants]          = useState([]);
-  // FIX #8: showFavourites lifted to App so Profile and other pages can open it
   const [showFavourites,       setShowFavourites]       = useState(false);
+  // FIX 1: Global cart open/close state — previously only existed inside Homepage
+  const [showCart,             setShowCart]             = useState(false);
   const [riderSignupData,      setRiderSignupData]      = useState(null);
-  // FIX #6: activeTab managed in state (not just localStorage) so it persists across navigation
   const [activeTab,            setActiveTab]            = useState(() => {
     try { return localStorage.getItem(SK_ACTIVE_TAB) || 'delivery'; } catch { return 'delivery'; }
   });
@@ -131,7 +133,6 @@ function App() {
               const r = pickRestaurant();
               if (r) { setSelectedRestaurant(r); localStorage.setItem(SK_RESTAURANT, JSON.stringify(r)); }
             }
-            // Restore customer-viewed restaurant on refresh
             if (savedPage === 'restaurant') {
               try {
                 const vr = JSON.parse(localStorage.getItem(SK_VIEWED_REST) || 'null');
@@ -139,7 +140,6 @@ function App() {
                 else { localStorage.setItem(SK_PAGE, 'home'); setCurrentPage('home'); window.history.replaceState({ page: 'home' }, '', '#home'); return; }
               } catch { localStorage.setItem(SK_PAGE, 'home'); setCurrentPage('home'); window.history.replaceState({ page: 'home' }, '', '#home'); return; }
             }
-            // Restore checkout restaurant id on refresh
             if (savedPage === 'checkout') {
               try {
                 const crid = localStorage.getItem('fp_checkout_restaurant_id');
@@ -175,7 +175,6 @@ function App() {
           }
         } else {
           setCartItems(cartService.loadCart());
-          // Restore restaurant page for unauthenticated users on refresh
           const savedPageGuest = localStorage.getItem(SK_PAGE);
           if (savedPageGuest === 'restaurant') {
             try {
@@ -489,7 +488,6 @@ function App() {
     push('order-status');
   };
 
-  // FIX #6: pickup/delivery tab handlers update both state AND localStorage
   const handleDeliveryClick = useCallback(() => {
     setActiveTab('delivery');
     localStorage.setItem(SK_ACTIVE_TAB, 'delivery');
@@ -524,8 +522,10 @@ function App() {
     onDeliveryClick:   handleDeliveryClick,
     onPickupClick:     handlePickupClick,
     onNearMeClick:     goToNearMe,
-    // FIX #8: favourites open from App-level state so Profile page can also open it
     onFavouritesClick: () => setShowFavourites(true),
+    // FIX: onCartClick in H so ALL pages (Homepage, OrderStatus, NearMe, etc.)
+    // open the same global AllCarts sidebar — no more per-page local state
+    onCartClick:       () => setShowCart(true),
   };
 
   const CartOps = {
@@ -548,7 +548,6 @@ function App() {
       {currentPage === 'home' && (
         <Homepage
           {...H} {...CartOps}
-          // FIX #6: pass activeTab from state (not re-read localStorage) so pickup persists
           activeTab={activeTab}
           restaurants={restaurants}
           cartItems={cartItems}
@@ -583,7 +582,6 @@ function App() {
           onBack={goHome}
           currentAddress={deliveryAddress}
           onAddressChange={handleAddressChange}
-          // FIX #8: profile page can open global favourites sidebar
           onFavouritesClick={() => setShowFavourites(true)}
         />
       )}
@@ -610,10 +608,10 @@ function App() {
           user={user}
           restaurant={selectedRestaurant}
           onEnterDashboard={() => goToBusinessPage('business-dashboard', selectedRestaurant)}
-          onGoToDashboard={()   => goToBusinessPage('business-dashboard', selectedRestaurant)}
-          onGoToOrders={()      => goToBusinessPage('orders',             selectedRestaurant)}
-          onGoToOrderHistory={() => goToBusinessPage('order-history',     selectedRestaurant)}
-          onGoToProfile={()     => goToBusinessPage('business-profile',   selectedRestaurant)}
+          onGoToDashboard={()    => goToBusinessPage('business-dashboard', selectedRestaurant)}
+          onGoToOrders={()       => goToBusinessPage('orders',             selectedRestaurant)}
+          onGoToOrderHistory={()  => goToBusinessPage('order-history',     selectedRestaurant)}
+          onGoToProfile={()      => goToBusinessPage('business-profile',   selectedRestaurant)}
           onLogout={handleLogout}
         />
       )}
@@ -622,10 +620,10 @@ function App() {
         <BusinessDashboard
           {...H}
           restaurant={selectedRestaurant}
-          onBack={()                  => goToBusinessPage('business-welcome', selectedRestaurant)}
-          onNavigateToOrders={()      => goToBusinessPage('orders',           selectedRestaurant)}
-          onNavigateToHistory={()     => goToBusinessPage('order-history',    selectedRestaurant)}
-          onNavigateToProfile={()     => goToBusinessPage('business-profile', selectedRestaurant)}
+          onBack={()               => goToBusinessPage('business-welcome',   selectedRestaurant)}
+          onNavigateToOrders={()   => goToBusinessPage('orders',             selectedRestaurant)}
+          onNavigateToHistory={()  => goToBusinessPage('order-history',      selectedRestaurant)}
+          onNavigateToProfile={()  => goToBusinessPage('business-profile',   selectedRestaurant)}
         />
       )}
 
@@ -633,9 +631,9 @@ function App() {
         <Orders
           {...H}
           restaurant={selectedRestaurant}
-          onNavigateToMenu={()        => goToBusinessPage('business-dashboard', selectedRestaurant)}
-          onNavigateToHistory={()     => goToBusinessPage('order-history',      selectedRestaurant)}
-          onNavigateToProfile={()     => goToBusinessPage('business-profile',   selectedRestaurant)}
+          onNavigateToMenu={()     => goToBusinessPage('business-dashboard', selectedRestaurant)}
+          onNavigateToHistory={()  => goToBusinessPage('order-history',      selectedRestaurant)}
+          onNavigateToProfile={()  => goToBusinessPage('business-profile',   selectedRestaurant)}
         />
       )}
 
@@ -643,9 +641,10 @@ function App() {
         <OrderHistory
           {...H}
           restaurant={selectedRestaurant}
-          onNavigateToMenu={()    => goToBusinessPage('business-dashboard', selectedRestaurant)}
-          onNavigateToOrders={()  => goToBusinessPage('orders',             selectedRestaurant)}
-          onNavigateToProfile={() => goToBusinessPage('business-profile',   selectedRestaurant)}
+          onNavigateToMenu={()     => goToBusinessPage('business-dashboard', selectedRestaurant)}
+          onNavigateToOrders={()   => goToBusinessPage('orders',             selectedRestaurant)}
+          onNavigateToHistory={()  => {}}
+          onNavigateToProfile={()  => goToBusinessPage('business-profile',   selectedRestaurant)}
         />
       )}
 
@@ -655,10 +654,10 @@ function App() {
           restaurant={selectedRestaurant}
           isLoggedIn={isLoggedIn}
           onLogout={handleLogout}
-          onNavigateToMenu={()    => goToBusinessPage('business-dashboard', selectedRestaurant)}
-          onNavigateToOrders={()  => goToBusinessPage('orders',             selectedRestaurant)}
-          onNavigateToHistory={() => goToBusinessPage('order-history',      selectedRestaurant)}
-          onNavigateToProfile={() => goToBusinessPage('business-profile',   selectedRestaurant)}
+          onNavigateToMenu={()     => goToBusinessPage('business-dashboard', selectedRestaurant)}
+          onNavigateToOrders={()   => goToBusinessPage('orders',             selectedRestaurant)}
+          onNavigateToHistory={()  => goToBusinessPage('order-history',      selectedRestaurant)}
+          onNavigateToProfile={()  => goToBusinessPage('business-profile',   selectedRestaurant)}
         />
       )}
 
@@ -726,15 +725,34 @@ function App() {
         <OrderStatus
           {...H}
           cartItems={cartItems}
-          // FIX #8: orders page can open cart sidebar via onCartClick
-          onCartClick={() => {}}
           activeTab="orders"
           currentAddress={deliveryAddress}
           onAddressChange={handleAddressChange}
         />
       )}
 
-      {/* FIX #8: Global favourites sidebar — accessible from ANY page */}
+      {/* ─────────────────────────────────────────────────────────────────────
+          FIX 1: AllCarts rendered globally at App level.
+          Previously it only existed inside Homepage so the cart icon on
+          OrderStatus page had nowhere to open — onCartClick was () => {}.
+          Now showCart state lives here and AllCarts renders on top of any page.
+      ───────────────────────────────────────────────────────────────────── */}
+      <AllCarts
+        isOpen={showCart}
+        onClose={() => setShowCart(false)}
+        cartItems={cartItems}
+        onCheckout={(restaurantId) => {
+          setShowCart(false);
+          goToCheckout(restaurantId);
+        }}
+        onNavigateToRestaurant={(restaurantId) => {
+          setShowCart(false);
+          const rest = restaurants.find(r => r.id === restaurantId);
+          if (rest) goToRestaurant(rest);
+        }}
+      />
+
+      {/* Global favourites sidebar */}
       <FavouritesSidebar
         isOpen={showFavourites}
         onClose={() => setShowFavourites(false)}

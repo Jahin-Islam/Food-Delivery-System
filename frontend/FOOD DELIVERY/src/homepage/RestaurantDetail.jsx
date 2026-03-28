@@ -229,6 +229,99 @@ const ReviewsModal = ({ isOpen, onClose, restaurant }) => {
   );
 };
 
+// ─── MORE INFO MODAL ──────────────────────────────────────────────────────────
+const MoreInfoModal = ({ isOpen, onClose, restaurant }) => {
+  if (!restaurant) return null;
+  const addr = typeof restaurant.address === 'string'
+    ? restaurant.address
+    : restaurant.address?.street_address ?? 'Dhaka, Bangladesh';
+
+  const lat = restaurant.address?.latitude  ?? restaurant.latitude  ?? null;
+  const lng = restaurant.address?.longitude ?? restaurant.longitude ?? null;
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
+          onClick={onClose}>
+          <motion.div
+            initial={{ opacity: 0, y: 24, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 24, scale: 0.97 }}
+            transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+            onClick={e => e.stopPropagation()}
+            style={{ background: 'var(--c-white)', borderRadius: 16, width: '100%', maxWidth: 480, maxHeight: '88vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.2)', overflow: 'hidden' }}>
+
+            {/* Header */}
+            <div style={{ padding: '18px 20px 14px', borderBottom: '1.5px solid var(--c-gray-100)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+              <div>
+                <h2 style={{ fontSize: 18, fontWeight: 800, color: 'var(--c-gray-900)', margin: 0 }}>{restaurant.name}</h2>
+                <p style={{ fontSize: 13, color: 'var(--c-gray-400)', margin: '2px 0 0' }}>Restaurant Info</p>
+              </div>
+              <button onClick={onClose} style={{ background: 'var(--c-gray-100)', border: 'none', borderRadius: '50%', width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--c-gray-500)' }}>
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Scrollable body */}
+            <div style={{ overflowY: 'auto', flex: 1 }}>
+
+              {/* Info rows */}
+              <div style={{ padding: '20px 20px 0', display: 'flex', flexDirection: 'column', gap: 14 }}>
+                {[
+                  { label: 'Address',       value: addr },
+                  { label: 'Opening Hours', value: restaurant.opening_time && restaurant.closing_time ? `${restaurant.opening_time} – ${restaurant.closing_time}` : 'Not specified' },
+                  { label: 'Phone',         value: restaurant.phone || 'Not specified' },
+                  { label: 'Min. Order',    value: `৳${restaurant.min_order ?? 0}` },
+                  { label: 'Delivery Time', value: restaurant.delivery_time || '20–30 min' },
+                ].map(({ label, value }) => (
+                  <div key={label} style={{ display: 'flex', gap: 12, alignItems: 'flex-start', paddingBottom: 14, borderBottom: '1px solid var(--c-gray-100)' }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--c-gray-400)', width: 110, flexShrink: 0, textTransform: 'uppercase', letterSpacing: '0.4px', paddingTop: 1 }}>{label}</span>
+                    <span style={{ fontSize: 14, color: 'var(--c-gray-800)', flex: 1, fontWeight: 500 }}>{value}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Map */}
+              <div style={{ padding: '16px 20px 20px' }}>
+                <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--c-gray-400)', textTransform: 'uppercase', letterSpacing: '0.4px', margin: '0 0 10px' }}>Location</p>
+                <div style={{ borderRadius: 12, overflow: 'hidden', border: '1.5px solid var(--c-gray-200)' }}>
+                  <StaticMap
+                    lat={lat}
+                    lng={lng}
+                    label={restaurant.name}
+                    pinColor="#f97316"
+                    address={addr}
+                    height="220px"
+                  />
+                </div>
+                {/* "Open in Maps" link */}
+                {lat && lng && (
+                  <a
+                    href={`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 10,
+                      fontSize: 13, fontWeight: 600, color: 'var(--c-primary)',
+                      textDecoration: 'none',
+                    }}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                    Open in Google Maps
+                  </a>
+                )}
+              </div>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+};
+
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 
 const RestaurantDetail = ({
@@ -252,6 +345,7 @@ const RestaurantDetail = ({
   onNearMeClick,
   onDeliveryClick,
   onPickupClick,
+  onFavouritesClick,
   currentAddress,
   onAddressChange,
 }) => {
@@ -266,6 +360,7 @@ const RestaurantDetail = ({
   const [selectedItem,      setSelectedItem]      = useState(null);
   const [showItemModal,     setShowItemModal]     = useState(false);
   const [showReviews,       setShowReviews]       = useState(false);
+  const [showMoreInfo,      setShowMoreInfo]      = useState(false);
 
   /* ── Favourites ── */
   const FK = 'fp_favourites';
@@ -330,10 +425,10 @@ const RestaurantDetail = ({
     onCartClick: () => setShowCart(!showCart),
     onLogout, onLogoClick, onProfileClick, onOrdersClick,
     showBanner: false,
-    // Task 10: pass nav props so header tabs work from restaurant page
     onNearMeClick,
     onDeliveryClick: onDeliveryClick ?? onLogoClick,
     onPickupClick,
+    onFavouritesClick,
     currentAddress,
     onAddressChange,
   };
@@ -479,7 +574,7 @@ const RestaurantDetail = ({
           <div className="restaurant-rating-info">
             <span><img className="star-icon" src="/images/accessories/star.png" alt="Rating" /> {displayRestaurant.rating} ({displayRestaurant.total_rated || 0})</span>
             <button className="see-reviews-btn" onClick={() => setShowReviews(true)}>See reviews</button>
-            <button className="more-info-btn">More info</button>
+            <button className="more-info-btn" onClick={() => setShowMoreInfo(true)}>More info</button>
           </div>
 
           {/* Add to favourites */}
@@ -650,6 +745,13 @@ const RestaurantDetail = ({
       <ReviewsModal
         isOpen={showReviews}
         onClose={() => setShowReviews(false)}
+        restaurant={displayRestaurant}
+      />
+
+      {/* More Info Modal */}
+      <MoreInfoModal
+        isOpen={showMoreInfo}
+        onClose={() => setShowMoreInfo(false)}
         restaurant={displayRestaurant}
       />
 

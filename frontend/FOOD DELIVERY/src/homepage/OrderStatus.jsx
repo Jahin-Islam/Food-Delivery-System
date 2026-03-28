@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle, Circle, ChevronLeft, Utensils, MapPin, Phone, Clock, ClipboardList, ChefHat, Bike, PackageCheck } from 'lucide-react';
+import { Check, ChevronLeft, Utensils, MapPin, Phone, Clock, ClipboardList, ChefHat, Bike, PackageCheck } from 'lucide-react';
 import Header from './Header.jsx';
 
 const LS_KEY = 'fp_current_orders'; // stores array of orders
@@ -107,14 +107,14 @@ const OrderCard = ({ order }) => {
                 {i > 0 && (
                   <div style={{
                     position: 'absolute', top: 20, left: 0, width: '50%', height: 3,
-                    background: done || active ? 'var(--c-primary)' : 'var(--c-gray-200)',
+                    background: done || active ? (done ? '#10b981' : 'var(--c-primary)') : 'var(--c-gray-200)',
                     zIndex: 0,
                   }} />
                 )}
                 {i < STEPS.length - 1 && (
                   <div style={{
                     position: 'absolute', top: 20, right: 0, width: '50%', height: 3,
-                    background: done ? 'var(--c-primary)' : 'var(--c-gray-200)',
+                    background: done ? '#10b981' : 'var(--c-gray-200)',
                     zIndex: 0,
                   }} />
                 )}
@@ -129,15 +129,15 @@ const OrderCard = ({ order }) => {
                     transition={{ duration: 0.4, repeat: active ? Infinity : 0, repeatDelay: 1.5 }}
                     style={{
                       width: 42, height: 42, borderRadius: '50%',
-                      background: done ? 'var(--c-primary)' : active ? 'var(--c-primary)' : 'var(--c-gray-100)',
-                      border: `3px solid ${done || active ? 'var(--c-primary)' : 'var(--c-gray-200)'}`,
+                      background: done ? '#10b981' : active ? 'var(--c-primary)' : 'var(--c-gray-100)',
+                      border: `3px solid ${done ? '#10b981' : active ? 'var(--c-primary)' : 'var(--c-gray-200)'}`,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       fontSize: 18, flexShrink: 0,
-                      boxShadow: active ? '0 0 0 4px var(--c-primary-light)' : 'none',
+                      boxShadow: active ? '0 0 0 4px var(--c-primary-light)' : done ? '0 0 0 4px #d1fae5' : 'none',
                     }}
                   >
                     {done ? (
-                      <CheckCircle size={20} color="white" fill="white" strokeWidth={2.5} />
+                      <Check size={20} color="white" strokeWidth={3} />
                     ) : active ? (
                       <step.Icon size={18} color="white" strokeWidth={2} />
                     ) : (
@@ -148,7 +148,7 @@ const OrderCard = ({ order }) => {
                   {/* Label */}
                   <p style={{
                     fontSize: 11, fontWeight: active || done ? 700 : 500, marginTop: 8,
-                    color: active || done ? 'var(--c-gray-900)' : 'var(--c-gray-400)',
+                    color: active ? 'var(--c-gray-900)' : done ? 'var(--c-gray-500)' : 'var(--c-gray-400)',
                     textAlign: 'center', lineHeight: 1.3,
                   }}>
                     {step.label}

@@ -6,7 +6,8 @@ import CuisineFilter from "./cuisineOption.jsx";
 import SortOption from "./sortbyOption.jsx";
 import OfferOption from "./offerOption.jsx";
 import PriceOption, { filterByPrice } from "./priceOption.jsx";
-import AllCarts from "./AllCarts.jsx";
+// FIX: Removed AllCarts import — it is now rendered globally in App.jsx
+// This prevents two AllCarts instances fighting each other
 
 const Homepage = ({
   isLoggedIn, user, cartItems, setCartItems,
@@ -15,6 +16,10 @@ const Homepage = ({
   onProfileClick, onOrdersClick, onLogoClick,
   onDeliveryClick, onPickupClick, onNearMeClick,
   onFavouritesClick,
+  // FIX: onCartClick now comes from App.jsx (opens global AllCarts)
+  // Previously Homepage managed its own showCart state + its own AllCarts,
+  // which meant the cart could never open from any other page like OrderStatus.
+  onCartClick,
   activeTab = 'delivery',
   restaurants = [],
   currentAddress,
@@ -22,15 +27,13 @@ const Homepage = ({
 }) => {
   const [searchQuery,      setSearchQuery]      = useState("");
   const [showFilters,      setShowFilters]      = useState(true);
-  const [showCart,         setShowCart]         = useState(false);
+  // FIX: Removed local showCart state — global state lives in App.jsx now
   const [showLeftArrow,    setShowLeftArrow]    = useState(false);
   const [showRightArrow,   setShowRightArrow]   = useState(true);
   const [selectedCuisines, setSelectedCuisines] = useState([]);
   const [sortBy,           setSortBy]           = useState('relevance');
   const [userLocation,     setUserLocation]     = useState(null);
-  // currentAddress comes from App.jsx (persisted in localStorage) — do NOT use local state
-  // We keep a local copy only as fallback if prop is not passed
-  const [localAddress, setLocalAddress] = useState('');
+  const [localAddress,     setLocalAddress]     = useState('');
 
   // Filter state
   const [selectedOffers, setSelectedOffers] = useState({ freeDelivery: false, acceptsVouchers: false, deals: false });
@@ -44,10 +47,6 @@ const Homepage = ({
     setCartItems(cartItems.map(i => i.id === itemId ? { ...i, quantity: qty } : i));
   };
   const handleRemoveItem = id => setCartItems(cartItems.filter(i => i.id !== id));
-  const handleNavigateToRestaurant = id => {
-    const r = restaurants.find(r => r.id == id);
-    if (r && onRestaurantClick) { setShowCart(false); onRestaurantClick(r); }
-  };
 
   const scrollCuisines = dir => {
     const c = document.querySelector('.cuisines-grid');
@@ -129,7 +128,9 @@ const Homepage = ({
         onLoginClick={onLoginClick} onSignUpClick={onSignUpClick}
         onRestaurantSignUpClick={onRestaurantSignUpClick}
         onRiderSignUpClick={onRiderSignUpClick}
-        onCartClick={() => setShowCart(!showCart)} onLogout={onLogout}
+        // FIX: was () => setShowCart(!showCart) — now calls the global onCartClick from App.jsx
+        onCartClick={onCartClick}
+        onLogout={onLogout}
         onProfileClick={onProfileClick} onOrdersClick={onOrdersClick} onLogoClick={onLogoClick}
         onDeliveryClick={onDeliveryClick} onPickupClick={onPickupClick} onNearMeClick={onNearMeClick}
         onFavouritesClick={onFavouritesClick}
@@ -280,9 +281,11 @@ const Homepage = ({
         </div>
       </main>
 
-      <AllCarts isOpen={showCart} onClose={() => setShowCart(false)}
-        cartItems={cartItems} onCheckout={onCheckout}
-        onNavigateToRestaurant={handleNavigateToRestaurant} />
+      {/* FIX: AllCarts removed from here — it now lives globally in App.jsx.
+          Having it here AND in App.jsx caused two sidebars to exist, and
+          the one in App.jsx (used by OrderStatus) was never connected to
+          any open/close trigger because Homepage was intercepting onCartClick
+          with its own local state. */}
     </div>
   );
 };

@@ -177,9 +177,19 @@ const OrderRow = ({ order }) => {
 };
 
 // ─── MAIN ─────────────────────────────────────────────────────────────────────
-const OrderHistory = ({ user, restaurant, onLogout, onNavigateToMenu, onNavigateToOrders }) => {
-  const [dateFilter,   setDateFilter]   = useState('7days');
-  const [chartMetric,  setChartMetric]  = useState('orders');
+// FIX: Added onNavigateToProfile to the prop signature — it was missing,
+// so the "Restaurant Info" tab in BusinessHeader had no handler and did nothing.
+const OrderHistory = ({
+  user,
+  restaurant,
+  onLogout,
+  onNavigateToMenu,
+  onNavigateToOrders,
+  onNavigateToHistory,
+  onNavigateToProfile,  // FIX: was missing here
+}) => {
+  const [dateFilter,  setDateFilter]  = useState('7days');
+  const [chartMetric, setChartMetric] = useState('orders');
 
   const DATE_TABS = [
     { id: 'today',     label: 'Today'     },
@@ -218,12 +228,16 @@ const OrderHistory = ({ user, restaurant, onLogout, onNavigateToMenu, onNavigate
 
   return (
     <div className="order-history-page">
+      {/* FIX: onNavigateToProfile now passed through so "Restaurant Info" tab works */}
       <BusinessHeader
         activePage="history"
-        user={user} restaurant={restaurant} onLogout={onLogout}
+        user={user}
+        restaurant={restaurant}
+        onLogout={onLogout}
         onNavigateToMenu={onNavigateToMenu}
         onNavigateToOrders={onNavigateToOrders}
-        onNavigateToHistory={() => {}}
+        onNavigateToHistory={onNavigateToHistory}
+        onNavigateToProfile={onNavigateToProfile}
       />
 
       <div className="oh-page-body">
@@ -280,10 +294,10 @@ const OrderHistory = ({ user, restaurant, onLogout, onNavigateToMenu, onNavigate
               </div>
               <div className="oh-lm-grid">
                 {[
-                  { label: 'Avg. Prep Time',      val: '18 min',   },
-                  { label: 'Delivery Success',     val: '98.2%',    highlight: true },
-                  { label: 'Customer Rating',      val: '★ 4.8',   },
-                  { label: 'Peak Hours',           val: '12–2 PM', },
+                  { label: 'Avg. Prep Time',   val: '18 min'  },
+                  { label: 'Delivery Success', val: '98.2%',  highlight: true },
+                  { label: 'Customer Rating',  val: '★ 4.8'  },
+                  { label: 'Peak Hours',       val: '12–2 PM' },
                 ].map(m => (
                   <div key={m.label} className="oh-lm-item">
                     <span className="oh-lm-label">{m.label}</span>
