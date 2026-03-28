@@ -1,3 +1,4 @@
+import traceback
 from django.db import connection
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
@@ -122,31 +123,6 @@ class CustomerOrderListView(APIView):
     def post(self, request):
         """
         Place a new order.
-
-        Expected body:
-        {
-            "restaurant_id":   1,
-            "address_id":      3,
-            "delivery_charge": "15.00",
-            "service_charge":  "5.00",
-            "rider_tip":       "15.00",
-            "discount_num":    2,          ← optional; omit or set null to skip discount
-            "email":           "john@example.com",
-            "first_name":      "John",
-            "last_name":       "Doe",
-            "phone_number":    "01712345678",
-            "items": [
-                { "item_id": 5, "quantity": 2 },
-                { "item_id": 8, "quantity": 1 }
-            ]
-        }
-
-        Returns:
-        {
-            "message":         "Order placed successfully.",
-            "order_id":        <int>,
-            "discount_amount": <float>   ← actual discount deducted (0.0 if no discount)
-        }
         """
         customer_id = get_customer_id(request.user.id)
         if not customer_id:
@@ -156,13 +132,25 @@ class CustomerOrderListView(APIView):
             )
 
         try:
-            # create_order now returns a dict: { order_id, discount_amount }
-            print(request.data)
+            print("[create_order] incoming data:", request.data)
             result = create_order(request, customer_id)
+
         except ValidationError as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except NotFoundError as e:
             return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            # ── Print the FULL traceback to Django terminal so we can see exactly
+            #    what line is crashing, then return the message to the frontend too.
+            tb = traceback.format_exc()
+            print("=" * 60)
+            print("[create_order] UNEXPECTED ERROR:")
+            print(tb)
+            print("=" * 60)
+            return Response(
+                {"error": f"Internal server error: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
         return Response(
             {
@@ -172,8 +160,6 @@ class CustomerOrderListView(APIView):
             },
             status=status.HTTP_201_CREATED
         )
-    
-    
 
 
 # ─────────────────────────────────────────────

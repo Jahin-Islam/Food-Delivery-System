@@ -186,7 +186,7 @@ def create_order(request, customer_id):
     for item in db_items:
         if not item['is_available']:
             raise ValidationError(f"Item {item['food_id']} is currently unavailable.")
-        if item['restaurant_id'] != restaurant_id:
+        if int(item['restaurant_id']) != int(restaurant_id):
             raise ValidationError(f"Item {item['food_id']} does not belong to this restaurant.")
 
     # ── 5. Calculate items subtotal ──

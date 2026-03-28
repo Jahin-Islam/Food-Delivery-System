@@ -119,7 +119,7 @@ class RestaurantDetailedView(APIView):
             discount_find_query = """
                 SELECT *
                 FROM resturants_Discount
-                WHERE resturant_id = %s
+                WHERE resturant_id = %s AND is_active = 1
             """
             cursor.execute(discount_find_query, [pk])
             discounts = dictfetchall(cursor)
