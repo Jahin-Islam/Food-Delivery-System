@@ -104,6 +104,7 @@ class CustomerAddressDetailView(APIView):
 
 # ─────────────────────────────────────────────
 # GET  /api/customers/me/orders/
+# POST /api/customers/me/orders/
 # ─────────────────────────────────────────────
 class CustomerOrderListView(APIView):
     permission_classes = [IsAuthenticated]
@@ -124,19 +125,27 @@ class CustomerOrderListView(APIView):
 
         Expected body:
         {
-            "restaurant_id": 1,
-            "address_id": 3,
+            "restaurant_id":   1,
+            "address_id":      3,
             "delivery_charge": "15.00",
-            "service_charge": "5.00",
-            "rider_tip":"15.00",
-            "email": "john@example.com",
-            "first_name": "John",
-            "last_name": "Doe",
-            "phone_number": "01712345678",
+            "service_charge":  "5.00",
+            "rider_tip":       "15.00",
+            "discount_num":    2,          ← optional; omit or set null to skip discount
+            "email":           "john@example.com",
+            "first_name":      "John",
+            "last_name":       "Doe",
+            "phone_number":    "01712345678",
             "items": [
                 { "item_id": 5, "quantity": 2 },
                 { "item_id": 8, "quantity": 1 }
             ]
+        }
+
+        Returns:
+        {
+            "message":         "Order placed successfully.",
+            "order_id":        <int>,
+            "discount_amount": <float>   ← actual discount deducted (0.0 if no discount)
         }
         """
         customer_id = get_customer_id(request.user.id)
@@ -147,14 +156,20 @@ class CustomerOrderListView(APIView):
             )
 
         try:
-            order_id = create_order(request, customer_id)
+            # create_order now returns a dict: { order_id, discount_amount }
+            print(request.data)
+            result = create_order(request, customer_id)
         except ValidationError as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except NotFoundError as e:
             return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
 
         return Response(
-            {"message": "Order placed successfully.", "order_id": order_id},
+            {
+                "message":         "Order placed successfully.",
+                "order_id":        result['order_id'],
+                "discount_amount": result['discount_amount'],
+            },
             status=status.HTTP_201_CREATED
         )
     
@@ -169,7 +184,7 @@ class CustomerOrderDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, order_id):
-        ##Ownership Check#
+        ##Ownership Check##
         customer_id = get_customer_id(request.user.id)
 
         if not customer_id:
@@ -182,7 +197,7 @@ class CustomerOrderDetailView(APIView):
             
             row = dictfetchone(cursor)
             if not row:
-                return Response({"error" : "The order does not belog to you"}, status=status.HTTP_403_FORBIDDEN)
+                return Response({"error" : "The order does not belong to you"}, status=status.HTTP_403_FORBIDDEN)
         
         order = get_order_details(order_id)
         order['items'] = get_order_items(order_id)

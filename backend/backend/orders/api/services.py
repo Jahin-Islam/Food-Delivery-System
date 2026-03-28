@@ -6,6 +6,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from decimal import Decimal, InvalidOperation
 from exceptions import ValidationError, NotFoundError
+from cloudinary import CloudinaryImage
 
 RESTAURANT_VALID_TRANSITIONS = {
     'PENDING': ['PREPARING', 'CANCELLED'],
@@ -60,6 +61,7 @@ def get_order_details(order_id):
                 o.rider_tip,
                 o.delivery_charge,
                 o.service_charge,
+                o.discount_amount,
                 o.total_amount,
                 o.created_at,
                 o.est_pickup,
@@ -87,8 +89,6 @@ def get_order_details(order_id):
         order = dictfetchone(cursor)
         return order
 
-from cloudinary import CloudinaryImage
-
 def get_order_items(order_id):
     with connection.cursor() as cursor:
         cursor.execute("""
@@ -114,9 +114,6 @@ def get_order_items(order_id):
 
     return items
 
-# ─────────────────────────────────────────────
-# services.py  —  replace your create_order function with this
-# ─────────────────────────────────────────────
 
 def create_order(request, customer_id):
     """
@@ -124,8 +121,10 @@ def create_order(request, customer_id):
     Expects request.data to contain:
         restaurant_id, address_id, items, delivery_charge, service_charge,
         email, first_name, last_name, phone_number
+        [optional] discount_num  — discount number from resturants_discount table
+        [optional] rider_tip
     items: list of { item_id, quantity }
-    Returns: order_id on success.
+    Returns: { order_id, discount_amount } on success.
     Raises: ValidationError, NotFoundError
     """
     data = request.data
@@ -148,11 +147,11 @@ def create_order(request, customer_id):
         if item['quantity'] <= 0:
             raise ValidationError(f"Item at index {i} has an invalid quantity.")
 
-    # ── 2. Parse delivery_charge and service_charge sent from the frontend ──
+    # ── 2. Parse delivery_charge, service_charge, rider_tip ──
     try:
         delivery_charge = Decimal(str(data.get('delivery_charge', 0)))
         service_charge  = Decimal(str(data.get('service_charge', 0)))
-        rider_tip  = Decimal(str(data.get('rider_tip', 0)))
+        rider_tip       = Decimal(str(data.get('rider_tip', 0)))
         if delivery_charge < 0 or service_charge < 0:
             raise ValueError()
     except (InvalidOperation, ValueError):
@@ -190,14 +189,48 @@ def create_order(request, customer_id):
         if item['restaurant_id'] != restaurant_id:
             raise ValidationError(f"Item {item['food_id']} does not belong to this restaurant.")
 
-    # ── 5. Calculate total: item subtotal + delivery_charge + service_charge ──
+    # ── 5. Calculate items subtotal ──
     items_subtotal = sum(
         Decimal(str(db_items_map[item['item_id']]['price'])) * item['quantity']
         for item in items
     )
-    total_amount = items_subtotal + delivery_charge + service_charge + rider_tip
 
-    # ── 6. Build customer_info from request ──
+    # ── 6. Resolve discount (optional discount_num) ──
+    discount_amount = Decimal('0')
+    discount_num    = data.get('discount_num')
+
+    if discount_num is not None:
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT percentage, min_order, is_active
+                FROM resturants_discount
+                WHERE resturant_id = %s AND discount_num = %s
+            """, [restaurant_id, discount_num])
+            discount_row = dictfetchone(cursor)
+
+        if not discount_row:
+            raise NotFoundError(
+                f"Discount #{discount_num} not found for this restaurant."
+            )
+        if not discount_row['is_active']:
+            raise ValidationError(
+                f"Discount #{discount_num} is no longer active."
+            )
+
+        min_order = Decimal(str(discount_row['min_order'] or 0))
+        if items_subtotal < min_order:
+            raise ValidationError(
+                f"Your subtotal (৳{items_subtotal}) does not meet the minimum order "
+                f"(৳{min_order}) required for this discount."
+            )
+
+        percentage      = Decimal(str(discount_row['percentage']))
+        discount_amount = (items_subtotal * percentage / Decimal('100')).quantize(Decimal('0.01'))
+
+    # ── 7. Calculate final total ──
+    total_amount = items_subtotal - discount_amount + delivery_charge + service_charge + rider_tip
+
+    # ── 8. Build customer_info from request ──
     customer_info = {
         'email':        data.get('email'),
         'first_name':   data.get('first_name'),
@@ -205,14 +238,15 @@ def create_order(request, customer_id):
         'phone_number': data.get('phone_number'),
     }
 
-    # ── 7. Insert the order and order items inside a transaction ──
+    # ── 9. Insert the order and order items inside a transaction ──
     with connection.cursor() as cursor:
         cursor.execute("""
             INSERT INTO orders_order
                 (customer_id, restaurant_id, address_id, status, total_amount,
-                 delivery_charge, service_charge, email, first_name, last_name,
+                 delivery_charge, service_charge, discount_amount,
+                 email, first_name, last_name,
                  phone_number, created_at, rider_tip)
-            VALUES (%s, %s, %s, 'PENDING', %s, %s, %s, %s, %s, %s, %s, NOW(), %s)
+            VALUES (%s, %s, %s, 'PENDING', %s, %s, %s, %s, %s, %s, %s, %s, NOW(), %s)
         """, [
             customer_id,
             restaurant_id,
@@ -220,11 +254,12 @@ def create_order(request, customer_id):
             total_amount,
             delivery_charge,
             service_charge,
+            discount_amount,
             customer_info.get('email'),
             customer_info.get('first_name'),
             customer_info.get('last_name'),
             customer_info.get('phone_number'),
-            rider_tip
+            rider_tip,
         ])
         order_id = cursor.lastrowid
 
@@ -236,7 +271,10 @@ def create_order(request, customer_id):
                 VALUES (%s, %s, %s, %s)
             """, [order_id, item['item_id'], item['quantity'], price_at_purchase])
 
-    return order_id
+    return {
+        'order_id':        order_id,
+        'discount_amount': float(discount_amount),
+    }
 
 
 def get_restaurant_orders(restaurant_id, status_filter=None):

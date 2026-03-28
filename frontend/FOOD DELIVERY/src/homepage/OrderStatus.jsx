@@ -1,9 +1,13 @@
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle, Circle, ChevronLeft, Utensils, MapPin, Phone, Clock, ClipboardList, ChefHat, Bike, PackageCheck } from 'lucide-react';
+import { motion } from 'framer-motion';
+import {
+  CheckCircle, Utensils,
+  Clock, ClipboardList, ChefHat, Bike, PackageCheck, Loader2,
+} from 'lucide-react';
 import Header from './Header.jsx';
+import authService from '../Authservice.js';
 
-const LS_KEY = 'fp_current_orders'; // stores array of orders
+export const LS_KEY = 'fp_current_orders';
 
 // ─── Step definitions ────────────────────────────────────────────────────────
 const STEPS = [
@@ -34,25 +38,105 @@ const STEPS = [
 ];
 
 const STATUS_ORDER = ['PENDING', 'PREPARING', 'PICKED_UP', 'DELIVERED'];
+const getStepIndex = (status) => {
+  const idx = STATUS_ORDER.indexOf(status ?? 'PENDING');
+  return idx === -1 ? 0 : idx;
+};
 
-const getStepIndex = (status) => STATUS_ORDER.indexOf(status ?? 'PENDING');
+// ─── Fetch all orders from backend ────────────────────────────────────────────
+async function fetchOrdersFromBackend() {
+  try {
+    let token = authService.getAccessToken();
+    if (!token) return null;
+
+    const attempt = (t) =>
+      fetch('http://127.0.0.1:8000/api/customers/me/orders/', {
+        headers: { Authorization: `Bearer ${t}`, 'Content-Type': 'application/json' },
+      });
+
+    let res = await attempt(token);
+
+    if (res.status === 401) {
+      try {
+        token = await authService.refreshAccessToken();
+        res = await attempt(token);
+      } catch {
+        return null;
+      }
+    }
+
+    if (!res.ok) return null;
+
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return null;
+  }
+}
+
+// ─── Fetch full detail for a single order (includes items) ───────────────────
+async function fetchOrderDetail(orderId) {
+  try {
+    let token = authService.getAccessToken();
+    if (!token) return null;
+
+    const attempt = (t) =>
+      fetch(`http://127.0.0.1:8000/api/customers/me/orders/${orderId}/`, {
+        headers: { Authorization: `Bearer ${t}`, 'Content-Type': 'application/json' },
+      });
+
+    let res = await attempt(token);
+
+    if (res.status === 401) {
+      try {
+        token = await authService.refreshAccessToken();
+        res = await attempt(token);
+      } catch {
+        return null;
+      }
+    }
+
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+// ─── Map backend order → local display shape ──────────────────────────────────
+function mapBackendOrder(backendOrder, detailData) {
+  // Items come from the detail endpoint
+  const rawItems = detailData?.items ?? [];
+  const items = rawItems.map((oi) => ({
+    id:       oi.id,
+    name:     oi.item_name ?? oi.name ?? 'Item',
+    price:    parseFloat(oi.price_at_purchase ?? 0),
+    quantity: oi.quantity,
+    image:    oi.item_image ?? '',
+  }));
+
+  const subtotal = items.reduce((s, i) => s + i.price * i.quantity, 0);
+
+  return {
+    orderId:        backendOrder.order_id,
+    createdAt:      backendOrder.created_at,
+    status:         backendOrder.status ?? 'PENDING',
+    restaurant: {
+      name:      backendOrder.restaurant_name ?? detailData?.restaurant_name ?? '',
+      image_url: backendOrder.restaurant_image ?? '',
+    },
+    items,
+    subtotal:       parseFloat(detailData?.delivery_charge != null ? subtotal : (backendOrder.total_amount ?? subtotal)),
+    deliveryFee:    parseFloat(detailData?.delivery_charge ?? 0),
+    discountAmount: parseFloat(detailData?.discount_amount ?? 0),
+    tip:            parseFloat(detailData?.rider_tip ?? 0),
+    total:          parseFloat(backendOrder.total_amount ?? 0),
+  };
+}
 
 // ─── Single order card ────────────────────────────────────────────────────────
 const OrderCard = ({ order }) => {
-  const [status, setStatus] = useState(order.status || 'PENDING');
-  const stepIdx = getStepIndex(status);
-
-  // Persist status changes
-  const advanceStatus = () => {
-    const next = STATUS_ORDER[Math.min(stepIdx + 1, STATUS_ORDER.length - 1)];
-    if (next === status) return;
-    setStatus(next);
-    try {
-      const orders = JSON.parse(localStorage.getItem(LS_KEY) || '[]');
-      const updated = orders.map(o => o.orderId === order.orderId ? { ...o, status: next } : o);
-      localStorage.setItem(LS_KEY, JSON.stringify(updated));
-    } catch {}
-  };
+  const stepIdx = getStepIndex(order.status);
 
   return (
     <motion.div
@@ -68,29 +152,14 @@ const OrderCard = ({ order }) => {
         border: '1.5px solid var(--c-gray-100)',
       }}
     >
-      {/* Order ID */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
-        <div>
-          <h2 style={{ fontSize: 18, fontWeight: 800, color: 'var(--c-gray-900)', margin: '0 0 4px' }}>
-            Order ID: <span style={{ color: 'var(--c-primary)' }}>#{order.orderId}</span>
-          </h2>
-          <p style={{ fontSize: 13, color: 'var(--c-gray-400)', margin: 0 }}>
-            {order.createdAt ? new Date(order.createdAt).toLocaleString() : ''}
-          </p>
-        </div>
-        {/* Simulate advance button — remove in production */}
-        {status !== 'DELIVERED' && (
-          <button
-            onClick={advanceStatus}
-            style={{
-              fontSize: 11, background: 'var(--c-primary-light)', color: 'var(--c-primary)',
-              border: '1.5px solid var(--c-primary)', borderRadius: 8, padding: '5px 10px',
-              cursor: 'pointer', fontWeight: 700, fontFamily: 'var(--font)',
-            }}
-          >
-            Simulate next step →
-          </button>
-        )}
+      {/* Order ID + timestamp */}
+      <div style={{ marginBottom: 20 }}>
+        <h2 style={{ fontSize: 18, fontWeight: 800, color: 'var(--c-gray-900)', margin: '0 0 4px' }}>
+          Order ID: <span style={{ color: 'var(--c-primary)' }}>#{order.orderId}</span>
+        </h2>
+        <p style={{ fontSize: 13, color: 'var(--c-gray-400)', margin: 0 }}>
+          {order.createdAt ? new Date(order.createdAt).toLocaleString() : ''}
+        </p>
       </div>
 
       {/* ── Progress Steps ── */}
@@ -100,10 +169,9 @@ const OrderCard = ({ order }) => {
           {STEPS.map((step, i) => {
             const done    = i < stepIdx;
             const active  = i === stepIdx;
-            const pending = i > stepIdx;
             return (
               <div key={step.key} style={{ flex: 1, position: 'relative' }}>
-                {/* Connector line */}
+                {/* Connector line left half */}
                 {i > 0 && (
                   <div style={{
                     position: 'absolute', top: 20, left: 0, width: '50%', height: 3,
@@ -111,6 +179,7 @@ const OrderCard = ({ order }) => {
                     zIndex: 0,
                   }} />
                 )}
+                {/* Connector line right half */}
                 {i < STEPS.length - 1 && (
                   <div style={{
                     position: 'absolute', top: 20, right: 0, width: '50%', height: 3,
@@ -123,13 +192,12 @@ const OrderCard = ({ order }) => {
                   display: 'flex', flexDirection: 'column', alignItems: 'center',
                   padding: '0 4px', position: 'relative', zIndex: 1,
                 }}>
-                  {/* Circle */}
                   <motion.div
                     animate={{ scale: active ? [1, 1.12, 1] : 1 }}
                     transition={{ duration: 0.4, repeat: active ? Infinity : 0, repeatDelay: 1.5 }}
                     style={{
                       width: 42, height: 42, borderRadius: '50%',
-                      background: done ? 'var(--c-primary)' : active ? 'var(--c-primary)' : 'var(--c-gray-100)',
+                      background: done || active ? 'var(--c-primary)' : 'var(--c-gray-100)',
                       border: `3px solid ${done || active ? 'var(--c-primary)' : 'var(--c-gray-200)'}`,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       fontSize: 18, flexShrink: 0,
@@ -145,7 +213,6 @@ const OrderCard = ({ order }) => {
                     )}
                   </motion.div>
 
-                  {/* Label */}
                   <p style={{
                     fontSize: 11, fontWeight: active || done ? 700 : 500, marginTop: 8,
                     color: active || done ? 'var(--c-gray-900)' : 'var(--c-gray-400)',
@@ -171,7 +238,7 @@ const OrderCard = ({ order }) => {
       </div>
 
       {/* ── Restaurant info ── */}
-      {order.restaurant && (
+      {order.restaurant?.name && (
         <div style={{
           display: 'flex', alignItems: 'center', gap: 12,
           padding: '14px 0', borderTop: '1.5px solid var(--c-gray-100)', marginBottom: 14,
@@ -181,31 +248,39 @@ const OrderCard = ({ order }) => {
             background: 'var(--c-gray-100)', display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
             {order.restaurant.image_url ? (
-              <img src={order.restaurant.image_url} alt={order.restaurant.name}
+              <img
+                src={order.restaurant.image_url}
+                alt={order.restaurant.name}
                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                onError={e => { e.target.style.display = 'none'; }} />
+                onError={e => { e.target.style.display = 'none'; }}
+              />
             ) : (
-              <Utensils size={22} color="var(--c-primary)" />
+              <Utensils size={22} color="var(--c-gray-400)" />
             )}
           </div>
           <div>
-            <p style={{ margin: 0, fontWeight: 700, fontSize: 14, color: 'var(--c-gray-900)' }}>{order.restaurant.name}</p>
-            <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--c-gray-400)' }}>Your order from</p>
+            <p style={{ margin: 0, fontWeight: 700, fontSize: 15, color: 'var(--c-gray-900)' }}>
+              {order.restaurant.name}
+            </p>
+            <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--c-gray-400)' }}>Restaurant</p>
           </div>
         </div>
       )}
 
-      {/* ── Order Items ── */}
+      {/* ── Items list ── */}
       {order.items && order.items.length > 0 && (
-        <div style={{ borderTop: '1.5px solid var(--c-gray-100)', paddingTop: 14, marginBottom: 14 }}>
-          <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--c-gray-700)', marginBottom: 12 }}>Order Items</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div style={{ marginBottom: 16 }}>
+          <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--c-gray-700)', marginBottom: 10 }}>Items</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {order.items.map((item, idx) => (
-              <div key={idx} style={{
-                display: 'flex', alignItems: 'center', gap: 12,
-                padding: 12, background: 'var(--c-gray-50)', borderRadius: 10,
-                border: '1.5px solid var(--c-gray-100)',
-              }}>
+              <div
+                key={item.id ?? idx}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 12,
+                  padding: 12, background: 'var(--c-gray-50)', borderRadius: 10,
+                  border: '1.5px solid var(--c-gray-100)',
+                }}
+              >
                 <div style={{
                   width: 44, height: 44, borderRadius: 8, overflow: 'hidden', flexShrink: 0,
                   background: 'var(--c-primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -222,7 +297,7 @@ const OrderCard = ({ order }) => {
                   <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--c-gray-400)' }}>Qty: {item.quantity}</p>
                 </div>
                 <p style={{ margin: 0, fontWeight: 700, fontSize: 14, color: 'var(--c-gray-800)' }}>
-                  ৳{item.price * item.quantity}
+                  ৳{(item.price * item.quantity).toFixed(2)}
                 </p>
               </div>
             ))}
@@ -235,10 +310,10 @@ const OrderCard = ({ order }) => {
         <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--c-gray-700)', marginBottom: 10 }}>Order Summary</h3>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {[
-            { label: `Sub Total (${order.items?.length ?? 0} items)`, value: `৳${order.subtotal ?? 0}` },
-            { label: 'Delivery', value: order.deliveryFee === 0 ? 'Free' : `৳${order.deliveryFee ?? 0}` },
-            ...(order.discountAmount > 0 ? [{ label: 'Discount', value: `-৳${order.discountAmount}`, green: true }] : []),
-            ...(order.tip > 0 ? [{ label: "Rider's Tip", value: `৳${order.tip}` }] : []),
+            { label: `Sub Total (${order.items?.length ?? 0} items)`, value: `৳${order.subtotal?.toFixed(2) ?? '0.00'}` },
+            { label: 'Delivery', value: order.deliveryFee === 0 ? 'Free' : `৳${order.deliveryFee?.toFixed(2) ?? '0.00'}` },
+            ...(order.discountAmount > 0 ? [{ label: 'Discount', value: `-৳${order.discountAmount?.toFixed(2)}`, green: true }] : []),
+            ...(order.tip > 0 ? [{ label: "Rider's Tip", value: `৳${order.tip?.toFixed(2)}` }] : []),
           ].map(({ label, value, green }) => (
             <div key={label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
               <span style={{ color: 'var(--c-gray-500)' }}>{label}</span>
@@ -250,7 +325,7 @@ const OrderCard = ({ order }) => {
             marginTop: 8, paddingTop: 10, borderTop: '2px solid var(--c-gray-100)',
           }}>
             <span style={{ color: 'var(--c-gray-900)' }}>Total Amount</span>
-            <span style={{ color: 'var(--c-primary)' }}>৳{order.total ?? 0}</span>
+            <span style={{ color: 'var(--c-primary)' }}>৳{order.total?.toFixed(2) ?? '0.00'}</span>
           </div>
         </div>
       </div>
@@ -268,15 +343,55 @@ const OrderStatus = ({
   currentAddress, onAddressChange,
   onCartClick,
 }) => {
-  const [orders, setOrders] = useState([]);
+  const [orders,  setOrders]  = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error,   setError]   = useState(null);
 
   useEffect(() => {
-    try {
-      const stored = JSON.parse(localStorage.getItem(LS_KEY) || '[]');
-      // Most recent first
-      setOrders(stored.slice().reverse());
-    } catch { setOrders([]); }
-  }, []);
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+
+      if (!isLoggedIn) {
+        // Not logged in — nothing to show
+        setOrders([]);
+        setLoading(false);
+        return;
+      }
+
+      try {
+        // 1. Fetch the summary list of all customer orders
+        const summaryList = await fetchOrdersFromBackend();
+
+        if (!summaryList || summaryList.length === 0) {
+          setOrders([]);
+          setLoading(false);
+          return;
+        }
+
+        // 2. Fetch full detail for each order (to get items + charges)
+        //    Run in parallel for speed
+        const detailResults = await Promise.all(
+          summaryList.map((o) => fetchOrderDetail(o.order_id))
+        );
+
+        // 3. Map to display shape
+        const mapped = summaryList.map((summary, i) =>
+          mapBackendOrder(summary, detailResults[i])
+        );
+
+        setOrders(mapped);
+      } catch (e) {
+        console.error('Failed to load orders:', e);
+        setError('Could not load your orders. Please try again.');
+        setOrders([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    load();
+  }, [isLoggedIn]);
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--c-gray-50)' }}>
@@ -305,7 +420,42 @@ const OrderStatus = ({
           <p style={{ fontSize: 14, color: 'var(--c-gray-400)', margin: 0 }}>Track the status of your recent orders</p>
         </motion.div>
 
-        {orders.length === 0 ? (
+        {loading ? (
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center',
+                        padding: '60px 0', gap: 12, color: 'var(--c-gray-400)' }}>
+            <Loader2 size={28} style={{ animation: 'spin 1s linear infinite' }} />
+            <span style={{ fontSize: 15 }}>Loading your orders…</span>
+          </div>
+
+        ) : error ? (
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            style={{
+              background: 'var(--c-white)', borderRadius: 16, padding: '40px 20px',
+              textAlign: 'center', border: '1.5px solid #fca5a5',
+            }}
+          >
+            <p style={{ fontSize: 15, color: '#ef4444', fontWeight: 600, margin: 0 }}>{error}</p>
+          </motion.div>
+
+        ) : !isLoggedIn ? (
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            style={{
+              background: 'var(--c-white)', borderRadius: 16, padding: '60px 20px',
+              textAlign: 'center', border: '1.5px solid var(--c-gray-100)',
+            }}
+          >
+            <ClipboardList size={56} color="var(--c-gray-300)" strokeWidth={1.5} style={{ marginBottom: 12 }} />
+            <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--c-gray-700)', margin: '0 0 8px' }}>Please log in</h2>
+            <p style={{ fontSize: 14, color: 'var(--c-gray-400)', margin: 0 }}>
+              Log in to see your order history.
+            </p>
+          </motion.div>
+
+        ) : orders.length === 0 ? (
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
@@ -318,8 +468,11 @@ const OrderStatus = ({
               <ClipboardList size={56} color="var(--c-gray-300)" strokeWidth={1.5} />
             </div>
             <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--c-gray-700)', margin: '0 0 8px' }}>No orders yet</h2>
-            <p style={{ fontSize: 14, color: 'var(--c-gray-400)', margin: 0 }}>Your order history will appear here after you place an order.</p>
+            <p style={{ fontSize: 14, color: 'var(--c-gray-400)', margin: 0 }}>
+              Your order history will appear here after you place an order.
+            </p>
           </motion.div>
+
         ) : (
           orders.map(order => <OrderCard key={order.orderId} order={order} />)
         )}
@@ -328,5 +481,4 @@ const OrderStatus = ({
   );
 };
 
-export { LS_KEY };
 export default OrderStatus;

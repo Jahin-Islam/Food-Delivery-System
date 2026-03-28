@@ -1,17 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import './Checkout.css';
 import Header from './Header.jsx';
-import AllCarts from './Allcarts.jsx';          // ← exact filename on disk
+import AllCarts from './Allcarts.jsx';
 import DeliveryMapPicker from './DeliveryMapPicker.jsx';
-import cartApiService from '../Cartapiservice.js'; // ← has _rawFetch with auth built-in
+import cartApiService from '../Cartapiservice.js';
 import {
   MapPin, Home, Briefcase, Heart, Plus,
   Pencil, Trash2, X, Check, Loader2,
 } from 'lucide-react';
 
-/* ─────────────────────────────────────────────────────────────
-   CONSTANTS
-───────────────────────────────────────────────────────────── */
 const API_BASE = 'http://127.0.0.1:8000/api';
 
 const LABEL_META = {
@@ -28,7 +25,6 @@ const LABEL_CARD_ICON = {
   other:   <MapPin    size={16} />,
 };
 
-// Backend stores address_type as uppercase (HOME / WORK / PARTNER / OTHER)
 const toBackendType  = (label) => (label ?? 'home').toUpperCase();
 const toFrontendType = (type)  => (type  ?? 'HOME').toLowerCase();
 
@@ -37,14 +33,7 @@ const emptyForm = () => ({
   label: 'home', lat: null, lng: null,
 });
 
-/* ─────────────────────────────────────────────────────────────
-   ADDRESS API HELPERS
-   All HTTP calls go through cartApiService._rawFetch which
-   already handles Bearer-token injection and 401→refresh→retry,
-   so Checkout.jsx never needs to import authService directly.
-   _rawFetch treats any "http…" string as an absolute URL and
-   skips its own cart-specific base-URL prefix.
-───────────────────────────────────────────────────────────── */
+/* ─── API helpers ─────────────────────────────────────────── */
 function apiFetch(path, options = {}) {
   return cartApiService._rawFetch(`${API_BASE}${path}`, options);
 }
@@ -52,6 +41,14 @@ function apiFetch(path, options = {}) {
 async function fetchAddresses() {
   const res = await apiFetch('/customers/me/addresses/');
   if (!res.ok) throw new Error('Failed to load addresses.');
+  return res.json();
+}
+
+// Fetch full restaurant detail including the discounts array.
+// This is a public endpoint — no auth needed.
+async function fetchRestaurantDetail(restaurantId) {
+  const res = await fetch(`http://127.0.0.1:8000/api/v1/restaurants/${restaurantId}/`);
+  if (!res.ok) throw new Error(`Failed to load restaurant detail (${res.status})`);
   return res.json();
 }
 
@@ -71,7 +68,7 @@ async function createAddress(form) {
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error || 'Failed to save address.');
   }
-  return res.json(); // { message, address_id }
+  return res.json();
 }
 
 async function updateAddress(id, form) {
@@ -90,7 +87,7 @@ async function updateAddress(id, form) {
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error || 'Failed to update address.');
   }
-  return res.json(); // { message, address }
+  return res.json();
 }
 
 async function deleteAddress(id) {
@@ -101,13 +98,7 @@ async function deleteAddress(id) {
   }
 }
 
-/* ─────────────────────────────────────────────────────────────
-   NORMALISE  backend shape → frontend shape
-   Backend:  { id, address_type, street_number,
-               apartment_number, description, latitude, longitude }
-   Frontend: { id, label, streetNumber, apartment, note,
-               address (map text), lat, lng }
-───────────────────────────────────────────────────────────── */
+/* ─── Normalise backend address → frontend shape ─────────── */
 function normalize(a) {
   return {
     id:           a.id,
@@ -115,7 +106,7 @@ function normalize(a) {
     streetNumber: a.street_number    ?? '',
     apartment:    a.apartment_number ?? '',
     note:         a.description      ?? '',
-    address:      '',   // reverse-geocoded text; not persisted by backend
+    address:      '',
     lat:          a.latitude  != null ? parseFloat(a.latitude)  : null,
     lng:          a.longitude != null ? parseFloat(a.longitude) : null,
   };
@@ -231,10 +222,10 @@ const Checkout = ({
   onProfileClick,
   onOrdersClick,
   onLogoClick,
-  onDeliveryClick,   // passed from App via {...H}
-  onPickupClick,     // passed from App via {...H}
-  onNearMeClick,     // passed from App via {...H}
-  onFavouritesClick, // passed from App via {...H}
+  onDeliveryClick,
+  onPickupClick,
+  onNearMeClick,
+  onFavouritesClick,
   currentAddress,
   onAddressChange,
 }) => {
@@ -259,6 +250,43 @@ const Checkout = ({
   const [contactless,    setContactless]    = useState(false);
   const [deliveryOption, setDeliveryOption] = useState('standard');
   const [showCart,       setShowCart]       = useState(false);
+  const [placing,        setPlacing]        = useState(false);
+  const [placeError,     setPlaceError]     = useState('');
+
+  // ─────────────────────────────────────────────────────────
+  // FIX 1: Always fetch a fresh copy of the restaurant's
+  // discounts from the backend when the checkout page loads.
+  //
+  // WHY THIS IS NEEDED:
+  // The `restaurant` prop arrives from App.jsx's selectedRestaurant
+  // state. In two cases it may be missing the discounts array:
+  //   a) After page refresh, App.jsx builds a fallback object
+  //      { id, name, image_url } with NO discounts key at all.
+  //   b) The restaurant list endpoint returns a flat object with
+  //      only the best discount, not the full discounts array.
+  //
+  // Fetching from /api/v1/restaurants/<id>/ always returns the
+  // complete discounts array including discount_num for each row.
+  // ─────────────────────────────────────────────────────────
+  const [freshDiscounts, setFreshDiscounts] = useState(
+    Array.isArray(restaurant?.discounts) ? restaurant.discounts : []
+  );
+
+  useEffect(() => {
+    if (!restaurant?.id) return;
+
+    fetchRestaurantDetail(restaurant.id)
+      .then(detail => {
+        const discounts = Array.isArray(detail.discounts) ? detail.discounts : [];
+        console.log('[Checkout] Fetched fresh discounts:', discounts);
+        setFreshDiscounts(discounts);
+      })
+      .catch(err => {
+        console.warn('[Checkout] Could not fetch restaurant discounts:', err.message);
+        // Fall back to whatever came in via the prop
+        setFreshDiscounts(Array.isArray(restaurant?.discounts) ? restaurant.discounts : []);
+      });
+  }, [restaurant?.id]);
 
   /* ── Fetch addresses on mount ───────────────────────────── */
   useEffect(() => {
@@ -276,17 +304,41 @@ const Checkout = ({
   }, [isLoggedIn]);
 
   /* ── Financials ─────────────────────────────────────────── */
-  const subtotal = cartItems.reduce((sum, i) => sum + i.price * i.quantity, 0);
+  const subtotal    = cartItems.reduce((sum, i) => sum + i.price * i.quantity, 0);
   const deliveryFee = deliveryOption === 'priority' ? 33 : 0;
   const serviceFee  = 14;
-  const discounts   = restaurant?.discounts ?? [];
-  const applicableDiscount = discounts
-    .filter(d => d.is_active !== false && subtotal >= (parseFloat(d.min_order) || 0))
+
+  // ─────────────────────────────────────────────────────────
+  // FIX 2: Use freshDiscounts (not restaurant.discounts).
+  //
+  // FIX 3: Filter by is_active === true (strict equality).
+  // The DB column is BooleanField(null=True) so values can be
+  // true / false / null. The old check `d.is_active !== false`
+  // was letting null through — null passes on the frontend but
+  // the backend rejects it with "discount is no longer active".
+  // Strict === true means only genuinely active discounts qualify.
+  // ─────────────────────────────────────────────────────────
+  const applicableDiscount = freshDiscounts
+    .filter(d => d.is_active === true && subtotal >= (parseFloat(d.min_order) || 0))
     .sort((a, b) => parseFloat(b.percentage) - parseFloat(a.percentage))[0] ?? null;
+
   const discountAmount = applicableDiscount
-    ? Math.round(subtotal * parseFloat(applicableDiscount.percentage) / 100) : 0;
+    ? Math.round(subtotal * parseFloat(applicableDiscount.percentage) / 100)
+    : 0;
+
   const total   = subtotal - discountAmount + deliveryFee + serviceFee + tipAmount;
   const savings = discountAmount;
+
+  /* ── Debug log: fires whenever discount state changes ───── */
+  useEffect(() => {
+    console.log('[Checkout] Discount state —', {
+      subtotal,
+      freshDiscountsCount: freshDiscounts.length,
+      freshDiscounts,
+      applicableDiscount,
+      discountAmount,
+    });
+  }, [subtotal, freshDiscounts]);
 
   /* ── Address helpers ────────────────────────────────────── */
   const takenLabels    = addresses.map(a => a.label);
@@ -296,7 +348,7 @@ const Checkout = ({
   const openEditModal = (addr) => { setEditingAddr(addr); setShowModal(true); setActionError(''); };
   const closeModal    = ()     => { setShowModal(false);  setEditingAddr(null); };
 
-  /* ── Save (create or update) ────────────────────────────── */
+  /* ── Save address ───────────────────────────────────────── */
   const handleSaveAddr = async (form) => {
     setSaving(true);
     setActionError('');
@@ -319,7 +371,7 @@ const Checkout = ({
     }
   };
 
-  /* ── Delete ─────────────────────────────────────────────── */
+  /* ── Delete address ─────────────────────────────────────── */
   const handleDeleteAddr = async (id) => {
     setActionError('');
     try {
@@ -335,23 +387,107 @@ const Checkout = ({
     }
   };
 
-  /* ── Place order ────────────────────────────────────────── */
+  /* ── Place order ─────────────────────────────────────────── */
   const selectedAddr = addresses.find(a => a.id === selectedAddrId) ?? null;
 
-  const handlePlaceOrder = () => {
-    const orderData = {
-      restaurant,
-      items: cartItems,
-      deliveryAddress: selectedAddr,
-      deliveryOption,
-      contactlessDelivery: contactless,
-      personalDetails: { firstName, lastName, email, mobile },
-      tip: tipAmount,
-      subtotal, discountAmount, applicableDiscount,
-      deliveryFee, serviceFee, total,
-    };
-    if (onPlaceOrder) onPlaceOrder(orderData);
-    else alert('Order placed successfully!');
+  const handlePlaceOrder = async () => {
+    if (!isLoggedIn) {
+      setPlaceError('Please log in to place an order.');
+      return;
+    }
+    if (!selectedAddrId) {
+      setPlaceError('Please select a delivery address before placing your order.');
+      return;
+    }
+    if (!restaurant?.id) {
+      setPlaceError('Restaurant information is missing. Please go back and try again.');
+      return;
+    }
+    if (!cartItems.length) {
+      setPlaceError('Your cart is empty.');
+      return;
+    }
+
+    setPlacing(true);
+    setPlaceError('');
+
+    try {
+      const body = {
+        restaurant_id:   restaurant.id,
+        address_id:      selectedAddrId,
+        delivery_charge: deliveryFee,
+        service_charge:  serviceFee,
+        rider_tip:       tipAmount,
+        email:           email,
+        first_name:      firstName,
+        last_name:       lastName,
+        phone_number:    mobile,
+        items: cartItems.map(item => ({
+          item_id:  item.food_id ?? item.foodId,
+          quantity: item.quantity,
+        })),
+      };
+
+      // ─────────────────────────────────────────────────────
+      // FIX 4: Add discount_num to the body.
+      //
+      // applicableDiscount is sourced from freshDiscounts which
+      // was fetched directly from /api/v1/restaurants/<id>/ so
+      // it always carries the real discount_num from the DB.
+      //
+      // We only include the field when discount_num is a non-null
+      // integer — if it's null (manually inserted DB row) we skip
+      // it so the backend doesn't error trying to look up null.
+      // ─────────────────────────────────────────────────────
+      if (applicableDiscount != null && applicableDiscount.discount_num != null) {
+        body.discount_num = applicableDiscount.discount_num;
+      }
+
+      // ── Debug: show exactly what is being POSTed ──────────
+      console.log('[Checkout] POST body to /customers/me/orders/:', JSON.stringify(body, null, 2));
+      console.log('[Checkout] applicableDiscount:', applicableDiscount);
+      console.log('[Checkout] discount_num sent:', body.discount_num ?? 'NOT INCLUDED (no qualifying discount)');
+
+      const res = await apiFetch('/customers/me/orders/', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      });
+
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error(errBody.error || `Order failed (${res.status})`);
+      }
+
+      const responseData     = await res.json();
+      console.log('[Checkout] Backend order response:', responseData);
+
+      const order_id          = responseData.order_id;
+      const confirmedDiscount = responseData.discount_amount ?? discountAmount;
+      const confirmedTotal    = subtotal - confirmedDiscount + deliveryFee + serviceFee + tipAmount;
+
+      const orderData = {
+        orderId:        order_id,
+        restaurant,
+        items: cartItems.map(item => ({
+          name:     item.name,
+          quantity: item.quantity,
+          price:    item.price,
+          image:    item.image ?? '',
+        })),
+        subtotal,
+        deliveryFee,
+        discountAmount: confirmedDiscount,
+        tip:   tipAmount,
+        total: confirmedTotal,
+      };
+
+      if (onPlaceOrder) onPlaceOrder(orderData);
+
+    } catch (err) {
+      setPlaceError(err.message || 'Something went wrong. Please try again.');
+    } finally {
+      setPlacing(false);
+    }
   };
 
   const handleCheckoutFromCart = (restaurantId) => {
@@ -395,7 +531,6 @@ const Checkout = ({
           <section className="checkout-section">
             <h2 className="section-title-checkout">Delivery address</h2>
 
-            {/* Error banner */}
             {(addrError || actionError) && (
               <div style={{
                 background: '#fef2f2', border: '1px solid #fca5a5', color: '#dc2626',
@@ -574,17 +709,42 @@ const Checkout = ({
             </div>
           </section>
 
-          <button className="place-order-btn" onClick={handlePlaceOrder}>Place order</button>
+          {/* ── PLACE ORDER ERROR BANNER ─────────────────── */}
+          {placeError && (
+            <div style={{
+              background: '#fef2f2', border: '1px solid #fca5a5', color: '#dc2626',
+              borderRadius: 8, padding: '10px 14px', marginBottom: 12, fontSize: 13,
+            }}>
+              {placeError}
+            </div>
+          )}
+
+          {/* ── PLACE ORDER BUTTON ───────────────────────── */}
+          <button
+            className="place-order-btn"
+            onClick={handlePlaceOrder}
+            disabled={placing}
+            style={placing ? { opacity: 0.7, cursor: 'not-allowed' } : {}}
+          >
+            {placing
+              ? <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                  <Loader2 size={16} className="spin" /> Placing order…
+                </span>
+              : 'Place order'
+            }
+          </button>
+
           <p className="terms-text">
             By making this purchase you agree to our <a href="#">terms and conditions</a>.
           </p>
           <p className="terms-text">
             I agree that placing the order places the order under an obligation to make
-            a payment in accordance with the <a href="#">General Terms and Conditions</a>.
+            a payment in accordance with the{' '}
+            <a href="#">General Terms and Conditions</a>.
           </p>
         </div>
 
-        {/* ── ORDER SUMMARY SIDEBAR ─────────────────────── */}
+        {/* ── ORDER SUMMARY SIDEBAR ─────────────────────────── */}
         <aside className="order-summary-sidebar">
           <h3 className="summary-title">Your order from</h3>
           <p className="restaurant-name-summary">{restaurant?.name || 'Restaurant'}</p>
@@ -607,7 +767,7 @@ const Checkout = ({
 
           <div className="summary-totals">
             <div className="summary-row"><span>Subtotal</span><span>৳{subtotal}</span></div>
-            {discountAmount > 0 && (
+            {discountAmount > 0 && applicableDiscount && (
               <div className="summary-row" style={{ color: '#10b981', fontWeight: 700 }}>
                 <span>Discount ({applicableDiscount.percentage}% off)</span>
                 <span>-৳{discountAmount}</span>

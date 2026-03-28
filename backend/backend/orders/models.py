@@ -24,6 +24,7 @@ class Order(models.Model):
     order_id = models.AutoField(primary_key=True)
     status = models.CharField(max_length=20, choices=OrderStatus.choices, default=OrderStatus.PENDING)
     total_amount = models.DecimalField(max_digits=10, decimal_places=2)
+    discount_amount = models.DecimalField(max_digits=5, decimal_places=2, null=True)
     delivery_charge = models.DecimalField(max_digits=6, decimal_places=2, null=True)
     service_charge = models.DecimalField(max_digits=4, decimal_places=2, null=True)
     rider_tip = models.DecimalField(max_digits=4, decimal_places=2, null=True)

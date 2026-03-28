@@ -23,14 +23,15 @@ import cartApiService from './Cartapiservice.js';
 import OrderStatus, { LS_KEY as ORDER_LS_KEY } from './homepage/OrderStatus.jsx';
 import FavouritesSidebar from './homepage/FavouritesSideBar.jsx';
 
-const SK_PAGE        = 'fp_current_page';
-const SK_ROLE        = 'fp_user_role';
-const SK_RESTAURANT  = 'fp_restaurant';
-const SK_RIDER       = 'fp_rider';
-const SK_ADDRESS     = 'fp_delivery_address';
-const SK_ADDRESS_LAT = 'fp_delivery_lat';
-const SK_ADDRESS_LNG = 'fp_delivery_lng';
-const SK_ACTIVE_TAB  = 'fp_active_tab';
+const SK_PAGE           = 'fp_current_page';
+const SK_ROLE           = 'fp_user_role';
+const SK_RESTAURANT     = 'fp_restaurant';
+const SK_RIDER          = 'fp_rider';
+const SK_ADDRESS        = 'fp_delivery_address';
+const SK_ADDRESS_LAT    = 'fp_delivery_lat';
+const SK_ADDRESS_LNG    = 'fp_delivery_lng';
+const SK_ACTIVE_TAB     = 'fp_active_tab';
+const SK_CHECKOUT_RID   = 'fp_checkout_restaurant_id';
 
 const BUSINESS_PAGES  = new Set(['business-welcome', 'business-dashboard', 'orders', 'order-history', 'business-profile']);
 const RIDER_PAGES     = new Set(['rider-dashboard']);
@@ -49,10 +50,8 @@ function App() {
   const [isInitializing,       setIsInitializing]       = useState(true);
   const [riderData,            setRiderData]            = useState(null);
   const [restaurants,          setRestaurants]          = useState([]);
-  // FIX #8: showFavourites lifted to App so Profile and other pages can open it
   const [showFavourites,       setShowFavourites]       = useState(false);
   const [riderSignupData,      setRiderSignupData]      = useState(null);
-  // FIX #6: activeTab managed in state (not just localStorage) so it persists across navigation
   const [activeTab,            setActiveTab]            = useState(() => {
     try { return localStorage.getItem(SK_ACTIVE_TAB) || 'delivery'; } catch { return 'delivery'; }
   });
@@ -83,7 +82,6 @@ function App() {
     const onPop = (e) => {
       const dest = e.state?.page ?? 'home';
 
-      // Restaurant owner: never allow back-navigation outside business pages
       if (BUSINESS_PAGES.has(currentPage) && !BUSINESS_PAGES.has(dest)) {
         window.history.pushState(
           { page: 'business-welcome' }, '', '#business-welcome'
@@ -92,7 +90,6 @@ function App() {
         return;
       }
 
-      // Rider: never allow back-navigation outside rider pages
       if (RIDER_PAGES.has(currentPage) && !RIDER_PAGES.has(dest)) {
         window.history.pushState(
           { page: 'rider-dashboard' }, '', '#rider-dashboard'
@@ -146,6 +143,19 @@ function App() {
             }
             if (RIDER_PAGES.has(savedPage)) {
               try { const rd = JSON.parse(localStorage.getItem(SK_RIDER) || 'null'); if (rd) setRiderData(rd); } catch {}
+            }
+            if (savedPage === 'checkout') {
+              const savedRid = localStorage.getItem(SK_CHECKOUT_RID);
+              const rid = savedRid ? parseInt(savedRid, 10) : null;
+              if (rid) {
+                setCheckoutRestaurantId(rid);
+                const savedRestaurant = (() => { try { return JSON.parse(localStorage.getItem(SK_RESTAURANT) || 'null'); } catch { return null; } })();
+                if (savedRestaurant) setSelectedRestaurant(savedRestaurant);
+              } else {
+                localStorage.setItem(SK_PAGE, 'home');
+                setCurrentPage('home');
+                window.history.replaceState({ page: 'home' }, '', '#home');
+              }
             }
 
             if (isVendor && !BUSINESS_PAGES.has(savedPage)) {
@@ -283,6 +293,7 @@ function App() {
   const goHome = useCallback(() => {
     setSelectedRestaurant(null); setCheckoutRestaurantId(null);
     localStorage.setItem(SK_PAGE, 'home');
+    try { localStorage.removeItem(SK_CHECKOUT_RID); } catch {}
     window.history.pushState({ page: 'home' }, '', '#home');
     setCurrentPage('home');
   }, []);
@@ -298,6 +309,7 @@ function App() {
 
   const goToCheckout = useCallback((restaurantId) => {
     setCheckoutRestaurantId(restaurantId);
+    try { localStorage.setItem(SK_CHECKOUT_RID, String(restaurantId)); } catch {}
     push('checkout');
   }, [push]);
 
@@ -449,28 +461,62 @@ function App() {
     goHome();
   };
 
-  const handlePlaceOrder = (orderData) => {
+  /* ─────────────────────────────────────────────────────────
+     CHANGED: handlePlaceOrder
+     Previously used Date.now() as orderId and only cleared
+     local state. Now:
+     1. Uses the real order_id returned by the backend (passed
+        up from Checkout.jsx after the API call succeeds).
+     2. Removes the ordered restaurant's items from the backend
+        cart via cartApiService.removeFromCart.
+     3. Reloads the cart from the backend to reflect cleared state.
+  ───────────────────────────────────────────────────────── */
+  const handlePlaceOrder = async (orderData) => {
+    // 1. Persist order to localStorage so OrderStatus page can display it immediately
     try {
       const existing = JSON.parse(localStorage.getItem(ORDER_LS_KEY) || '[]');
       const newOrder = {
-        orderId: Date.now(),
-        createdAt: new Date().toISOString(),
-        status: 'PENDING',
-        restaurant: orderData?.restaurant ?? null,
-        items: orderData?.items ?? [],
-        subtotal: orderData?.subtotal ?? 0,
-        deliveryFee: orderData?.deliveryFee ?? 0,
+        orderId:        orderData.orderId,   // real backend order_id (not Date.now())
+        createdAt:      new Date().toISOString(),
+        status:         'PENDING',
+        restaurant:     orderData?.restaurant    ?? null,
+        items:          orderData?.items         ?? [],
+        subtotal:       orderData?.subtotal      ?? 0,
+        deliveryFee:    orderData?.deliveryFee   ?? 0,
         discountAmount: orderData?.discountAmount ?? 0,
-        tip: orderData?.tip ?? 0,
-        total: orderData?.total ?? 0,
+        tip:            orderData?.tip           ?? 0,
+        total:          orderData?.total         ?? 0,
       };
       localStorage.setItem(ORDER_LS_KEY, JSON.stringify([...existing, newOrder]));
     } catch {}
-    setCartItems(prev => prev.filter(i => i.restaurantId !== checkoutRestaurantId));
+
+    // 2. Clear the ordered restaurant's items from the backend cart.
+    //    The backend created the order from these items — now we remove
+    //    them from the cart so it doesn't show stale data.
+    const restaurantId = checkoutRestaurantId;
+    if (isLoggedIn && restaurantId) {
+      const itemsToRemove = cartItems.filter(i => i.restaurantId === restaurantId);
+      for (const item of itemsToRemove) {
+        try {
+          await cartApiService.removeFromCart(restaurantId, item.food_id ?? item.foodId);
+        } catch (e) {
+          console.warn('[Cart] Failed to remove item after order:', e.message);
+        }
+      }
+      // Reload cart from backend to reflect the cleared state
+      try {
+        const updatedCart = await cartApiService.getAllCarts();
+        setCartItems(updatedCart);
+      } catch {}
+    } else {
+      // Guest / fallback: remove from local state only
+      setCartItems(prev => prev.filter(i => i.restaurantId !== restaurantId));
+    }
+
+    // 3. Navigate to order status page
     push('order-status');
   };
 
-  // FIX #6: pickup/delivery tab handlers update both state AND localStorage
   const handleDeliveryClick = useCallback(() => {
     setActiveTab('delivery');
     localStorage.setItem(SK_ACTIVE_TAB, 'delivery');
@@ -493,7 +539,6 @@ function App() {
     </div>
   );
 
-  // Shared header props passed to every customer-facing page
   const H = {
     isLoggedIn, user,
     onLoginClick:      () => push('login'),
@@ -505,7 +550,6 @@ function App() {
     onDeliveryClick:   handleDeliveryClick,
     onPickupClick:     handlePickupClick,
     onNearMeClick:     goToNearMe,
-    // FIX #8: favourites open from App-level state so Profile page can also open it
     onFavouritesClick: () => setShowFavourites(true),
   };
 
@@ -529,7 +573,6 @@ function App() {
       {currentPage === 'home' && (
         <Homepage
           {...H} {...CartOps}
-          // FIX #6: pass activeTab from state (not re-read localStorage) so pickup persists
           activeTab={activeTab}
           restaurants={restaurants}
           cartItems={cartItems}
@@ -564,7 +607,6 @@ function App() {
           onBack={goHome}
           currentAddress={deliveryAddress}
           onAddressChange={handleAddressChange}
-          // FIX #8: profile page can open global favourites sidebar
           onFavouritesClick={() => setShowFavourites(true)}
         />
       )}
@@ -707,7 +749,6 @@ function App() {
         <OrderStatus
           {...H}
           cartItems={cartItems}
-          // FIX #8: orders page can open cart sidebar via onCartClick
           onCartClick={() => {}}
           activeTab="orders"
           currentAddress={deliveryAddress}
@@ -715,7 +756,7 @@ function App() {
         />
       )}
 
-      {/* FIX #8: Global favourites sidebar — accessible from ANY page */}
+      {/* Global favourites sidebar */}
       <FavouritesSidebar
         isOpen={showFavourites}
         onClose={() => setShowFavourites(false)}
