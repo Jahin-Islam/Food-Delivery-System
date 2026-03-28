@@ -158,6 +158,21 @@ function App() {
               }
             }
 
+            // FIX 1: Restore selectedRestaurant when refreshing on the restaurant page
+            if (savedPage === 'restaurant') {
+              const savedRestaurant = (() => {
+                try { return JSON.parse(localStorage.getItem(SK_RESTAURANT) || 'null'); } catch { return null; }
+              })();
+              if (savedRestaurant) {
+                setSelectedRestaurant(savedRestaurant);
+              } else {
+                // Can't restore restaurant state — redirect home
+                localStorage.setItem(SK_PAGE, 'home');
+                setCurrentPage('home');
+                window.history.replaceState({ page: 'home' }, '', '#home');
+              }
+            }
+
             if (isVendor && !BUSINESS_PAGES.has(savedPage)) {
               const r = pickRestaurant();
               if (r) { setSelectedRestaurant(r); localStorage.setItem(SK_RESTAURANT, JSON.stringify(r)); }
@@ -300,9 +315,12 @@ function App() {
 
   const goToNearMe = useCallback(() => { push('near-me'); }, [push]);
 
+  // FIX 1 (part 2): Also persist restaurant to localStorage so it can be
+  // restored when the user refreshes on the restaurant detail page.
   const goToRestaurant = useCallback((restaurant) => {
     setSelectedRestaurant(restaurant);
     localStorage.setItem(SK_PAGE, 'restaurant');
+    localStorage.setItem(SK_RESTAURANT, JSON.stringify(restaurant));
     window.history.pushState({ page: 'restaurant', restaurant }, '', '#restaurant');
     setCurrentPage('restaurant');
   }, []);
@@ -461,22 +479,11 @@ function App() {
     goHome();
   };
 
-  /* ─────────────────────────────────────────────────────────
-     CHANGED: handlePlaceOrder
-     Previously used Date.now() as orderId and only cleared
-     local state. Now:
-     1. Uses the real order_id returned by the backend (passed
-        up from Checkout.jsx after the API call succeeds).
-     2. Removes the ordered restaurant's items from the backend
-        cart via cartApiService.removeFromCart.
-     3. Reloads the cart from the backend to reflect cleared state.
-  ───────────────────────────────────────────────────────── */
   const handlePlaceOrder = async (orderData) => {
-    // 1. Persist order to localStorage so OrderStatus page can display it immediately
     try {
       const existing = JSON.parse(localStorage.getItem(ORDER_LS_KEY) || '[]');
       const newOrder = {
-        orderId:        orderData.orderId,   // real backend order_id (not Date.now())
+        orderId:        orderData.orderId,
         createdAt:      new Date().toISOString(),
         status:         'PENDING',
         restaurant:     orderData?.restaurant    ?? null,
@@ -490,12 +497,9 @@ function App() {
       localStorage.setItem(ORDER_LS_KEY, JSON.stringify([...existing, newOrder]));
     } catch {}
 
-    // 2. Clear the ordered restaurant's items from the backend cart.
-    //    The backend created the order from these items — now we remove
-    //    them from the cart so it doesn't show stale data.
     const restaurantId = checkoutRestaurantId;
     if (isLoggedIn && restaurantId) {
-      const itemsToRemove = cartItems.filter(i => i.restaurantId === restaurantId);
+      const itemsToRemove = cartItems.filter(i => String(i.restaurantId) === String(restaurantId));
       for (const item of itemsToRemove) {
         try {
           await cartApiService.removeFromCart(restaurantId, item.food_id ?? item.foodId);
@@ -503,17 +507,14 @@ function App() {
           console.warn('[Cart] Failed to remove item after order:', e.message);
         }
       }
-      // Reload cart from backend to reflect the cleared state
       try {
         const updatedCart = await cartApiService.getAllCarts();
         setCartItems(updatedCart);
       } catch {}
     } else {
-      // Guest / fallback: remove from local state only
       setCartItems(prev => prev.filter(i => i.restaurantId !== restaurantId));
     }
 
-    // 3. Navigate to order status page
     push('order-status');
   };
 
@@ -688,14 +689,18 @@ function App() {
       {currentPage === 'checkout' && checkoutRestaurantId && (
         <Checkout
           {...H}
+          // FIX 3: Prefer selectedRestaurant, then fall back to the full restaurant
+          // from the already-fetched restaurants list (which includes discounts),
+          // then fall back to a minimal object built from cart data.
           restaurant={
             selectedRestaurant ??
+            restaurants.find(r => String(r.id) === String(checkoutRestaurantId)) ??
             (() => {
-              const f = cartItems.find(i => i.restaurantId === checkoutRestaurantId);
-              return f ? { id: checkoutRestaurantId, name: f.restaurant, image_url: f.image } : null;
+              const f = cartItems.find(i => String(i.restaurantId) === String(checkoutRestaurantId));
+              return f ? { id: checkoutRestaurantId, name: f.restaurant, image_url: f.restaurantImage } : null;
             })()
           }
-          cartItems={cartItems.filter(i => i.restaurantId === checkoutRestaurantId)}
+          cartItems={cartItems.filter(i => String(i.restaurantId) === String(checkoutRestaurantId))}
           allCartItems={cartItems}
           onBack={() => selectedRestaurant ? goToRestaurant(selectedRestaurant) : goHome()}
           onPlaceOrder={handlePlaceOrder}

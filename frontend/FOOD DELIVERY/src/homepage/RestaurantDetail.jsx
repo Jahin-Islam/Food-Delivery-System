@@ -286,6 +286,7 @@ const RestaurantDetail = ({
           data = await response.json();
         }
         setRestaurantDetails(data);
+        console.log('[RestaurantDetail] fetched data.discounts:', data.discounts);
         if (data.items && data.items.length > 0) {
           setCategories(['All', ...new Set(data.items.map(item => item.category_name))]);
           setMenuItems(data.items);
@@ -462,26 +463,32 @@ const RestaurantDetail = ({
         </div>
       </div>
 
-      {/* Available Deals */}
-      {displayRestaurant.discounts && displayRestaurant.discounts.length > 0 && (
-        <div className="deals-section-detail">
-          <h2 className="section-title-detail">Available deals</h2>
-          <div className="deals-grid-detail">
-            {displayRestaurant.discounts.map((discount, index) => (
-              <div key={index} className="deal-card-detail"
-                style={{ background: index === 0 ? 'linear-gradient(135deg,#1e293b,#334155)' : COLORS.gradientPrimary }}>
-                <div className="deal-icon">
-                  <img className="discount-icon" src="/images/accessories/discount.png" alt="Discount" />
+      {/* Available Deals — prefer freshly fetched data, fall back to prop while loading */}
+      {(() => {
+        const deals = (restaurantDetails?.discounts ?? restaurant?.discounts ?? []).filter(
+          d => d.is_active === true || d.is_active === 1 || d.is_active === '1'
+        );
+        if (deals.length === 0) return null;
+        return (
+          <div className="deals-section-detail">
+            <h2 className="section-title-detail">Available deals</h2>
+            <div className="deals-grid-detail">
+              {deals.map((discount, index) => (
+                <div key={index} className="deal-card-detail"
+                  style={{ background: index === 0 ? 'linear-gradient(135deg,#1e293b,#334155)' : COLORS.gradientPrimary }}>
+                  <div className="deal-icon">
+                    <img className="discount-icon" src="/images/accessories/discount.png" alt="Discount" />
+                  </div>
+                  <div className="deal-content">
+                    <h3 className="deal-title-detail">{discount.description}</h3>
+                    <p className="deal-description">Min. order ৳{discount.min_order} • {discount.percentage}% off</p>
+                  </div>
                 </div>
-                <div className="deal-content">
-                  <h3 className="deal-title-detail">{discount.description}</h3>
-                  <p className="deal-description">Min. order ৳{discount.min_order} • {discount.percentage}% off</p>
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Menu + Order Summary */}
       <div className="menu-with-summary-container">

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import './Checkout.css';
 import Header from './Header.jsx';
 import AllCarts from './Allcarts.jsx';
@@ -6,7 +6,8 @@ import DeliveryMapPicker from './DeliveryMapPicker.jsx';
 import cartApiService from '../Cartapiservice.js';
 import {
   MapPin, Home, Briefcase, Heart, Plus,
-  Pencil, Trash2, X, Check, Loader2,
+  Pencil, Trash2, X, Check, Loader2, Tag,
+  Zap, Clock,
 } from 'lucide-react';
 
 const API_BASE = 'http://127.0.0.1:8000/api';
@@ -33,6 +34,19 @@ const emptyForm = () => ({
   label: 'home', lat: null, lng: null,
 });
 
+/* ─── Distance helper (Haversine) ────────────────────────── */
+function haversineKm(lat1, lng1, lat2, lng2) {
+  if (lat1 == null || lng1 == null || lat2 == null || lng2 == null) return null;
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 /* ─── API helpers ─────────────────────────────────────────── */
 function apiFetch(path, options = {}) {
   return cartApiService._rawFetch(`${API_BASE}${path}`, options);
@@ -44,8 +58,6 @@ async function fetchAddresses() {
   return res.json();
 }
 
-// Fetch full restaurant detail including the discounts array.
-// This is a public endpoint — no auth needed.
 async function fetchRestaurantDetail(restaurantId) {
   const res = await fetch(`http://127.0.0.1:8000/api/v1/restaurants/${restaurantId}/`);
   if (!res.ok) throw new Error(`Failed to load restaurant detail (${res.status})`);
@@ -253,37 +265,22 @@ const Checkout = ({
   const [placing,        setPlacing]        = useState(false);
   const [placeError,     setPlaceError]     = useState('');
 
-  // ─────────────────────────────────────────────────────────
-  // FIX 1: Always fetch a fresh copy of the restaurant's
-  // discounts from the backend when the checkout page loads.
-  //
-  // WHY THIS IS NEEDED:
-  // The `restaurant` prop arrives from App.jsx's selectedRestaurant
-  // state. In two cases it may be missing the discounts array:
-  //   a) After page refresh, App.jsx builds a fallback object
-  //      { id, name, image_url } with NO discounts key at all.
-  //   b) The restaurant list endpoint returns a flat object with
-  //      only the best discount, not the full discounts array.
-  //
-  // Fetching from /api/v1/restaurants/<id>/ always returns the
-  // complete discounts array including discount_num for each row.
-  // ─────────────────────────────────────────────────────────
-  const [freshDiscounts, setFreshDiscounts] = useState(
+  /* ── Discounts state ────────────────────────────────────── */
+  const [freshDiscounts,    setFreshDiscounts]    = useState(
     Array.isArray(restaurant?.discounts) ? restaurant.discounts : []
   );
+  // The discount_num the user has manually selected, or null = none applied
+  const [selectedDiscountNum, setSelectedDiscountNum] = useState(null);
 
   useEffect(() => {
     if (!restaurant?.id) return;
-
+    setSelectedDiscountNum(null);
     fetchRestaurantDetail(restaurant.id)
       .then(detail => {
         const discounts = Array.isArray(detail.discounts) ? detail.discounts : [];
-        console.log('[Checkout] Fetched fresh discounts:', discounts);
         setFreshDiscounts(discounts);
       })
-      .catch(err => {
-        console.warn('[Checkout] Could not fetch restaurant discounts:', err.message);
-        // Fall back to whatever came in via the prop
+      .catch(() => {
         setFreshDiscounts(Array.isArray(restaurant?.discounts) ? restaurant.discounts : []);
       });
   }, [restaurant?.id]);
@@ -303,24 +300,45 @@ const Checkout = ({
       .finally(() => setAddrLoading(false));
   }, [isLoggedIn]);
 
-  /* ── Financials ─────────────────────────────────────────── */
-  const subtotal    = cartItems.reduce((sum, i) => sum + i.price * i.quantity, 0);
-  const deliveryFee = deliveryOption === 'priority' ? 33 : 0;
-  const serviceFee  = 14;
+  /* ── Distance-based delivery fee ───────────────────────── */
+  const selectedAddr = addresses.find(a => a.id === selectedAddrId) ?? null;
 
-  // ─────────────────────────────────────────────────────────
-  // FIX 2: Use freshDiscounts (not restaurant.discounts).
-  //
-  // FIX 3: Filter by is_active === true (strict equality).
-  // The DB column is BooleanField(null=True) so values can be
-  // true / false / null. The old check `d.is_active !== false`
-  // was letting null through — null passes on the frontend but
-  // the backend rejects it with "discount is no longer active".
-  // Strict === true means only genuinely active discounts qualify.
-  // ─────────────────────────────────────────────────────────
-  const applicableDiscount = freshDiscounts
-    .filter(d => d.is_active === true && subtotal >= (parseFloat(d.min_order) || 0))
-    .sort((a, b) => parseFloat(b.percentage) - parseFloat(a.percentage))[0] ?? null;
+  const distanceKm = useMemo(() => {
+    const addrLat = selectedAddr?.lat;
+    const addrLng = selectedAddr?.lng;
+    const restLat = restaurant?.latitude  ?? restaurant?.address?.latitude  ?? null;
+    const restLng = restaurant?.longitude ?? restaurant?.address?.longitude ?? null;
+    return haversineKm(addrLat, addrLng, restLat, restLng);
+  }, [selectedAddr, restaurant]);
+
+  // ৳10/km for standard, ৳30/km for priority (minimum ৳10)
+  const deliveryFee = useMemo(() => {
+    if (distanceKm == null) {
+      // fallback if coordinates unavailable
+      return deliveryOption === 'priority' ? 50 : 0;
+    }
+    const ratePerKm = deliveryOption === 'priority' ? 30 : 10;
+    return Math.max(10, Math.round(distanceKm * ratePerKm));
+  }, [distanceKm, deliveryOption]);
+
+  const serviceFee = 14;
+
+  /* ── Active discounts ───────────────────────────────────── */
+  const activeDiscounts = freshDiscounts.filter(d => {
+    const v = d.is_active;
+    return v === true || v === 1 || v === '1';
+  });
+
+  const subtotal = cartItems.reduce((sum, i) => sum + i.price * i.quantity, 0);
+
+  // The currently applied discount object (only if user selected it AND subtotal qualifies)
+  const applicableDiscount = useMemo(() => {
+    if (selectedDiscountNum == null) return null;
+    const found = activeDiscounts.find(d => d.discount_num === selectedDiscountNum);
+    if (!found) return null;
+    if (subtotal < (parseFloat(found.min_order) || 0)) return null;
+    return found;
+  }, [selectedDiscountNum, activeDiscounts, subtotal]);
 
   const discountAmount = applicableDiscount
     ? Math.round(subtotal * parseFloat(applicableDiscount.percentage) / 100)
@@ -329,16 +347,11 @@ const Checkout = ({
   const total   = subtotal - discountAmount + deliveryFee + serviceFee + tipAmount;
   const savings = discountAmount;
 
-  /* ── Debug log: fires whenever discount state changes ───── */
-  useEffect(() => {
-    console.log('[Checkout] Discount state —', {
-      subtotal,
-      freshDiscountsCount: freshDiscounts.length,
-      freshDiscounts,
-      applicableDiscount,
-      discountAmount,
-    });
-  }, [subtotal, freshDiscounts]);
+  /* ── Toggle voucher selection ───────────────────────────── */
+  const handleVoucherToggle = (discountNum, meetsMin) => {
+    if (!meetsMin) return; // locked — can't select
+    setSelectedDiscountNum(prev => prev === discountNum ? null : discountNum);
+  };
 
   /* ── Address helpers ────────────────────────────────────── */
   const takenLabels    = addresses.map(a => a.label);
@@ -388,8 +401,6 @@ const Checkout = ({
   };
 
   /* ── Place order ─────────────────────────────────────────── */
-  const selectedAddr = addresses.find(a => a.id === selectedAddrId) ?? null;
-
   const handlePlaceOrder = async () => {
     if (!isLoggedIn) {
       setPlaceError('Please log in to place an order.');
@@ -413,40 +424,31 @@ const Checkout = ({
 
     try {
       const body = {
-        restaurant_id:   restaurant.id,
+        restaurant_id:   Number(restaurant.id),
         address_id:      selectedAddrId,
         delivery_charge: deliveryFee,
         service_charge:  serviceFee,
         rider_tip:       tipAmount,
+        total_amount:    total,
         email:           email,
         first_name:      firstName,
         last_name:       lastName,
         phone_number:    mobile,
-        items: cartItems.map(item => ({
-          item_id:  item.food_id ?? item.foodId,
-          quantity: item.quantity,
-        })),
+        items: cartItems.map(item => {
+          const foodId = item.food_id ?? item.foodId;
+          if (!foodId) {
+            console.error('[Checkout] Item missing food_id/foodId — will be skipped:', item);
+          }
+          return {
+            item_id:  Number(foodId ?? item.id),
+            quantity: item.quantity,
+          };
+        }).filter(i => i.item_id > 0),
       };
 
-      // ─────────────────────────────────────────────────────
-      // FIX 4: Add discount_num to the body.
-      //
-      // applicableDiscount is sourced from freshDiscounts which
-      // was fetched directly from /api/v1/restaurants/<id>/ so
-      // it always carries the real discount_num from the DB.
-      //
-      // We only include the field when discount_num is a non-null
-      // integer — if it's null (manually inserted DB row) we skip
-      // it so the backend doesn't error trying to look up null.
-      // ─────────────────────────────────────────────────────
       if (applicableDiscount != null && applicableDiscount.discount_num != null) {
         body.discount_num = applicableDiscount.discount_num;
       }
-
-      // ── Debug: show exactly what is being POSTed ──────────
-      console.log('[Checkout] POST body to /customers/me/orders/:', JSON.stringify(body, null, 2));
-      console.log('[Checkout] applicableDiscount:', applicableDiscount);
-      console.log('[Checkout] discount_num sent:', body.discount_num ?? 'NOT INCLUDED (no qualifying discount)');
 
       const res = await apiFetch('/customers/me/orders/', {
         method: 'POST',
@@ -459,8 +461,6 @@ const Checkout = ({
       }
 
       const responseData     = await res.json();
-      console.log('[Checkout] Backend order response:', responseData);
-
       const order_id          = responseData.order_id;
       const confirmedDiscount = responseData.discount_amount ?? discountAmount;
       const confirmedTotal    = subtotal - confirmedDiscount + deliveryFee + serviceFee + tipAmount;
@@ -635,28 +635,49 @@ const Checkout = ({
           {/* ── DELIVERY OPTIONS ──────────────────────────── */}
           <section className="checkout-section">
             <h2 className="section-title-checkout">Delivery options</h2>
-            <div className="delivery-options">
-              <label className="delivery-option-card">
+            {distanceKm != null && (
+              <p className="section-subtitle-checkout" style={{ marginTop: 4 }}>
+                Distance to restaurant: <strong>{distanceKm.toFixed(1)} km</strong>
+                &nbsp;· Standard ৳10/km · Priority ৳30/km
+              </p>
+            )}
+            <div className="delivery-options" style={{ marginTop: 12 }}>
+              <label className={`delivery-option-card ${deliveryOption === 'standard' ? 'selected' : ''}`}>
                 <input type="radio" name="delivery" value="standard"
                   checked={deliveryOption === 'standard'}
                   onChange={() => setDeliveryOption('standard')} />
+                <div className="option-icon-wrap standard-icon">
+                  <Clock size={18} />
+                </div>
                 <div className="option-content">
                   <div className="option-info">
-                    <span className="option-label">Standard</span>
-                    <span className="option-time">15 - 30 mins</span>
+                    <span className="option-label">Standard delivery</span>
+                    <span className="option-time">15 – 30 mins</span>
                   </div>
+                  <span className="option-price">
+                    {distanceKm != null
+                      ? `৳${Math.max(10, Math.round(distanceKm * 10))}`
+                      : 'Free'}
+                  </span>
                 </div>
               </label>
-              <label className="delivery-option-card">
+              <label className={`delivery-option-card ${deliveryOption === 'priority' ? 'selected' : ''}`}>
                 <input type="radio" name="delivery" value="priority"
                   checked={deliveryOption === 'priority'}
                   onChange={() => setDeliveryOption('priority')} />
+                <div className="option-icon-wrap priority-icon">
+                  <Zap size={18} />
+                </div>
                 <div className="option-content">
                   <div className="option-info">
-                    <span className="option-label">Priority</span>
-                    <span className="option-time">10 - 25 mins</span>
+                    <span className="option-label">Priority delivery</span>
+                    <span className="option-time">10 – 25 mins · Faster &amp; dedicated rider</span>
                   </div>
-                  <span className="option-price">+ ৳33</span>
+                  <span className="option-price priority-price">
+                    {distanceKm != null
+                      ? `৳${Math.max(10, Math.round(distanceKm * 30))}`
+                      : '+ ৳50'}
+                  </span>
                 </div>
               </label>
             </div>
@@ -763,6 +784,84 @@ const Checkout = ({
             <Plus size={14} /> Add more items
           </button>
 
+          {/* ── VOUCHERS / DEALS SECTION ─────────────────── */}
+          {activeDiscounts.length > 0 && (
+            <div className="vouchers-section">
+              <p className="vouchers-title">
+                <Tag size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} />
+                Vouchers for your order
+              </p>
+              <p className="vouchers-subtitle">Select one voucher to apply</p>
+
+              <div className="vouchers-list">
+                {activeDiscounts.map((d) => {
+                  const minOrder  = parseFloat(d.min_order) || 0;
+                  const meetsMin  = subtotal >= minOrder;
+                  const shortfall = Math.ceil(minOrder - subtotal);
+                  const saving    = Math.round(subtotal * parseFloat(d.percentage) / 100);
+                  const isSelected = selectedDiscountNum === d.discount_num;
+
+                  return (
+                    <div key={d.discount_num} className={`voucher-ticket ${isSelected ? 'vt-selected' : meetsMin ? 'vt-eligible' : 'vt-locked'}`}>
+                      {/* Left coloured stripe */}
+                      <div className="vt-stripe" />
+
+                      {/* Notch top + bottom */}
+                      <div className="vt-notch vt-notch-top" />
+                      <div className="vt-notch vt-notch-bottom" />
+
+                      {/* Body */}
+                      <div className="vt-body">
+                        <div className="vt-left">
+                          <div className="vt-percent">{d.percentage}%</div>
+                          <div className="vt-off-label">OFF</div>
+                        </div>
+
+                        <div className="vt-divider" />
+
+                        <div className="vt-center">
+                          <div className="vt-title">{d.description}</div>
+                          {isSelected ? (
+                            <div className="vt-saving-badge">Saving ৳{saving}</div>
+                          ) : meetsMin ? (
+                            <div className="vt-saving-text">৳{saving} off your order</div>
+                          ) : (
+                            <div className="vt-locked-msg">
+                              Add ৳{shortfall} more to unlock
+                            </div>
+                          )}
+                          <div className="vt-meta">Min. order ৳{minOrder}
+                            {d.expires_at
+                              ? ` · Expires ${new Date(d.expires_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`
+                              : ''}
+                          </div>
+                        </div>
+
+                        <div className="vt-action">
+                          {meetsMin ? (
+                            <button
+                              className={`vt-btn ${isSelected ? 'vt-btn-remove' : 'vt-btn-apply'}`}
+                              onClick={() => handleVoucherToggle(d.discount_num, meetsMin)}
+                            >
+                              {isSelected ? (
+                                <>
+                                  <Check size={12} style={{ marginRight: 3 }} />
+                                  Applied
+                                </>
+                              ) : 'Apply'}
+                            </button>
+                          ) : (
+                            <div className="vt-lock-icon">🔒</div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           <div className="summary-divider" />
 
           <div className="summary-totals">
@@ -770,12 +869,20 @@ const Checkout = ({
             {discountAmount > 0 && applicableDiscount && (
               <div className="summary-row" style={{ color: '#10b981', fontWeight: 700 }}>
                 <span>Discount ({applicableDiscount.percentage}% off)</span>
-                <span>-৳{discountAmount}</span>
+                <span>−৳{discountAmount}</span>
               </div>
             )}
             <div className="summary-row">
-              <span>Standard delivery</span>
-              <span className="free-text">{deliveryFee === 0 ? 'Free' : `৳${deliveryFee}`}</span>
+              <span>Delivery fee
+                {distanceKm != null && (
+                  <span style={{ fontSize: 11, color: 'var(--c-gray-400)', marginLeft: 4 }}>
+                    ({distanceKm.toFixed(1)} km)
+                  </span>
+                )}
+              </span>
+              <span className={deliveryFee === 0 ? 'free-text' : ''}>
+                {deliveryFee === 0 ? 'Free' : `৳${deliveryFee}`}
+              </span>
             </div>
             <div className="summary-row"><span>Service fee</span><span>৳{serviceFee}</span></div>
             {tipAmount > 0 && (
@@ -791,7 +898,7 @@ const Checkout = ({
               <span className="total-amount-checkout">৳{total}</span>
             </div>
             <p className="tax-note">(incl. fees and tax)</p>
-            {savings > 0 && <p className="savings-note">৳{savings} savings</p>}
+            {savings > 0 && <p className="savings-note">You save ৳{savings} 🎉</p>}
           </div>
         </aside>
       </div>
