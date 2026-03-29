@@ -283,6 +283,10 @@ def get_restaurant_orders(restaurant_id, status_filter=None):
             o.order_id,
             o.status,
             o.total_amount,
+            o.delivery_charge,
+            o.service_charge,
+            o.discount_amount,
+            o.rider_tip,
             o.created_at,
             o.first_name,
             o.last_name,
@@ -306,7 +310,7 @@ def get_restaurant_orders(restaurant_id, status_filter=None):
         return []
 
     # ── Fetch items for all orders in one query ──
-    order_ids = [o['order_id'] for o in orders]
+    order_ids    = [o['order_id'] for o in orders]
     placeholders = ', '.join(['%s'] * len(order_ids))
 
     with connection.cursor() as cursor:
@@ -315,21 +319,27 @@ def get_restaurant_orders(restaurant_id, status_filter=None):
                 oi.order_id,
                 oi.quantity,
                 oi.price_at_purchase,
-                mi.name         AS item_name,
-                mi.image_url    AS item_image
+                mi.name   AS item_name,
+                mi.image  AS item_image
             FROM orders_orderitem oi
             LEFT JOIN items_menuitem mi ON mi.food_id = oi.item_id
             WHERE oi.order_id IN ({placeholders})
         """, order_ids)
         all_items = dictfetchall(cursor)
 
+    # ── Build Cloudinary URLs for item images ──
+    for item in all_items:
+        raw = item.get('item_image')
+        try:
+            item['item_image'] = CloudinaryImage(str(raw)).build_url() if raw else None
+        except Exception:
+            item['item_image'] = None
+
     # ── Group items by order_id and attach ──
     items_map = {}
     for item in all_items:
-        order_id = item.pop('order_id') 
-        if order_id not in items_map:
-            items_map[order_id] = []
-        items_map[order_id].append(item)
+        order_id = item.pop('order_id')
+        items_map.setdefault(order_id, []).append(item)
 
     for order in orders:
         order['items'] = items_map.get(order['order_id'], [])
@@ -372,9 +382,8 @@ def update_order_status_by_restaurant(order_id, restaurant_id, new_status):
 
 def get_rider_orders(rider_id, status_filter=None):
     """
-    Returns all orders assigned to this rider.
-    Optionally filtered by status.
-    Each order includes its items.
+    Returns all orders assigned to this rider, optionally filtered by status.
+    Each order includes its items, restaurant coordinates, and delivery coords.
     """
     query = """
         SELECT
@@ -393,14 +402,17 @@ def get_rider_orders(rider_id, status_filter=None):
             o.phone_number      AS customer_phone,
             r.name              AS restaurant_name,
             r.image_url         AS restaurant_image,
+            res_addr.latitude   AS restaurant_lat,
+            res_addr.longitude  AS restaurant_lng,
             ad.street_number,
             ad.apartment_number,
             ad.description      AS address_description,
             ad.latitude         AS delivery_lat,
             ad.longitude        AS delivery_lng
         FROM orders_order o
-        LEFT JOIN resturants_restaurant r       ON r.id = o.restaurant_id
-        LEFT JOIN addresses_deliveryaddress ad  ON ad.id = o.address_id
+        LEFT JOIN resturants_restaurant r          ON r.id = o.restaurant_id
+        LEFT JOIN addresses_address res_addr       ON res_addr.address_id = r.address_id
+        LEFT JOIN addresses_deliveryaddress ad     ON ad.id = o.address_id
         WHERE o.rider_id = %s
     """
     params = [rider_id]

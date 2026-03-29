@@ -9,17 +9,46 @@
   box-shadow: var(--shadow-sm);
   overflow: hidden;
   margin-bottom: 16px;
+  position: relative;
 }
 
-/* Map area */
+/* Status label chip — overlaid top-left of the map */
+.rmap-label-chip {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 1000;           /* above Leaflet tiles (z-index ~400) */
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border: 1.5px solid var(--c-gray-200);
+  border-radius: 20px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--c-gray-800);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.10);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+/* ── Map area ────────────────────────────────────────────── */
 .rmap-map-wrap {
   position: relative;
+  /* CRITICAL: explicit pixel height so Leaflet can measure the container.
+     Without this, height:100% resolves to 0 and the map is invisible.    */
   height: 340px;
   width: 100%;
   background: var(--c-gray-100);
 }
 
-/* Loading state */
+/* The Leaflet container div must fill its parent completely */
+.rmap-map-wrap > div:not(.rmap-loading):not(.rmap-gps-warn) {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* ── Loading spinner ─────────────────────────────────────── */
 .rmap-loading {
   height: 100%;
   display: flex;
@@ -31,6 +60,7 @@
   font-size: 14px;
   font-weight: 600;
 }
+
 .rmap-spinner {
   width: 32px;
   height: 32px;
@@ -39,26 +69,27 @@
   border-radius: 50%;
   animation: rmapSpin 0.8s linear infinite;
 }
-@keyframes rmapSpin { to { transform: rotate(360deg); } }
 
-/* GPS warning banner */
+@keyframes rmapSpin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── GPS warning banner ──────────────────────────────────── */
 .rmap-gps-warn {
   position: absolute;
-  bottom: 56px;
+  bottom: 10px;
   left: 50%;
   transform: translateX(-50%);
-  background: #fef3c7;
-  color: #92400e;
   border-radius: 8px;
   padding: 6px 14px;
   font-size: 12px;
   font-weight: 600;
   white-space: nowrap;
-  z-index: 900;
+  z-index: 1000;
   pointer-events: none;
 }
 
-/* ── Info strip ── */
+/* ── Info strip below the map ────────────────────────────── */
 .rmap-info-strip {
   border-top: 1px solid var(--c-gray-100);
   padding: 12px 16px;
@@ -67,7 +98,36 @@
   gap: 8px;
 }
 
-/* Pickup / drop-off leg row */
+/* ── Order switcher tabs (> 1 active order) ──────────────── */
+.rmap-order-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 2px;
+}
+
+.rmap-order-tab {
+  padding: 5px 12px;
+  border-radius: 20px;
+  border: 1.5px solid var(--c-gray-200);
+  background: var(--c-gray-50);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--c-gray-500);
+  cursor: pointer;
+  font-family: var(--font);
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+
+.rmap-order-tab.active,
+.rmap-order-tab:hover {
+  background: var(--c-primary);
+  color: #fff;
+  border-color: var(--c-primary);
+}
+
+/* ── Leg row ─────────────────────────────────────────────── */
 .rmap-leg {
   display: flex;
   align-items: center;
@@ -76,21 +136,33 @@
   background: var(--c-gray-50);
   border-radius: 10px;
   border: 1px solid var(--c-gray-100);
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
+
+/* Selected / primary order leg */
+.rmap-leg.primary {
+  border-color: var(--c-primary);
+  background: var(--c-primary-bg, #fff0f6);
+  box-shadow: 0 0 0 2px rgba(215, 15, 100, 0.08);
+}
+
 .rmap-leg-dot {
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  border: 2.5px solid white;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+  border: 2.5px solid #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
   flex-shrink: 0;
 }
+
 .rmap-leg-text {
   flex: 1;
   display: flex;
   flex-direction: column;
   gap: 1px;
+  min-width: 0;
 }
+
 .rmap-leg-label {
   font-size: 10px;
   font-weight: 700;
@@ -98,29 +170,37 @@
   text-transform: uppercase;
   letter-spacing: 0.4px;
 }
+
 .rmap-leg-name {
   font-size: 14px;
   font-weight: 700;
   color: var(--c-gray-900);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
+
 .rmap-leg-stats {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   gap: 2px;
+  flex-shrink: 0;
 }
+
 .rmap-leg-dist {
   font-size: 14px;
   font-weight: 800;
   color: var(--c-primary);
 }
+
 .rmap-leg-eta {
   font-size: 11px;
   font-weight: 600;
   color: var(--c-gray-400);
 }
 
-/* Route total row */
+/* ── Route total row ─────────────────────────────────────── */
 .rmap-route-total {
   display: flex;
   justify-content: space-between;
@@ -130,9 +210,12 @@
   font-size: 13px;
   color: var(--c-gray-500);
 }
-.rmap-route-total b { color: var(--c-gray-900); }
 
-/* Idle state */
+.rmap-route-total b {
+  color: var(--c-gray-900);
+}
+
+/* ── Idle placeholder ────────────────────────────────────── */
 .rmap-idle {
   padding: 6px 4px;
   font-size: 13px;

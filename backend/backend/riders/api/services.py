@@ -1,7 +1,21 @@
 # riders/api/services.py
-# COMPLETE FILE — replace your existing riders/api/services.py with this
-# Only change: insert_address call now passes 0.0 fallback for lat/lng
-# instead of None, because addresses_address.latitude/longitude are NOT NULL
+# ─── CHANGES IN THIS FILE ────────────────────────────────────────────────────
+#
+#  FIX 1 – RIDER_VALID_TRANSITIONS now includes PENDING → PICKED_UP
+#           Riders can accept a PENDING order (restaurant hasn't started yet)
+#           and still be able to mark it PICKED_UP once they collect the food.
+#
+#  FIX 2 – get_nearby_orders()
+#           • Distance is now calculated from the RESTAURANT location (not the
+#             delivery address), so the rider sees "how far to go pick up".
+#           • Returns restaurant_lat / restaurant_lng so RiderMap can place
+#             the restaurant pin on the map.
+#
+#  FIX 3 – accept_order()  — NO STATUS CHANGE (unchanged from your version)
+#           Only sets rider_id, est_pickup, est_delivery.  The order keeps
+#           whatever status the restaurant set (PENDING or PREPARING).
+#
+# ─────────────────────────────────────────────────────────────────────────────
 
 from django.db import connection
 from addresses.api.services import insert_address
@@ -13,7 +27,10 @@ from datetime import timedelta
 from django.utils import timezone
 
 
+# FIX 1: Added PENDING → PICKED_UP so a rider who accepted a PENDING order
+# can still advance it to PICKED_UP when they collect the food.
 RIDER_VALID_TRANSITIONS = {
+    'PENDING':   ['PICKED_UP'],       # ← NEW
     'PREPARING': ['PICKED_UP'],
     'PICKED_UP': ['DELIVERED'],
 }
@@ -133,7 +150,6 @@ def insert_rider(cursor, user_id, request):
     )
 
     # 3 ── Core rider profile ─────────────────────────────────────────────
-    # FIX: 'verfied' has no database-level DEFAULT, so raw SQL must supply it.
     cursor.execute(
         """
         INSERT INTO riders_rider
@@ -208,8 +224,15 @@ def insert_rider(cursor, user_id, request):
 
 def get_nearby_orders(rider_lat, rider_lng, radius_km=5):
     """
-    Returns PENDING and PREPARING orders within radius_km of the rider.
-    Distance calculated with Haversine formula inside SQL.
+    Returns PENDING and PREPARING orders that have no rider yet,
+    within radius_km of the rider.
+
+    FIX 2: Distance is now calculated from the RESTAURANT's coordinates
+    (not the delivery address) so the radius reflects how far the rider
+    needs to travel to pick up the food.
+
+    Also returns restaurant_lat / restaurant_lng so the frontend can
+    place a proper map pin on the restaurant.
     """
     with connection.cursor() as cursor:
         cursor.execute("""
@@ -219,35 +242,40 @@ def get_nearby_orders(rider_lat, rider_lng, radius_km=5):
                 o.total_amount,
                 o.delivery_charge,
                 o.created_at,
-                o.first_name,
-                o.last_name,
-                o.phone_number,
-                r.name          AS restaurant_name,
-                r.image_url     AS restaurant_image,
-                r.address_id    AS restaurant_address_id,
+                o.first_name            AS customer_first_name,
+                o.last_name             AS customer_last_name,
+                o.phone_number          AS customer_phone,
+                r.name                  AS restaurant_name,
+                r.image_url             AS restaurant_image,
+                res_addr.latitude       AS restaurant_lat,
+                res_addr.longitude      AS restaurant_lng,
                 ad.street_number,
                 ad.apartment_number,
-                ad.description  AS address_description,
-                ad.latitude     AS delivery_lat,
-                ad.longitude    AS delivery_lng,
+                ad.description          AS address_description,
+                ad.latitude             AS delivery_lat,
+                ad.longitude            AS delivery_lng,
 
                 (
                     6371 * ACOS(
-                        LEAST(1.0, COS(RADIANS(%s))
-                        * COS(RADIANS(ad.latitude))
-                        * COS(RADIANS(ad.longitude) - RADIANS(%s))
-                        + SIN(RADIANS(%s))
-                        * SIN(RADIANS(ad.latitude)))
+                        LEAST(1.0,
+                            COS(RADIANS(%s))
+                            * COS(RADIANS(res_addr.latitude))
+                            * COS(RADIANS(res_addr.longitude) - RADIANS(%s))
+                            + SIN(RADIANS(%s))
+                            * SIN(RADIANS(res_addr.latitude))
+                        )
                     )
                 ) AS distance_km
 
             FROM orders_order o
-            INNER JOIN addresses_deliveryaddress ad
-                ON ad.id = o.address_id
-               AND ad.latitude  IS NOT NULL
-               AND ad.longitude IS NOT NULL
-            LEFT JOIN resturants_restaurant r
+            INNER JOIN resturants_restaurant r
                 ON r.id = o.restaurant_id
+            INNER JOIN addresses_address res_addr
+                ON res_addr.address_id = r.address_id
+               AND res_addr.latitude  IS NOT NULL
+               AND res_addr.longitude IS NOT NULL
+            LEFT JOIN addresses_deliveryaddress ad
+                ON ad.id = o.address_id
 
             WHERE o.status IN ('PENDING', 'PREPARING')
               AND o.rider_id IS NULL
@@ -285,7 +313,7 @@ def get_nearby_orders(rider_lat, rider_lng, radius_km=5):
         items_map.setdefault(oid, []).append(item)
 
     for order in orders:
-        order['items'] = items_map.get(order['order_id'], [])
+        order['items']       = items_map.get(order['order_id'], [])
         order['distance_km'] = round(order['distance_km'], 2)
 
     return orders
@@ -304,7 +332,9 @@ def get_rider_id(user_id):
 def update_order_status_by_rider(order_id, rider_id, new_status):
     """
     A rider can only update orders that are assigned to them.
-    Valid transitions:
+
+    Valid transitions (FIX 1 — PENDING added):
+        PENDING    → PICKED_UP
         PREPARING  → PICKED_UP
         PICKED_UP  → DELIVERED  (also stamps delivered_at = NOW())
     """
@@ -348,6 +378,9 @@ def accept_order(order_id, rider_id):
     """
     Assigns a rider to a PENDING or PREPARING order that has no rider yet.
     Calculates est_pickup and est_delivery using OSRM real street routing.
+
+    Does NOT change the order status — it stays PENDING or PREPARING
+    exactly as the restaurant set it.
     """
     with connection.cursor() as cursor:
         cursor.execute("""
@@ -363,10 +396,10 @@ def accept_order(order_id, rider_id):
                 ri.current_longitude AS rider_lng,
                 ri.vehicle
             FROM orders_order o
-            LEFT JOIN resturants_restaurant r       ON r.id = o.restaurant_id
-            LEFT JOIN addresses_address res_addr    ON res_addr.address_id = r.address_id
+            LEFT JOIN resturants_restaurant r        ON r.id = o.restaurant_id
+            LEFT JOIN addresses_address res_addr     ON res_addr.address_id = r.address_id
             LEFT JOIN addresses_deliveryaddress del_addr ON del_addr.id = o.address_id
-            LEFT JOIN riders_rider ri               ON ri.id = %s
+            LEFT JOIN riders_rider ri                ON ri.id = %s
             WHERE o.order_id = %s
         """, [rider_id, order_id])
         row = cursor.fetchone()
@@ -415,6 +448,7 @@ def accept_order(order_id, rider_id):
                 if leg2_seconds is not None:
                     est_delivery = est_pickup + timedelta(seconds=leg2_seconds) + timedelta(minutes=DELIVERY_BUFFER_MINUTES)
 
+    # Only set rider_id and ETA fields — status is intentionally NOT touched
     with connection.cursor() as cursor:
         cursor.execute("""
             UPDATE orders_order

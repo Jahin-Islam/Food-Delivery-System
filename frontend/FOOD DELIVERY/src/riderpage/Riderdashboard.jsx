@@ -37,7 +37,79 @@ const MOCK_COMPLETED_ORDERS = [
   { id: 'ORD-6885', shortId: 'w8ci-efgh', customer: 'Ayesha Begum', amount: 290, tips: 10, completedAt: '12:46' },
 ];
 
-// ─── BACKEND API HELPERS ──────────────────────────────────────────────────────
+// ─── STATUS HELPERS ───────────────────────────────────────────────────────────
+/**
+ * Maps the raw backend status string to the UI status string used by card
+ * components.  The backend keeps the real status; we only translate for
+ * display / routing.
+ *
+ *  PENDING   → 'ongoing'   (rider is heading to the restaurant)
+ *  PREPARING → 'ongoing'   (restaurant is cooking; rider still heading there)
+ *  PICKED_UP → 'picked_up' (rider has the food, en route to customer)
+ *  DELIVERED → 'completed'
+ */
+function backendToUIStatus(backendStatus) {
+  switch ((backendStatus || '').toUpperCase()) {
+    case 'PENDING':
+    case 'PREPARING': return 'ongoing';
+    case 'PICKED_UP': return 'picked_up';
+    case 'DELIVERED': return 'completed';
+    default:          return 'ongoing';
+  }
+}
+
+/**
+ * Normalise a raw backend order object (from /me/orders/ or /nearby/) into
+ * the shape expected by every UI card component.
+ */
+function normaliseOrder(raw) {
+  return {
+    id:            `#${raw.order_id}`,
+    orderId:       String(raw.order_id),
+    backendId:     raw.order_id,
+    backendStatus: (raw.status || '').toUpperCase(),  // keep the real status
+    status:        backendToUIStatus(raw.status),
+    customer: {
+      name:  `${raw.customer_first_name || ''} ${raw.customer_last_name || ''}`.trim() || 'Customer',
+      phone: raw.customer_phone || '',
+    },
+    restaurant: {
+      name:    raw.restaurant_name    || 'Restaurant',
+      address: raw.restaurant_address || '',
+      pickup:  '~5 mins',
+      // FIX: include restaurant coords so RiderMap can pin the restaurant
+      lat: raw.restaurant_lat  ?? null,
+      lng: raw.restaurant_lng  ?? null,
+    },
+    delivery: {
+      address: [raw.street_number, raw.apartment_number, raw.address_description]
+                  .filter(Boolean).join(', ') || 'Delivery address',
+      time: '~10 mins',
+      lat: raw.delivery_lat  ?? null,
+      lng: raw.delivery_lng  ?? null,
+    },
+    items:       (raw.items || []).map(i => ({ name: i.item_name, qty: i.quantity })),
+    amount:      parseFloat(raw.total_amount || 0),
+    payment:     'Online',
+    timer:       90,
+    distance_km: raw.distance_km ?? null,
+  };
+}
+
+// ─── API HELPERS ──────────────────────────────────────────────────────────────
+
+/**
+ * FIX: Load the rider's own orders from the backend on mount.
+ * This restores ongoing / picked-up orders after a page refresh.
+ */
+async function fetchMyOrders() {
+  try {
+    const data = await authService.authenticatedFetch(
+      'http://127.0.0.1:8000/api/riders/me/orders/'
+    );
+    return data?.orders ?? [];
+  } catch (e) { console.error('fetchMyOrders:', e); return []; }
+}
 
 async function fetchNearbyOrders() {
   try {
@@ -72,7 +144,6 @@ async function updateRiderLocation(lat, lng) {
 }
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
-
 const RiderDashboard = ({ rider = {}, onLogout }) => {
   const riderData = {
     name:    rider.first_name ? `${rider.first_name} ${rider.last_name || ''}`.trim() : rider.name || 'Rider',
@@ -89,9 +160,8 @@ const RiderDashboard = ({ rider = {}, onLogout }) => {
   const [isDark,        setIsDark]        = useState(() => localStorage.getItem('theme') === 'dark');
   const [showProfile,   setShowProfile]   = useState(false);
 
-  // Task 8: orders from backend
   const [nearbyOrders,  setNearbyOrders]  = useState([]);
-  const [myOrders,      setMyOrders]      = useState([]);  // accepted orders
+  const [myOrders,      setMyOrders]      = useState([]);
   const [orderTab,      setOrderTab]      = useState('nearby');
   const [loadingOrders, setLoadingOrders] = useState(false);
 
@@ -104,7 +174,6 @@ const RiderDashboard = ({ rider = {}, onLogout }) => {
     localStorage.setItem('theme', isDark ? 'dark' : 'light');
   }, [isDark]);
 
-  // Push GPS to backend
   const pushLocation = useCallback(() => {
     if (!navigator.geolocation) return;
     navigator.geolocation.getCurrentPosition(
@@ -114,37 +183,35 @@ const RiderDashboard = ({ rider = {}, onLogout }) => {
     );
   }, []);
 
-  // Task 8: load nearby orders
+  // ── FIX: Restore ongoing orders from backend on every mount / refresh ──────
+  const loadMyOrders = useCallback(async () => {
+    try {
+      const raw        = await fetchMyOrders();
+      const normalised = raw.map(normaliseOrder);
+
+      // Split into active (ongoing/picked_up) and completed so we can also
+      // restore the today-earnings counters from truly completed orders.
+      const active    = normalised.filter(o => o.status !== 'completed');
+      const completed = normalised.filter(o => o.status === 'completed');
+
+      setMyOrders(normalised);           // store all; UI filters by status
+      setOrdersToday(completed.length);
+      setTodayEarnings(completed.reduce((s, o) => s + o.amount, 0));
+    } catch (e) {
+      console.error('loadMyOrders:', e);
+    }
+  }, []);
+
+  // Run once on mount so a page refresh always restores in-progress orders
+  useEffect(() => { loadMyOrders(); }, [loadMyOrders]);
+
+  // ── Load nearby orders (only while online) ────────────────────────────────
   const loadNearbyOrders = useCallback(async () => {
     setLoadingOrders(true);
     try {
-      const raw = await fetchNearbyOrders();
-      const normalised = raw.map(o => ({
-        id:        `#${o.order_id}`,
-        orderId:   String(o.order_id),
-        backendId: o.order_id,
-        customer: {
-          name:  `${o.customer_first_name || ''} ${o.customer_last_name || ''}`.trim() || 'Customer',
-          phone: o.customer_phone || '',
-        },
-        restaurant: {
-          name:    o.restaurant_name    || 'Restaurant',
-          address: o.restaurant_address || '',
-          pickup:  '~5 mins',
-          lat: o.restaurant_lat, lng: o.restaurant_lng,
-        },
-        delivery: {
-          address: [o.street_number, o.apartment_number, o.address_description].filter(Boolean).join(', ') || 'Delivery address',
-          time: '~10 mins',
-          lat: o.delivery_lat, lng: o.delivery_lng,
-        },
-        items:       (o.items || []).map(i => ({ name: i.item_name, qty: i.quantity })),
-        amount:      parseFloat(o.total_amount || 0),
-        payment:     'Online',
-        status:      'new',
-        timer:       90,
-        distance_km: o.distance_km,
-      }));
+      const raw        = await fetchNearbyOrders();
+      // Force UI status to 'new' for nearby cards (they haven't been accepted yet)
+      const normalised = raw.map(o => ({ ...normaliseOrder(o), status: 'new' }));
       setNearbyOrders(normalised);
     } catch (e) {
       console.error('loadNearbyOrders error:', e);
@@ -153,7 +220,7 @@ const RiderDashboard = ({ rider = {}, onLogout }) => {
     }
   }, []);
 
-  // Auto-refresh when online
+  // Auto-refresh every 30 s while online
   useEffect(() => {
     if (!isOnline) return;
     loadNearbyOrders();
@@ -173,29 +240,28 @@ const RiderDashboard = ({ rider = {}, onLogout }) => {
     }
   };
 
-  // Task 8: accept from backend
+  // Accept a nearby order
   const handleAcceptOrder = async (orderId, backendId) => {
     try {
       await acceptOrderApi(backendId);
-      const order = nearbyOrders.find(o => o.id === orderId);
-      if (order) {
-        setMyOrders(prev => [{ ...order, status: 'ongoing' }, ...prev]);
-        setNearbyOrders(prev => prev.filter(o => o.id !== orderId));
-      }
+      // Re-fetch myOrders from DB so we get the true backend status + coords
+      await loadMyOrders();
+      setNearbyOrders(prev => prev.filter(o => o.id !== orderId));
       setOrderTab('ongoing');
       toast.success('Order accepted! Head to the restaurant.');
     } catch (e) { toast.error(e.message || 'Failed to accept order'); }
   };
 
-  const handleDeclineOrder = (orderId) => {
-    setNearbyOrders(prev => prev.filter(o => o.id !== orderId));
-    toast('Order skipped', { icon: '❌' });
-  };
-
   const handlePickedUp = async (orderId, backendId) => {
     try {
       await updateOrderStatusApi(backendId, 'PICKED_UP');
-      setMyOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: 'picked_up' } : o));
+      setMyOrders(prev =>
+        prev.map(o =>
+          o.id === orderId
+            ? { ...o, status: 'picked_up', backendStatus: 'PICKED_UP' }
+            : o
+        )
+      );
       toast.success('Order picked up! Delivering now.');
     } catch (e) { toast.error(e.message || 'Failed to update status'); }
   };
@@ -205,7 +271,13 @@ const RiderDashboard = ({ rider = {}, onLogout }) => {
       await updateOrderStatusApi(backendId, 'DELIVERED');
       const order = myOrders.find(o => o.id === orderId);
       if (order) {
-        setMyOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: 'completed', completedAt: new Date() } : o));
+        setMyOrders(prev =>
+          prev.map(o =>
+            o.id === orderId
+              ? { ...o, status: 'completed', backendStatus: 'DELIVERED', completedAt: new Date() }
+              : o
+          )
+        );
         setTodayEarnings(p => p + order.amount);
         setOrdersToday(p => p + 1);
         setWalletBalance(p => p + order.amount);
@@ -258,9 +330,9 @@ const RiderDashboard = ({ rider = {}, onLogout }) => {
               <div style={{ height: 1, background: 'var(--gray-200)' }} />
               <div style={{ padding: '8px 0' }}>
                 {[
-                  { Icon: User,       label: 'Profile',     action: () => { setActiveTab('profile'); setShowProfile(false); } },
-                  { Icon: MapPin,     label: riderData.city, noAction: true },
-                  { Icon: HelpCircle, label: 'Help Center',  action: () => { window.open('https://www.foodpanda.com.bd/contents/help-center', '_blank'); setShowProfile(false); } },
+                  { Icon: User,       label: 'Profile',      action: () => { setActiveTab('profile'); setShowProfile(false); } },
+                  { Icon: MapPin,     label: riderData.city,  noAction: true },
+                  { Icon: HelpCircle, label: 'Help Center',   action: () => { window.open('https://www.foodpanda.com.bd/contents/help-center', '_blank'); setShowProfile(false); } },
                 ].map(({ Icon, label, action, noAction }, i) => (
                   <button key={i} onClick={noAction ? undefined : action}
                     style={{ width: '100%', padding: '12px 16px', background: 'none', border: 'none',
@@ -342,12 +414,12 @@ const RiderDashboard = ({ rider = {}, onLogout }) => {
       {/* Tab content */}
       <div className="rdb-content">
         <AnimatePresence mode="wait">
-          {activeTab === 'status'     && <StatusTab     key="status"     isOnline={isOnline} activeOrder={activeOrder} onToggleOnline={handleToggleOnline} />}
+          {activeTab === 'status'     && <StatusTab     key="status"     isOnline={isOnline} ongoingOrders={ongoingOrders} onToggleOnline={handleToggleOnline} />}
           {activeTab === 'deliveries' && <DeliveriesTab key="deliveries"
             nearbyOrders={nearbyOrders} ongoingOrders={ongoingOrders} completedOrders={completedOrders}
             orderTab={orderTab} setOrderTab={setOrderTab}
             isOnline={isOnline} loadingOrders={loadingOrders}
-            onAccept={handleAcceptOrder} onDecline={handleDeclineOrder}
+            onAccept={handleAcceptOrder}
             onPickedUp={handlePickedUp} onDelivered={handleDelivered} onRefresh={loadNearbyOrders}
           />}
           {activeTab === 'history'  && <HistoryTab  key="history"  />}
@@ -359,58 +431,79 @@ const RiderDashboard = ({ rider = {}, onLogout }) => {
   );
 };
 
-// ─── STATUS TAB — no shifts ────────────────────────────────────────────────────
-const StatusTab = ({ isOnline, activeOrder, onToggleOnline }) => (
-  <motion.div className="rdb-tab-pane"
-    initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
-    exit={{ opacity: 0, y: -12 }} transition={{ duration: 0.25 }}>
+// ─── STATUS TAB ───────────────────────────────────────────────────────────────
+const StatusTab = ({ isOnline, ongoingOrders, onToggleOnline }) => {
+  const activeOrder = ongoingOrders[0] || null;
+  return (
+    <motion.div className="rdb-tab-pane"
+      initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -12 }} transition={{ duration: 0.25 }}>
 
-    <RiderMap order={activeOrder} isOnline={isOnline} />
+      {/*
+        Pass the FULL ongoingOrders array so RiderMap can:
+        - pin ALL restaurants and delivery addresses
+        - draw route from rider's current location to the correct next waypoint
+          for each order (restaurant if ongoing, customer if picked_up)
+      */}
+      <RiderMap orders={ongoingOrders} isOnline={isOnline} />
 
-    <div style={{ background: 'var(--white)', borderRadius: 14, padding: '20px 22px',
-      border: '1.5px solid var(--gray-200)', boxShadow: 'var(--shadow-sm)', marginBottom: 16 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--gray-900)', marginBottom: 4 }}>
-            {isOnline ? '🟢 You are Online' : '🔴 You are Offline'}
-          </p>
-          <p style={{ fontSize: 13, color: 'var(--gray-500)' }}>
-            {isOnline ? 'You are visible to customers and can receive orders.' : 'Toggle to go online and start receiving orders.'}
-          </p>
+      <div style={{ background: 'var(--white)', borderRadius: 14, padding: '20px 22px',
+        border: '1.5px solid var(--gray-200)', boxShadow: 'var(--shadow-sm)', marginBottom: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--gray-900)', marginBottom: 4 }}>
+              {isOnline ? '🟢 You are Online' : '🔴 You are Offline'}
+            </p>
+            <p style={{ fontSize: 13, color: 'var(--gray-500)' }}>
+              {isOnline ? 'You are visible to customers and can receive orders.' : 'Toggle to go online and start receiving orders.'}
+            </p>
+          </div>
+          <button onClick={onToggleOnline}
+            style={{ padding: '10px 22px', borderRadius: 999, border: 'none', cursor: 'pointer',
+              fontWeight: 700, fontSize: 14, fontFamily: 'var(--font)', color: 'white',
+              background: isOnline ? 'linear-gradient(135deg,#dc2626,#b91c1c)' : 'linear-gradient(135deg,#10b981,#059669)',
+              boxShadow: isOnline ? '0 4px 12px rgba(220,38,38,0.3)' : '0 4px 12px rgba(16,185,129,0.3)' }}>
+            {isOnline ? 'Go Offline' : 'Go Online'}
+          </button>
         </div>
-        <button onClick={onToggleOnline}
-          style={{ padding: '10px 22px', borderRadius: 999, border: 'none', cursor: 'pointer',
-            fontWeight: 700, fontSize: 14, fontFamily: 'var(--font)', color: 'white',
-            background: isOnline ? 'linear-gradient(135deg,#dc2626,#b91c1c)' : 'linear-gradient(135deg,#10b981,#059669)',
-            boxShadow: isOnline ? '0 4px 12px rgba(220,38,38,0.3)' : '0 4px 12px rgba(16,185,129,0.3)' }}>
-          {isOnline ? 'Go Offline' : 'Go Online'}
-        </button>
       </div>
-    </div>
 
-    {activeOrder ? (
-      <div style={{ background: 'var(--primary-bg)', borderRadius: 12, padding: '14px 16px',
-        border: '1.5px solid var(--primary-light)' }}>
-        <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--primary)', marginBottom: 6 }}>📦 Active Order</p>
-        <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--gray-900)' }}>{activeOrder.id} — {activeOrder.customer?.name}</p>
-        <p style={{ fontSize: 12, color: 'var(--gray-500)', marginTop: 3 }}>
-          {activeOrder.status === 'ongoing' ? '🍳 Preparing at restaurant' : '🚴 On the way to customer'}
-        </p>
-      </div>
-    ) : isOnline ? (
-      <div style={{ textAlign: 'center', padding: '28px 20px', background: 'var(--gray-50)',
-        borderRadius: 12, border: '1.5px dashed var(--gray-200)' }}>
-        <Bike size={48} color={COLORS.primary} opacity={0.4} strokeWidth={1} style={{ marginBottom: 12 }} />
-        <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--gray-600)' }}>Waiting for orders…</p>
-        <p style={{ fontSize: 13, color: 'var(--gray-400)', marginTop: 6 }}>Check the Deliveries tab for orders near you.</p>
-      </div>
-    ) : null}
-  </motion.div>
-);
+      {ongoingOrders.length > 0 ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {ongoingOrders.map(order => (
+            <div key={order.id} style={{ background: 'var(--primary-bg)', borderRadius: 12,
+              padding: '14px 16px', border: '1.5px solid var(--primary-light)' }}>
+              <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--primary)', marginBottom: 6 }}>
+                {order.status === 'picked_up' ? '🚴 Delivering' : '📦 Active Order'}
+              </p>
+              <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--gray-900)' }}>
+                {order.id} — {order.customer?.name}
+              </p>
+              <p style={{ fontSize: 12, color: 'var(--gray-500)', marginTop: 3 }}>
+                {order.status === 'picked_up'
+                  ? `🏠 En route to ${order.delivery?.address || 'customer'}`
+                  : order.backendStatus === 'PENDING'
+                    ? '⏳ Waiting for restaurant to start preparing'
+                    : '🍳 Restaurant is preparing — head to pick up'}
+              </p>
+            </div>
+          ))}
+        </div>
+      ) : isOnline ? (
+        <div style={{ textAlign: 'center', padding: '28px 20px', background: 'var(--gray-50)',
+          borderRadius: 12, border: '1.5px dashed var(--gray-200)' }}>
+          <Bike size={48} color={COLORS.primary} opacity={0.4} strokeWidth={1} style={{ marginBottom: 12 }} />
+          <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--gray-600)' }}>Waiting for orders…</p>
+          <p style={{ fontSize: 13, color: 'var(--gray-400)', marginTop: 6 }}>Check the Deliveries tab for orders near you.</p>
+        </div>
+      ) : null}
+    </motion.div>
+  );
+};
 
 // ─── DELIVERIES TAB ───────────────────────────────────────────────────────────
 const DeliveriesTab = ({ nearbyOrders, ongoingOrders, completedOrders, orderTab, setOrderTab,
-  isOnline, loadingOrders, onAccept, onDecline, onPickedUp, onDelivered, onRefresh }) => {
+  isOnline, loadingOrders, onAccept, onPickedUp, onDelivered, onRefresh }) => {
   const tabs = [
     { id: 'nearby',    label: 'Nearby',    count: nearbyOrders.length   },
     { id: 'ongoing',   label: 'Ongoing',   count: ongoingOrders.length  },
@@ -466,7 +559,7 @@ const DeliveriesTab = ({ nearbyOrders, ongoingOrders, completedOrders, orderTab,
           </div>
         ) : (
           current.map(order =>
-            order.status === 'new'       ? <NearbyOrderCard  key={order.id} order={order} onAccept={() => onAccept(order.id, order.backendId)}   onDecline={() => onDecline(order.id)} /> :
+            order.status === 'new'       ? <NearbyOrderCard  key={order.id} order={order} onAccept={() => onAccept(order.id, order.backendId)} /> :
             order.status === 'ongoing'   ? <OngoingOrderCard key={order.id} order={order} onPickedUp={() => onPickedUp(order.id, order.backendId)} /> :
             order.status === 'picked_up' ? <PickedUpCard     key={order.id} order={order} onDelivered={() => onDelivered(order.id, order.backendId)} /> :
                                            <CompletedCard    key={order.id} order={order} />
@@ -494,7 +587,7 @@ const DeliveriesTab = ({ nearbyOrders, ongoingOrders, completedOrders, orderTab,
 };
 
 // ─── ORDER CARDS ──────────────────────────────────────────────────────────────
-const NearbyOrderCard = ({ order, onAccept, onDecline }) => {
+const NearbyOrderCard = ({ order, onAccept }) => {
   const [timer, setTimer] = useState(order.timer || 90);
   useEffect(() => {
     if (timer <= 0) return;
@@ -503,6 +596,13 @@ const NearbyOrderCard = ({ order, onAccept, onDecline }) => {
   }, [timer]);
   const mm = String(Math.floor(timer / 60)).padStart(2, '0');
   const ss = String(timer % 60).padStart(2, '0');
+
+  const distKm = order.distance_km;
+  const distColor = distKm == null ? '#6b7280'
+    : distKm < 2  ? '#10b981'
+    : distKm < 5  ? '#f59e0b'
+    : '#ef4444';
+
   return (
     <div className="rdb-new-order-card">
       <div className="rdb-noc-header">
@@ -512,28 +612,51 @@ const NearbyOrderCard = ({ order, onAccept, onDecline }) => {
           <span className={`rdb-noc-timer ${timer < 20 ? 'urgent' : ''}`}>⏱ {mm}:{ss}</span>
         </div>
       </div>
-      {order.distance_km && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 8, fontSize: 12, fontWeight: 600, color: COLORS.primary }}>
-          <Navigation size={12} /> {order.distance_km.toFixed(1)} km away
+
+      {distKm != null && (
+        <div style={{
+          display: 'inline-flex', alignItems: 'center', gap: 5,
+          marginBottom: 10, padding: '4px 10px', borderRadius: 999,
+          background: `${distColor}18`, border: `1.5px solid ${distColor}40`,
+          fontSize: 12, fontWeight: 700, color: distColor,
+        }}>
+          <Navigation size={12} />
+          {distKm.toFixed(1)} km to restaurant
+          <span style={{ fontWeight: 400, color: distColor, opacity: 0.8 }}>
+            · {distKm < 2 ? 'Very close' : distKm < 5 ? 'Nearby' : 'Far'}
+          </span>
         </div>
       )}
+
       <div className="rdb-noc-locations">
         <div className="rdb-noc-loc-row">
           <div className="rdb-noc-loc-dot pickup" />
-          <div><p className="rdb-noc-loc-label">Pickup</p><p className="rdb-noc-loc-name">{order.restaurant.name}</p><p className="rdb-noc-loc-addr">{order.restaurant.address}</p></div>
+          <div>
+            <p className="rdb-noc-loc-label">Pickup</p>
+            <p className="rdb-noc-loc-name">{order.restaurant.name}</p>
+            <p className="rdb-noc-loc-addr">{order.restaurant.address}</p>
+          </div>
         </div>
         <div className="rdb-noc-loc-line" />
         <div className="rdb-noc-loc-row">
           <div className="rdb-noc-loc-dot dropoff" />
-          <div><p className="rdb-noc-loc-label">Drop-off</p><p className="rdb-noc-loc-addr">{order.delivery.address}</p></div>
+          <div>
+            <p className="rdb-noc-loc-label">Drop-off</p>
+            <p className="rdb-noc-loc-addr">{order.delivery.address}</p>
+          </div>
         </div>
       </div>
-      <div className="rdb-noc-items">{order.items.map((item, i) => <span key={i} className="rdb-noc-item">{item.qty}× {item.name}</span>)}</div>
+
+      <div className="rdb-noc-items">
+        {order.items.map((item, i) => (
+          <span key={i} className="rdb-noc-item">{item.qty}× {item.name}</span>
+        ))}
+      </div>
+
       <div className="rdb-noc-footer">
         <span className="rdb-noc-payment">{order.payment}</span>
         <div className="rdb-noc-actions">
-          <button className="rdb-btn-decline" onClick={onDecline}>Skip</button>
-          <button className="rdb-btn-accept"  onClick={onAccept}>Accept Order</button>
+          <button className="rdb-btn-accept" onClick={onAccept}>Accept Order</button>
         </div>
       </div>
     </div>
@@ -542,12 +665,20 @@ const NearbyOrderCard = ({ order, onAccept, onDecline }) => {
 
 const OngoingOrderCard = ({ order, onPickedUp }) => (
   <div className="rdb-ongoing-card">
-    <div className="rdb-ongoing-header"><p className="rdb-ongoing-id">{order.id}</p><span className="rdb-ongoing-badge preparing">🍳 Preparing</span></div>
+    <div className="rdb-ongoing-header">
+      <p className="rdb-ongoing-id">{order.id}</p>
+      {/* FIX: show real backend status so rider knows if restaurant started yet */}
+      <span className={`rdb-ongoing-badge ${order.backendStatus === 'PENDING' ? 'pending' : 'preparing'}`}>
+        {order.backendStatus === 'PENDING' ? '⏳ Waiting' : '🍳 Preparing'}
+      </span>
+    </div>
     <p className="rdb-ongoing-restaurant">{order.restaurant?.name}</p>
     <p className="rdb-ongoing-addr">{order.restaurant?.address}</p>
     <div className="rdb-ongoing-status-bar">
       <div className="rdb-status-step done"><Check size={12} /> Order Placed</div>
-      <div className="rdb-status-step active pulse"><Utensils size={12} /> Preparing</div>
+      <div className={`rdb-status-step ${order.backendStatus === 'PREPARING' ? 'active pulse' : 'active'}`}>
+        <Utensils size={12} /> {order.backendStatus === 'PENDING' ? 'Waiting' : 'Preparing'}
+      </div>
       <div className="rdb-status-step"><Bike size={12} /> Picked Up</div>
       <div className="rdb-status-step"><MapPin size={12} /> Delivered</div>
     </div>
@@ -577,7 +708,7 @@ const CompletedCard = ({ order }) => (
   </div>
 );
 
-// ─── HISTORY TAB ─────────────────────────────────────────────────────────────
+// ─── HISTORY TAB ──────────────────────────────────────────────────────────────
 const HistoryTab = () => {
   const [dateFilter, setDateFilter] = useState('today');
   const [expandedId, setExpandedId] = useState(null);
