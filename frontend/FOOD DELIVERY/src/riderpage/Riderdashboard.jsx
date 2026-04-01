@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   CheckCircle, Bike, MapPin, Clock, DollarSign, History,
-  Wallet, User, Star, Package, ChevronRight,
+  Wallet, User, Package, ChevronRight,
   ChevronLeft, LogOut, Calendar, Upload, AlertCircle, Check,
   Phone, Mail, Lock, CreditCard, FileText, Shield, Edit2,
   Utensils, Sun, Moon, HelpCircle, Navigation, RefreshCw,
@@ -13,29 +13,6 @@ import './Riderdashboard.css';
 import './RiderDashboardExtra.css';
 import RiderMap from './RiderMap.jsx';
 import authService from '../Authservice.js';
-
-// ─── MOCK DATA (history only) ─────────────────────────────────────────────────
-const MOCK_HISTORY = [
-  {
-    date: 'Today',
-    entries: [
-      { id: 'E-001', time: '11:15 – 13:49', zone: 'Gulshan', totalEarnings: 490, hoursWorked: '2h 35m', tips: 20, deliveries: 7, adjustment: 0,
-        orders: [{ id: 'o9ap-l7pm', completedAt: '13:32', amount: 72 }, { id: 'w8ci-b3u5', completedAt: '12:46', amount: 68 }]
-      },
-    ]
-  },
-  {
-    date: 'Yesterday',
-    entries: [
-      { id: 'E-002', time: '11:15 – 14:14', zone: 'Mirpur', totalEarnings: 610, hoursWorked: '2h 60m', tips: 0, deliveries: 9, adjustment: 70, orders: [] },
-    ]
-  }
-];
-
-const MOCK_COMPLETED_ORDERS = [
-  { id: 'ORD-6891', shortId: 't2iz-abcd', customer: 'Hassan Ali',   amount: 380, tips: 20, completedAt: '13:32' },
-  { id: 'ORD-6885', shortId: 'w8ci-efgh', customer: 'Ayesha Begum', amount: 290, tips: 10, completedAt: '12:46' },
-];
 
 // ─── STATUS HELPERS ───────────────────────────────────────────────────────────
 /**
@@ -111,6 +88,22 @@ async function fetchMyOrders() {
   } catch (e) { console.error('fetchMyOrders:', e); return []; }
 }
 
+async function fetchRiderStats() {
+  try {
+    return await authService.authenticatedFetch(
+      'http://127.0.0.1:8000/api/riders/me/stats/'
+    );
+  } catch (e) { console.error('fetchRiderStats:', e); return null; }
+}
+
+async function fetchRiderHistory(days = 30) {
+  try {
+    return await authService.authenticatedFetch(
+      `http://127.0.0.1:8000/api/riders/me/history/?days=${days}`
+    );
+  } catch (e) { console.error('fetchRiderHistory:', e); return null; }
+}
+
 async function fetchNearbyOrders() {
   try {
     const data = await authService.authenticatedFetch(
@@ -152,7 +145,6 @@ const RiderDashboard = ({ rider = {}, onLogout }) => {
     phone:   rider.phone_number || rider.phone || '',
     email:   rider.email   || '',
     city:    rider.city    || 'Dhaka',
-    rating:  4.8,
   };
 
   const [activeTab,     setActiveTab]     = useState('status');
@@ -183,27 +175,29 @@ const RiderDashboard = ({ rider = {}, onLogout }) => {
     );
   }, []);
 
+  // ── Load live stats from backend (header bar numbers) ────────────────────
+  const loadStats = useCallback(async () => {
+    const stats = await fetchRiderStats();
+    if (stats) {
+      setOrdersToday(stats.orders_today);
+      setTodayEarnings(stats.today_earnings);
+      setWalletBalance(stats.wallet_balance);
+    }
+  }, []);
+
   // ── FIX: Restore ongoing orders from backend on every mount / refresh ──────
   const loadMyOrders = useCallback(async () => {
     try {
       const raw        = await fetchMyOrders();
       const normalised = raw.map(normaliseOrder);
-
-      // Split into active (ongoing/picked_up) and completed so we can also
-      // restore the today-earnings counters from truly completed orders.
-      const active    = normalised.filter(o => o.status !== 'completed');
-      const completed = normalised.filter(o => o.status === 'completed');
-
-      setMyOrders(normalised);           // store all; UI filters by status
-      setOrdersToday(completed.length);
-      setTodayEarnings(completed.reduce((s, o) => s + o.amount, 0));
+      setMyOrders(normalised);
     } catch (e) {
       console.error('loadMyOrders:', e);
     }
   }, []);
 
-  // Run once on mount so a page refresh always restores in-progress orders
-  useEffect(() => { loadMyOrders(); }, [loadMyOrders]);
+  // Run once on mount so a page refresh always restores in-progress orders + stats
+  useEffect(() => { loadMyOrders(); loadStats(); }, [loadMyOrders, loadStats]);
 
   // ── Load nearby orders (only while online) ────────────────────────────────
   const loadNearbyOrders = useCallback(async () => {
@@ -278,11 +272,10 @@ const RiderDashboard = ({ rider = {}, onLogout }) => {
               : o
           )
         );
-        setTodayEarnings(p => p + order.amount);
-        setOrdersToday(p => p + 1);
-        setWalletBalance(p => p + order.amount);
         setOrderTab('completed');
         toast.success(`✅ Delivered! ৳${order.amount} earned`);
+        // Refresh live stats from backend (earnings, orders today, wallet)
+        loadStats();
       }
     } catch (e) { toast.error(e.message || 'Failed to update status'); }
   };
@@ -407,7 +400,6 @@ const RiderDashboard = ({ rider = {}, onLogout }) => {
       <div className="rdb-stats-bar">
         <div className="rdb-stat"><span className="rdb-stat-label">Today's Earnings</span><span className="rdb-stat-val" style={{ color: COLORS.success }}>৳{todayEarnings}</span></div>
         <div className="rdb-stat"><span className="rdb-stat-label">Orders Today</span><span className="rdb-stat-val" style={{ color: COLORS.primary }}>{ordersToday}</span></div>
-        <div className="rdb-stat"><span className="rdb-stat-label">Rating</span><span className="rdb-stat-val" style={{ color: '#f59e0b' }}>⭐ {riderData.rating}</span></div>
         <div className="rdb-stat"><span className="rdb-stat-label">Status</span><span className="rdb-stat-val" style={{ color: isOnline ? '#10b981' : '#6b7280' }}>{isOnline ? '🟢 Online' : '🔴 Offline'}</span></div>
       </div>
 
@@ -423,7 +415,7 @@ const RiderDashboard = ({ rider = {}, onLogout }) => {
             onPickedUp={handlePickedUp} onDelivered={handleDelivered} onRefresh={loadNearbyOrders}
           />}
           {activeTab === 'history'  && <HistoryTab  key="history"  />}
-          {activeTab === 'wallet'   && <WalletTab   key="wallet"   balance={walletBalance} />}
+          {activeTab === 'wallet'   && <WalletTab   key="wallet"   balance={walletBalance} onRefreshStats={loadStats} />}
           {activeTab === 'profile'  && <ProfileTab  key="profile"  rider={riderData} />}
         </AnimatePresence>
       </div>
@@ -565,21 +557,6 @@ const DeliveriesTab = ({ nearbyOrders, ongoingOrders, completedOrders, orderTab,
                                            <CompletedCard    key={order.id} order={order} />
           )
         )}
-        {orderTab === 'completed' && current.length === 0 && MOCK_COMPLETED_ORDERS.map(o => (
-          <div key={o.id} className="rdb-completed-card">
-            <div className="rdb-completed-left">
-              <Check size={16} color={COLORS.success} />
-              <div>
-                <p className="rdb-completed-id">{o.id}</p>
-                <p className="rdb-completed-customer">{o.customer} · {o.completedAt}</p>
-              </div>
-            </div>
-            <div className="rdb-completed-right">
-              <span className="rdb-completed-amt">৳{o.amount}</span>
-              {o.tips > 0 && <span className="rdb-completed-tip">+৳{o.tips} tip</span>}
-            </div>
-          </div>
-        ))}
       </div>
       <style>{`@keyframes rdbSpin { to { transform: rotate(360deg); } }`}</style>
     </motion.div>
@@ -710,71 +687,190 @@ const CompletedCard = ({ order }) => (
 
 // ─── HISTORY TAB ──────────────────────────────────────────────────────────────
 const HistoryTab = () => {
-  const [dateFilter, setDateFilter] = useState('today');
-  const [expandedId, setExpandedId] = useState(null);
-  const dateFilters = [{ id: 'today', label: 'Today' }, { id: 'yesterday', label: 'Yesterday' }, { id: '7days', label: '7 Days' }, { id: '30days', label: '30 Days' }];
-  const visible = dateFilter === 'today' ? MOCK_HISTORY.filter(g => g.date === 'Today') : dateFilter === 'yesterday' ? MOCK_HISTORY.filter(g => g.date === 'Yesterday') : MOCK_HISTORY;
+  const [dateFilter,  setDateFilter]  = useState('30');
+  const [expandedId,  setExpandedId]  = useState(null);
+  const [historyData, setHistoryData] = useState(null);   // raw API response
+  const [loading,     setLoading]     = useState(false);
+  const [error,       setError]       = useState(null);
+
+  const dateFilters = [
+    { id: 'today',     label: 'Today',     days: 1   },
+    { id: 'yesterday', label: 'Yesterday', days: 2   },
+    { id: '7',         label: '7 Days',    days: 7   },
+    { id: '30',        label: '30 Days',   days: 30  },
+  ];
+
+  const loadHistory = useCallback(async (days) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await fetchRiderHistory(days);
+      if (data) setHistoryData(data);
+      else setError('Failed to load history.');
+    } catch (e) {
+      setError('Failed to load history.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const filter = dateFilters.find(f => f.id === dateFilter);
+    loadHistory(filter ? filter.days : 30);
+  }, [dateFilter]);
+
+  // For "today" / "yesterday" filters, trim groups client-side after fetch
+  const getVisibleGroups = () => {
+    if (!historyData?.groups) return [];
+    const groups = historyData.groups;
+    if (dateFilter === 'today')     return groups.filter(g => g.label === 'Today');
+    if (dateFilter === 'yesterday') return groups.filter(g => g.label === 'Yesterday');
+    return groups;
+  };
+
+  const visible        = getVisibleGroups();
+  const totalOrders    = visible.reduce((s, g) => s + g.order_count,    0);
+  const totalEarnings  = visible.reduce((s, g) => s + g.total_earnings, 0);
+
   return (
-    <motion.div className="rdb-tab-pane" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }} transition={{ duration: 0.25 }}>
+    <motion.div className="rdb-tab-pane" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -12 }} transition={{ duration: 0.25 }}>
       <h2 className="rdb-section-title">Order History</h2>
+
+      {/* Summary strip */}
       <div className="rdb-hist-summary">
-        <div className="rdb-hist-stat"><Calendar size={18} color={COLORS.primary} /><span className="rdb-hist-stat-num">7</span><span className="rdb-hist-stat-label">Orders</span></div>
-        <div className="rdb-hist-stat"><DollarSign size={18} color={COLORS.success} /><span className="rdb-hist-stat-num">৳955</span><span className="rdb-hist-stat-label">Earnings</span></div>
-        <div className="rdb-hist-stat tips-active"><Star size={18} color="#f59e0b" /><span className="rdb-hist-stat-num tips">৳20</span><span className="rdb-hist-stat-label">Tips</span></div>
-      </div>
-      <div className="rdb-date-filters">{dateFilters.map(f => <button key={f.id} className={`rdb-date-filter-btn ${dateFilter === f.id ? 'active' : ''}`} onClick={() => setDateFilter(f.id)}>{f.label}</button>)}</div>
-      {visible.map(group => (
-        <div key={group.date} className="rdb-hist-group">
-          <h3 className="rdb-hist-date">{group.date}</h3>
-          {group.entries.map(entry => (
-            <div key={entry.id} className="rdb-shift-history-card">
-              <div className="rdb-shc-header" onClick={() => setExpandedId(expandedId === entry.id ? null : entry.id)}>
-                <div><p className="rdb-shc-time">{entry.time}</p><p className="rdb-shc-zone">{entry.zone}</p></div>
-                <div className="rdb-shc-right"><span className="rdb-shc-total">৳{entry.totalEarnings}</span><ChevronRight size={16} style={{ transform: expandedId === entry.id ? 'rotate(90deg)' : 'none', transition: '0.2s' }} /></div>
-              </div>
-              {expandedId === entry.id && (
-                <div className="rdb-shc-breakdown">
-                  <div className="rdb-pay-row header"><span>Total Earnings:</span><span>৳{entry.totalEarnings}</span></div>
-                  <div className="rdb-pay-row sub"><span>Hours ({entry.hoursWorked})</span><span>৳0.00</span></div>
-                  {entry.tips > 0 && <div className="rdb-pay-row sub tips"><span>Tips</span><span>৳{entry.tips}</span></div>}
-                  <div className="rdb-pay-row sub deliveries"><span>Deliveries ({entry.deliveries})</span><span>৳{entry.totalEarnings - entry.tips}</span></div>
-                  {entry.orders.map(o => <div key={o.id} className="rdb-pay-order-row"><span className="rdb-pay-order-icon">📦</span><span className="rdb-pay-order-id">{o.id}</span><span className="rdb-pay-order-time">{o.completedAt}</span><span className="rdb-pay-order-amt">৳{o.amount}</span></div>)}
-                </div>
-              )}
-            </div>
-          ))}
+        <div className="rdb-hist-stat">
+          <Calendar size={18} color={COLORS.primary} />
+          <span className="rdb-hist-stat-num">{loading ? '—' : totalOrders}</span>
+          <span className="rdb-hist-stat-label">Orders</span>
         </div>
-      ))}
+        <div className="rdb-hist-stat">
+          <DollarSign size={18} color={COLORS.success} />
+          <span className="rdb-hist-stat-num">{loading ? '—' : `৳${totalEarnings.toFixed(2)}`}</span>
+          <span className="rdb-hist-stat-label">Earnings</span>
+        </div>
+      </div>
+
+      {/* Date filter pills */}
+      <div className="rdb-date-filters">
+        {dateFilters.map(f => (
+          <button key={f.id} className={`rdb-date-filter-btn ${dateFilter === f.id ? 'active' : ''}`}
+            onClick={() => setDateFilter(f.id)}>
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Content */}
+      {loading ? (
+        <div className="rdb-empty" style={{ paddingTop: 32 }}>
+          <div style={{ width: 36, height: 36, border: `3px solid var(--primary-light)`,
+            borderTopColor: 'var(--primary)', borderRadius: '50%',
+            animation: 'rdbSpin 0.8s linear infinite', marginBottom: 12 }} />
+          <p>Loading history…</p>
+        </div>
+      ) : error ? (
+        <div className="rdb-empty" style={{ paddingTop: 32 }}>
+          <AlertCircle size={40} color="#ef4444" opacity={0.5} />
+          <p style={{ color: '#ef4444' }}>{error}</p>
+        </div>
+      ) : visible.length === 0 ? (
+        <div className="rdb-empty" style={{ paddingTop: 32 }}>
+          <History size={48} color={COLORS.primary} opacity={0.3} strokeWidth={1} />
+          <p>No deliveries in this period</p>
+          <span>Completed orders will appear here once delivered.</span>
+        </div>
+      ) : (
+        visible.map(group => (
+          <div key={group.date} className="rdb-hist-group">
+            <h3 className="rdb-hist-date">
+              {group.label}
+              <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--gray-400)', marginLeft: 8 }}>
+                {group.order_count} order{group.order_count !== 1 ? 's' : ''} · ৳{group.total_earnings.toFixed(2)}
+              </span>
+            </h3>
+            {group.orders.map(order => {
+              const cardId = `${group.date}-${order.order_id}`;
+              const isOpen = expandedId === cardId;
+              // Format completed_at as HH:MM
+              const timeStr = order.completed_at
+                ? new Date(order.completed_at).toLocaleTimeString('en-BD', { hour: '2-digit', minute: '2-digit', hour12: true })
+                : '';
+              return (
+                <div key={order.order_id} className="rdb-shift-history-card">
+                  <div className="rdb-shc-header" onClick={() => setExpandedId(isOpen ? null : cardId)}>
+                    <div>
+                      <p className="rdb-shc-time">#{order.order_id} · {timeStr}</p>
+                      <p className="rdb-shc-zone">{order.restaurant_name}</p>
+                    </div>
+                    <div className="rdb-shc-right">
+                      <span className="rdb-shc-total">৳{order.earnings.toFixed(2)}</span>
+                      <ChevronRight size={16} style={{ transform: isOpen ? 'rotate(90deg)' : 'none', transition: '0.2s' }} />
+                    </div>
+                  </div>
+                  {isOpen && (
+                    <div className="rdb-shc-breakdown">
+                      <div className="rdb-pay-row header">
+                        <span>Your Earnings:</span>
+                        <span>৳{order.earnings.toFixed(2)}</span>
+                      </div>
+                      <div className="rdb-pay-row sub">
+                        <span>Order Total</span>
+                        <span>৳{order.total_amount.toFixed(2)}</span>
+                      </div>
+                      <div className="rdb-pay-row sub">
+                        <span>Delivery Charge (50%)</span>
+                        <span>৳{(order.delivery_charge * 0.5).toFixed(2)}</span>
+                      </div>
+                      {order.rider_tip > 0 && (
+                        <div className="rdb-pay-row sub tips">
+                          <span>Tip (50%)</span>
+                          <span>৳{(order.rider_tip * 0.5).toFixed(2)}</span>
+                        </div>
+                      )}
+                      <div className="rdb-pay-order-row" style={{ marginTop: 6 }}>
+                        <span className="rdb-pay-order-icon">👤</span>
+                        <span className="rdb-pay-order-id">{order.customer_name}</span>
+                        <span className="rdb-pay-order-time">{timeStr}</span>
+                        <span className="rdb-pay-order-amt">৳{order.earnings.toFixed(2)}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ))
+      )}
+      <style>{`@keyframes rdbSpin { to { transform: rotate(360deg); } }`}</style>
     </motion.div>
   );
 };
 
 // ─── WALLET TAB ───────────────────────────────────────────────────────────────
-const WalletTab = ({ balance }) => {
+const WalletTab = ({ balance, onRefreshStats }) => {
   const [showPayout, setShowPayout] = useState(false);
   return (
     <motion.div className="rdb-tab-pane" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }} transition={{ duration: 0.25 }}>
       <h2 className="rdb-section-title">Wallet</h2>
       <div className="rdb-wallet-card">
         <p className="rdb-wallet-label">Current balance</p>
-        <p className="rdb-wallet-balance">৳{(balance / 100).toFixed(2)}</p>
+        <p className="rdb-wallet-balance">৳{parseFloat(balance || 0).toFixed(2)}</p>
         <button className="rdb-payout-btn" onClick={() => setShowPayout(true)}>💸 Payout</button>
       </div>
-      <div className="rdb-earning-cards">
-        <div className="rdb-earning-card received"><p className="rdb-ec-label">Amount Received</p><p className="rdb-ec-amount">৳97.05</p><p className="rdb-ec-sub">This week</p></div>
-        <div className="rdb-earning-card pending"><p className="rdb-ec-label">Pending</p><p className="rdb-ec-amount">৳67.05</p><p className="rdb-ec-sub">Processing</p></div>
-        <div className="rdb-earning-card lifetime"><p className="rdb-ec-label">Lifetime</p><p className="rdb-ec-amount">৳164.10</p><p className="rdb-ec-sub">10 orders total</p></div>
-      </div>
-      <div className="rdb-cash-return-banner"><AlertCircle size={16} color="#dc2626" /><span>Cash to return to office: <strong>৳761.40</strong></span></div>
       {showPayout && (
         <div className="rdb-modal-overlay" onClick={() => setShowPayout(false)}>
           <div className="rdb-modal" onClick={e => e.stopPropagation()}>
             <h3>Request Payout</h3>
-            <p>Available: <strong>৳{(balance / 100).toFixed(2)}</strong></p>
+            <p>Available: <strong>৳{parseFloat(balance || 0).toFixed(2)}</strong></p>
             <p className="rdb-modal-sub">Funds transferred within 1–2 business days.</p>
             <div className="rdb-modal-actions">
               <button className="rdb-modal-cancel" onClick={() => setShowPayout(false)}>Cancel</button>
-              <button className="rdb-modal-confirm" onClick={() => { setShowPayout(false); toast.success('Payout request submitted!'); }}>Confirm Payout</button>
+              <button className="rdb-modal-confirm" onClick={() => {
+                setShowPayout(false);
+                toast.success('Payout request submitted!');
+                onRefreshStats?.();
+              }}>Confirm Payout</button>
             </div>
           </div>
         </div>

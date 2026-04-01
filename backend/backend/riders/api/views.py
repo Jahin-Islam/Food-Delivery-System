@@ -2,7 +2,11 @@ from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
-from riders.api.services import get_rider, get_nearby_orders, get_rider_id, update_order_status_by_rider, accept_order
+from riders.api.services import (
+    get_rider, get_nearby_orders, get_rider_id,
+    update_order_status_by_rider, accept_order,
+    get_rider_stats, get_rider_history, update_rider_location,
+)
 from orders.api.services import get_rider_orders
 from exceptions import ValidationError, NotFoundError
 
@@ -238,3 +242,137 @@ class RiderAcceptOrderView(APIView):
             {"detail": "Order accepted successfully.", "order_id": order_id},
             status=status.HTTP_200_OK,
         )
+
+class RiderStatsView(APIView):
+    """
+    GET /api/riders/me/stats/
+
+    Returns live header stats for the rider dashboard:
+        {
+            "orders_today":   3,
+            "today_earnings": 145.50,
+            "wallet_balance": 1240.75
+        }
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        rider_id = get_rider_id(request.user.id)
+        if not rider_id:
+            return Response(
+                {"detail": "Rider profile not found."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        stats = get_rider_stats(rider_id)
+        return Response(stats, status=status.HTTP_200_OK)
+
+
+class RiderHistoryView(APIView):
+    """
+    GET /api/riders/me/history/
+    GET /api/riders/me/history/?days=7
+
+    Query params:
+        days (int, optional) — look-back window, default 30, max 365
+
+    Returns delivered orders grouped by date (Dhaka local time):
+        {
+            "days":  30,
+            "count": 12,
+            "groups": [
+                {
+                    "date":           "2025-07-15",
+                    "label":          "Today",
+                    "order_count":    4,
+                    "total_earnings": 210.00,
+                    "orders": [
+                        {
+                            "order_id":        42,
+                            "completed_at":    "2025-07-15T13:32:00",
+                            "restaurant_name": "KFC Gulshan",
+                            "customer_name":   "Hassan Ali",
+                            "total_amount":    380.00,
+                            "delivery_charge": 40.00,
+                            "rider_tip":       20.00,
+                            "earnings":        30.00
+                        },
+                        ...
+                    ]
+                },
+                ...
+            ]
+        }
+    """
+    permission_classes = [IsAuthenticated]
+
+    MAX_DAYS = 365
+    DEFAULT_DAYS = 30
+
+    def get(self, request):
+        rider_id = get_rider_id(request.user.id)
+        if not rider_id:
+            return Response(
+                {"detail": "Rider profile not found."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Parse ?days param
+        try:
+            days = int(request.query_params.get('days', self.DEFAULT_DAYS))
+            if days <= 0:
+                raise ValueError
+        except (TypeError, ValueError):
+            return Response(
+                {"detail": "'days' must be a positive integer."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        days = min(days, self.MAX_DAYS)
+
+        groups = get_rider_history(rider_id, days=days)
+        total_orders = sum(g['order_count'] for g in groups)
+
+        return Response({
+            "days":   days,
+            "count":  total_orders,
+            "groups": groups,
+        }, status=status.HTTP_200_OK)
+
+
+class RiderLocationUpdateView(APIView):
+    """
+    PATCH /api/riders/location/
+
+    Body: { "current_latitude": 23.78, "current_longitude": 90.40 }
+
+    Updates the rider's GPS coordinates in the database.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request):
+        rider_id = get_rider_id(request.user.id)
+        if not rider_id:
+            return Response(
+                {"detail": "Rider profile not found."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        lat = request.data.get('current_latitude')
+        lng = request.data.get('current_longitude')
+
+        if lat is None or lng is None:
+            return Response(
+                {"detail": "Both 'current_latitude' and 'current_longitude' are required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            lat = float(lat)
+            lng = float(lng)
+        except (TypeError, ValueError):
+            return Response(
+                {"detail": "Latitude and longitude must be numbers."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        update_rider_location(rider_id, lat, lng)
+        return Response({"detail": "Location updated."}, status=status.HTTP_200_OK)

@@ -337,10 +337,17 @@ def update_order_status_by_rider(order_id, rider_id, new_status):
         PENDING    → PICKED_UP
         PREPARING  → PICKED_UP
         PICKED_UP  → DELIVERED  (also stamps delivered_at = NOW())
+
+    WALLET CREDIT — on DELIVERED:
+        Rider earns 50% of (delivery_charge + rider_tip).
+        The credit and the status update happen in a single atomic
+        transaction so they always succeed or fail together.
+        NULL charges are treated as 0 so the arithmetic is safe.
     """
     with connection.cursor() as cursor:
         cursor.execute("""
-            SELECT status FROM orders_order
+            SELECT status, delivery_charge, rider_tip
+            FROM orders_order
             WHERE order_id = %s AND rider_id = %s
         """, [order_id, rider_id])
         row = cursor.fetchone()
@@ -348,7 +355,7 @@ def update_order_status_by_rider(order_id, rider_id, new_status):
     if not row:
         raise NotFoundError("Order not found or is not assigned to you.")
 
-    current_status = row[0]
+    current_status, delivery_charge, rider_tip = row
 
     allowed = RIDER_VALID_TRANSITIONS.get(current_status, [])
     if new_status not in allowed:
@@ -358,13 +365,36 @@ def update_order_status_by_rider(order_id, rider_id, new_status):
         )
 
     if new_status == 'DELIVERED':
+        # 50 % of (delivery_charge + tip), treating NULL as 0
+        charge     = float(delivery_charge or 0)
+        tip        = float(rider_tip       or 0)
+        earnings   = round((charge + tip) * 0.50, 2)
+
         with connection.cursor() as cursor:
+            # Both writes share one transaction — atomic by default in MySQL
+            # when autocommit is off (Django's default behaviour).
+
+            # 1. Mark the order delivered
             cursor.execute("""
                 UPDATE orders_order
                 SET status       = %s,
                     delivered_at = NOW()
-                WHERE order_id = %s
+                WHERE order_id   = %s
             """, [new_status, order_id])
+
+            # 2. Credit the rider's wallet
+            cursor.execute("""
+                UPDATE riders_rider_additional_information
+                SET wallet_balace = wallet_balace + %s
+                WHERE rider_id    = %s
+            """, [earnings, rider_id])
+
+            if cursor.rowcount == 0:
+                # Rider profile row missing — roll back by raising
+                raise NotFoundError(
+                    "Rider additional-information record not found; "
+                    "wallet could not be credited."
+                )
     else:
         with connection.cursor() as cursor:
             cursor.execute("""
@@ -372,6 +402,161 @@ def update_order_status_by_rider(order_id, rider_id, new_status):
                 SET status = %s
                 WHERE order_id = %s
             """, [new_status, order_id])
+
+
+def get_rider_stats(rider_id):
+    """
+    Returns live stats for the rider header bar:
+      - today_earnings   : sum of earnings credited today (wallet credits from DELIVERED orders)
+      - orders_today     : count of orders delivered today
+      - wallet_balance   : current wallet balance from rider_additional_information
+    """
+    with connection.cursor() as cursor:
+        # Today's delivered orders count + earnings (50% of delivery_charge + rider_tip)
+        cursor.execute("""
+            SELECT
+                COUNT(*)                                                  AS orders_today,
+                COALESCE(SUM(
+                    (COALESCE(delivery_charge, 0) + COALESCE(rider_tip, 0)) * 0.50
+                ), 0)                                                     AS today_earnings
+            FROM orders_order
+            WHERE rider_id = %s
+              AND status   = 'DELIVERED'
+              AND DATE(delivered_at) = CURDATE()
+        """, [rider_id])
+        row = cursor.fetchone()
+        orders_today   = row[0] if row else 0
+        today_earnings = float(row[1]) if row else 0.0
+
+        # Current wallet balance
+        cursor.execute("""
+            SELECT wallet_balace
+            FROM riders_rider_additional_information
+            WHERE rider_id = %s
+        """, [rider_id])
+        wallet_row     = cursor.fetchone()
+        wallet_balance = float(wallet_row[0]) if wallet_row else 0.0
+
+    return {
+        'orders_today':    orders_today,
+        'today_earnings':  round(today_earnings, 2),
+        'wallet_balance':  round(wallet_balance, 2),
+    }
+
+
+def update_rider_location(rider_id, latitude, longitude):
+    """Update the rider's current GPS coordinates."""
+    with connection.cursor() as cursor:
+        cursor.execute("""
+            UPDATE riders_rider
+            SET current_latitude  = %s,
+                current_longitude = %s
+            WHERE id = %s
+        """, [latitude, longitude, rider_id])
+
+
+def get_rider_history(rider_id, days=30):
+    """
+    Returns DELIVERED orders for this rider within the last `days` days,
+    each order annotated with the rider's earnings for that delivery.
+
+    Grouped by calendar date (in Dhaka time, UTC+6) so the frontend can
+    render day-by-day sections.
+
+    Each order dict:
+        order_id, completed_at (ISO string), restaurant_name,
+        customer_name, total_amount, delivery_charge, rider_tip,
+        earnings  (= (delivery_charge + rider_tip) * 0.50)
+
+    Returns a list of date-groups sorted newest-first:
+        [
+          {
+            "date":       "2025-07-15",      # YYYY-MM-DD
+            "label":      "Today" / "Yesterday" / "15 Jul",
+            "orders":     [ {...}, ... ],
+            "total_earnings": 123.50,
+            "order_count":    4,
+          },
+          ...
+        ]
+    """
+    with connection.cursor() as cursor:
+        cursor.execute("""
+            SELECT
+                o.order_id,
+                o.delivered_at,
+                o.total_amount,
+                COALESCE(o.delivery_charge, 0)  AS delivery_charge,
+                COALESCE(o.rider_tip,       0)  AS rider_tip,
+                r.name                          AS restaurant_name,
+                o.first_name                    AS customer_first_name,
+                o.last_name                     AS customer_last_name
+            FROM orders_order o
+            LEFT JOIN resturants_restaurant r ON r.id = o.restaurant_id
+            WHERE o.rider_id = %s
+              AND o.status   = 'DELIVERED'
+              AND o.delivered_at >= NOW() - INTERVAL %s DAY
+            ORDER BY o.delivered_at DESC
+        """, [rider_id, days])
+        rows = dictfetchall(cursor)
+
+    from datetime import datetime, timezone as dt_tz, timedelta
+
+    DHAKA_OFFSET = timedelta(hours=6)
+
+    def to_dhaka_date(dt_val):
+        """Convert a datetime (naive or aware) to a Dhaka-local date."""
+        if dt_val is None:
+            return None
+        if hasattr(dt_val, 'tzinfo') and dt_val.tzinfo is not None:
+            local = dt_val + DHAKA_OFFSET
+        else:
+            local = dt_val + DHAKA_OFFSET
+        return local.date()
+
+    today     = (datetime.now(dt_tz.utc) + DHAKA_OFFSET).date()
+    yesterday = today - timedelta(days=1)
+
+    def date_label(d):
+        if d == today:     return 'Today'
+        if d == yesterday: return 'Yesterday'
+        return f"{d.day} {d.strftime('%b')}"   # e.g. "14 Jul"  (cross-platform)
+
+    groups = {}   # date → list of order dicts
+    for r in rows:
+        delivery_charge = float(r['delivery_charge'])
+        rider_tip       = float(r['rider_tip'])
+        earnings        = round((delivery_charge + rider_tip) * 0.50, 2)
+
+        delivered_at = r['delivered_at']
+        d = to_dhaka_date(delivered_at)
+        if d is None:
+            continue
+
+        order = {
+            'order_id':         r['order_id'],
+            'completed_at':     delivered_at.isoformat() if delivered_at else None,
+            'restaurant_name':  r['restaurant_name'] or 'Restaurant',
+            'customer_name':    f"{r['customer_first_name'] or ''} {r['customer_last_name'] or ''}".strip() or 'Customer',
+            'total_amount':     float(r['total_amount']),
+            'delivery_charge':  delivery_charge,
+            'rider_tip':        rider_tip,
+            'earnings':         earnings,
+        }
+        groups.setdefault(d, []).append(order)
+
+    result = []
+    for d in sorted(groups.keys(), reverse=True):
+        orders = groups[d]
+        result.append({
+            'date':           d.isoformat(),
+            'label':          date_label(d),
+            'orders':         orders,
+            'total_earnings': round(sum(o['earnings'] for o in orders), 2),
+            'order_count':    len(orders),
+        })
+
+    return result
 
 
 def accept_order(order_id, rider_id):
