@@ -1,40 +1,23 @@
-import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { useState, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   CheckCircle, Utensils,
   Clock, ClipboardList, ChefHat, Bike, PackageCheck, Loader2,
+  Star, X, MessageSquare, Edit2,
 } from 'lucide-react';
 import Header from './Header.jsx';
 import authService from '../Authservice.js';
 
 export const LS_KEY = 'fp_current_orders';
 
+const BASE_URL = 'http://127.0.0.1:8000';
+
 // ─── Step definitions ────────────────────────────────────────────────────────
 const STEPS = [
-  {
-    key: 'PENDING',
-    label: 'Order Confirmation',
-    desc: 'Waiting for the restaurant to accept',
-    Icon: ClipboardList,
-  },
-  {
-    key: 'PREPARING',
-    label: 'Preparing',
-    desc: 'Restaurant is preparing your food',
-    Icon: ChefHat,
-  },
-  {
-    key: 'PICKED_UP',
-    label: 'Shipping',
-    desc: 'Rider has picked up your order',
-    Icon: Bike,
-  },
-  {
-    key: 'DELIVERED',
-    label: 'Completed',
-    desc: 'Your order has been delivered!',
-    Icon: PackageCheck,
-  },
+  { key: 'PENDING',   label: 'Order Confirmation', desc: 'Waiting for the restaurant to accept', Icon: ClipboardList },
+  { key: 'PREPARING', label: 'Preparing',           desc: 'Restaurant is preparing your food',   Icon: ChefHat },
+  { key: 'PICKED_UP', label: 'Shipping',            desc: 'Rider has picked up your order',      Icon: Bike },
+  { key: 'DELIVERED', label: 'Completed',           desc: 'Your order has been delivered!',       Icon: PackageCheck },
 ];
 
 const STATUS_ORDER = ['PENDING', 'PREPARING', 'PICKED_UP', 'DELIVERED'];
@@ -43,69 +26,78 @@ const getStepIndex = (status) => {
   return idx === -1 ? 0 : idx;
 };
 
-// ─── Fetch all orders from backend ────────────────────────────────────────────
+// ─── Auth-aware fetch helper ──────────────────────────────────────────────────
+async function authFetch(path, options = {}) {
+  let token = authService.getAccessToken();
+  if (!token) return null;
+
+  const attempt = (t) =>
+    fetch(`${BASE_URL}${path}`, {
+      ...options,
+      headers: {
+        Authorization: `Bearer ${t}`,
+        'Content-Type': 'application/json',
+        ...(options.headers ?? {}),
+      },
+    });
+
+  let res = await attempt(token);
+
+  if (res.status === 401) {
+    try {
+      token = await authService.refreshAccessToken();
+      res = await attempt(token);
+    } catch {
+      return null;
+    }
+  }
+
+  return res;
+}
+
+// ─── Order fetching ───────────────────────────────────────────────────────────
 async function fetchOrdersFromBackend() {
   try {
-    let token = authService.getAccessToken();
-    if (!token) return null;
-
-    const attempt = (t) =>
-      fetch('http://127.0.0.1:8000/api/customers/me/orders/', {
-        headers: { Authorization: `Bearer ${t}`, 'Content-Type': 'application/json' },
-      });
-
-    let res = await attempt(token);
-
-    if (res.status === 401) {
-      try {
-        token = await authService.refreshAccessToken();
-        res = await attempt(token);
-      } catch {
-        return null;
-      }
-    }
-
-    if (!res.ok) return null;
-
+    const res = await authFetch('/api/customers/me/orders/');
+    if (!res || !res.ok) return null;
     const data = await res.json();
     return Array.isArray(data) ? data : [];
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 }
 
-// ─── Fetch full detail for a single order (includes items) ───────────────────
 async function fetchOrderDetail(orderId) {
   try {
-    let token = authService.getAccessToken();
-    if (!token) return null;
-
-    const attempt = (t) =>
-      fetch(`http://127.0.0.1:8000/api/customers/me/orders/${orderId}/`, {
-        headers: { Authorization: `Bearer ${t}`, 'Content-Type': 'application/json' },
-      });
-
-    let res = await attempt(token);
-
-    if (res.status === 401) {
-      try {
-        token = await authService.refreshAccessToken();
-        res = await attempt(token);
-      } catch {
-        return null;
-      }
-    }
-
-    if (!res.ok) return null;
+    const res = await authFetch(`/api/customers/me/orders/${orderId}/`);
+    if (!res || !res.ok) return null;
     return await res.json();
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 }
 
-// ─── Map backend order → local display shape ──────────────────────────────────
+// ─── Review API helpers ───────────────────────────────────────────────────────
+async function fetchReview(orderId) {
+  try {
+    const res = await authFetch(`/api/reviews/orders/${orderId}/`);
+    if (!res) return null;
+    if (res.status === 404) return null;
+    if (!res.ok) return null;
+    return await res.json();
+  } catch { return null; }
+}
+
+async function submitReview(orderId, rating, comment, isEdit) {
+  const method = isEdit ? 'PUT' : 'POST';
+  const res = await authFetch(`/api/reviews/orders/${orderId}/`, {
+    method,
+    body: JSON.stringify({ rating, comment }),
+  });
+  if (!res) throw new Error('Network error');
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail ?? 'Failed to submit review');
+  return data;
+}
+
+// ─── Shape mapper ─────────────────────────────────────────────────────────────
 function mapBackendOrder(backendOrder, detailData) {
-  // Items come from the detail endpoint
   const rawItems = detailData?.items ?? [];
   const items = rawItems.map((oi) => ({
     id:       oi.id,
@@ -114,7 +106,6 @@ function mapBackendOrder(backendOrder, detailData) {
     quantity: oi.quantity,
     image:    oi.item_image ?? '',
   }));
-
   const subtotal = items.reduce((s, i) => s + i.price * i.quantity, 0);
 
   return {
@@ -134,202 +125,405 @@ function mapBackendOrder(backendOrder, detailData) {
   };
 }
 
+// ─── Star Rating Widget ───────────────────────────────────────────────────────
+const StarRating = ({ value, onChange, readonly = false, size = 28 }) => {
+  const [hovered, setHovered] = useState(0);
+  return (
+    <div style={{ display: 'flex', gap: 4 }}>
+      {[1, 2, 3, 4, 5].map((n) => {
+        const filled = n <= (readonly ? value : (hovered || value));
+        return (
+          <Star
+            key={n}
+            size={size}
+            fill={filled ? '#f59e0b' : 'none'}
+            color={filled ? '#f59e0b' : '#d1d5db'}
+            style={{ cursor: readonly ? 'default' : 'pointer', transition: 'transform 0.1s' }}
+            onMouseEnter={() => !readonly && setHovered(n)}
+            onMouseLeave={() => !readonly && setHovered(0)}
+            onClick={() => !readonly && onChange && onChange(n)}
+          />
+        );
+      })}
+    </div>
+  );
+};
+
+// ─── Review Modal ─────────────────────────────────────────────────────────────
+const ReviewModal = ({ order, existingReview, onClose, onSaved }) => {
+  const [rating,  setRating]  = useState(existingReview?.rating  ?? 0);
+  const [comment, setComment] = useState(existingReview?.comment ?? '');
+  const [saving,  setSaving]  = useState(false);
+  const [error,   setError]   = useState(null);
+
+  const isEdit = Boolean(existingReview);
+
+  const handleSubmit = async () => {
+    if (!rating) { setError('Please select a star rating.'); return; }
+    if (!comment.trim()) { setError('Please write a comment.'); return; }
+    setSaving(true);
+    setError(null);
+    try {
+      const saved = await submitReview(order.orderId, rating, comment.trim(), isEdit);
+      onSaved(saved);
+      onClose();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={onClose}
+        style={{
+          position: 'fixed', inset: 0, zIndex: 1000,
+          background: 'rgba(0,0,0,0.45)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: 16,
+        }}
+      >
+        <motion.div
+          initial={{ scale: 0.93, opacity: 0, y: 20 }}
+          animate={{ scale: 1,    opacity: 1, y: 0 }}
+          exit={{ scale: 0.93, opacity: 0, y: 20 }}
+          transition={{ type: 'spring', stiffness: 340, damping: 28 }}
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            background: 'var(--c-white)', borderRadius: 20,
+            padding: '28px 28px 24px',
+            width: '100%', maxWidth: 460,
+            boxShadow: '0 20px 60px rgba(0,0,0,0.18)',
+          }}
+        >
+          {/* Header row */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+            <div>
+              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: 'var(--c-gray-900)' }}>
+                {isEdit ? 'Edit Your Review' : 'Rate Your Order'}
+              </h2>
+              <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--c-gray-400)' }}>
+                {order.restaurant?.name} · Order #{order.orderId}
+              </p>
+            </div>
+            <button
+              onClick={onClose}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, borderRadius: 8, color: 'var(--c-gray-400)' }}
+            >
+              <X size={22} />
+            </button>
+          </div>
+
+          {/* Stars */}
+          <div style={{ marginBottom: 20 }}>
+            <p style={{ margin: '0 0 10px', fontSize: 14, fontWeight: 600, color: 'var(--c-gray-700)' }}>
+              How would you rate this order?
+            </p>
+            <StarRating value={rating} onChange={setRating} />
+          </div>
+
+          {/* Comment */}
+          <div style={{ marginBottom: 20 }}>
+            <label style={{ display: 'block', fontSize: 14, fontWeight: 600, color: 'var(--c-gray-700)', marginBottom: 8 }}>
+              Your feedback
+            </label>
+            <textarea
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              placeholder="Tell us about your experience…"
+              rows={4}
+              style={{
+                width: '100%', boxSizing: 'border-box',
+                padding: '10px 12px', fontSize: 14,
+                border: '1.5px solid var(--c-gray-200)',
+                borderRadius: 10, resize: 'vertical',
+                fontFamily: 'inherit', color: 'var(--c-gray-900)',
+                outline: 'none',
+                background: 'var(--c-gray-50)',
+              }}
+            />
+          </div>
+
+          {/* Error */}
+          {error && (
+            <p style={{ margin: '0 0 14px', fontSize: 13, color: '#ef4444', fontWeight: 500 }}>{error}</p>
+          )}
+
+          {/* Actions */}
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button
+              onClick={onClose}
+              disabled={saving}
+              style={{
+                flex: 1, padding: '11px 0', borderRadius: 10, border: '1.5px solid var(--c-gray-200)',
+                background: 'var(--c-white)', fontSize: 14, fontWeight: 600,
+                cursor: saving ? 'not-allowed' : 'pointer', color: 'var(--c-gray-700)',
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSubmit}
+              disabled={saving}
+              style={{
+                flex: 2, padding: '11px 0', borderRadius: 10, border: 'none',
+                background: saving ? 'var(--c-gray-200)' : 'var(--c-primary)',
+                fontSize: 14, fontWeight: 700,
+                cursor: saving ? 'not-allowed' : 'pointer',
+                color: saving ? 'var(--c-gray-400)' : 'var(--c-white)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              }}
+            >
+              {saving
+                ? <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> Saving…</>
+                : isEdit ? 'Update Review' : 'Submit Review'
+              }
+            </button>
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+};
+
 // ─── Single order card ────────────────────────────────────────────────────────
 const OrderCard = ({ order }) => {
   const stepIdx = getStepIndex(order.status);
+  const isDelivered = order.status === 'DELIVERED';
+
+  const [review,       setReview]       = useState(null);   // null = not loaded yet
+  const [reviewLoaded, setReviewLoaded] = useState(false);
+  const [showModal,    setShowModal]    = useState(false);
+
+  // Fetch existing review once when order is DELIVERED
+  useEffect(() => {
+    if (!isDelivered || reviewLoaded) return;
+    fetchReview(order.orderId).then((r) => {
+      setReview(r);
+      setReviewLoaded(true);
+    });
+  }, [isDelivered, order.orderId, reviewLoaded]);
+
+  const handleReviewSaved = useCallback((saved) => {
+    setReview(saved);
+  }, []);
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-      style={{
-        background: 'var(--c-white)',
-        borderRadius: 16,
-        boxShadow: '0 2px 16px rgba(0,0,0,0.08)',
-        padding: 24,
-        marginBottom: 20,
-        border: '1.5px solid var(--c-gray-100)',
-      }}
-    >
-      {/* Order ID + timestamp */}
-      <div style={{ marginBottom: 20 }}>
-        <h2 style={{ fontSize: 18, fontWeight: 800, color: 'var(--c-gray-900)', margin: '0 0 4px' }}>
-          Order ID: <span style={{ color: 'var(--c-primary)' }}>#{order.orderId}</span>
-        </h2>
-        <p style={{ fontSize: 13, color: 'var(--c-gray-400)', margin: 0 }}>
-          {order.createdAt ? new Date(order.createdAt).toLocaleString() : ''}
-        </p>
-      </div>
+    <>
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        style={{
+          background: 'var(--c-white)',
+          borderRadius: 16,
+          boxShadow: '0 2px 16px rgba(0,0,0,0.08)',
+          padding: 24,
+          marginBottom: 20,
+          border: '1.5px solid var(--c-gray-100)',
+        }}
+      >
+        {/* Order ID + timestamp */}
+        <div style={{ marginBottom: 20 }}>
+          <h2 style={{ fontSize: 18, fontWeight: 800, color: 'var(--c-gray-900)', margin: '0 0 4px' }}>
+            Order ID: <span style={{ color: 'var(--c-primary)' }}>#{order.orderId}</span>
+          </h2>
+          <p style={{ fontSize: 13, color: 'var(--c-gray-400)', margin: 0 }}>
+            {order.createdAt ? new Date(order.createdAt).toLocaleString() : ''}
+          </p>
+        </div>
 
-      {/* ── Progress Steps ── */}
-      <div style={{ marginBottom: 24 }}>
-        <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--c-gray-700)', marginBottom: 14 }}>Order Progress</h3>
-        <div style={{ display: 'flex', gap: 0, alignItems: 'stretch' }}>
-          {STEPS.map((step, i) => {
-            const done    = i < stepIdx;
-            const active  = i === stepIdx;
-            return (
-              <div key={step.key} style={{ flex: 1, position: 'relative' }}>
-                {/* Connector line left half */}
-                {i > 0 && (
+        {/* ── Progress Steps ── */}
+        <div style={{ marginBottom: 24 }}>
+          <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--c-gray-700)', marginBottom: 14 }}>Order Progress</h3>
+          <div style={{ display: 'flex', gap: 0, alignItems: 'stretch' }}>
+            {STEPS.map((step, i) => {
+              const done   = i < stepIdx;
+              const active = i === stepIdx;
+              const { Icon } = step;
+              return (
+                <div key={step.key} style={{ flex: 1, position: 'relative' }}>
+                  {i > 0 && (
+                    <div style={{
+                      position: 'absolute', top: 20, left: 0, width: '50%', height: 3,
+                      background: done || active ? 'var(--c-primary)' : 'var(--c-gray-200)', zIndex: 0,
+                    }} />
+                  )}
+                  {i < STEPS.length - 1 && (
+                    <div style={{
+                      position: 'absolute', top: 20, right: 0, width: '50%', height: 3,
+                      background: done ? 'var(--c-primary)' : 'var(--c-gray-200)', zIndex: 0,
+                    }} />
+                  )}
                   <div style={{
-                    position: 'absolute', top: 20, left: 0, width: '50%', height: 3,
-                    background: done || active ? 'var(--c-primary)' : 'var(--c-gray-200)',
-                    zIndex: 0,
-                  }} />
-                )}
-                {/* Connector line right half */}
-                {i < STEPS.length - 1 && (
-                  <div style={{
-                    position: 'absolute', top: 20, right: 0, width: '50%', height: 3,
-                    background: done ? 'var(--c-primary)' : 'var(--c-gray-200)',
-                    zIndex: 0,
-                  }} />
-                )}
+                    display: 'flex', flexDirection: 'column', alignItems: 'center',
+                    padding: '0 4px', position: 'relative', zIndex: 1,
+                  }}>
+                    <motion.div
+                      animate={{ scale: active ? [1, 1.12, 1] : 1 }}
+                      transition={{ duration: 0.4, repeat: active ? Infinity : 0, repeatDelay: 1.5 }}
+                      style={{
+                        width: 42, height: 42, borderRadius: '50%',
+                        background: done || active ? 'var(--c-primary)' : 'var(--c-gray-100)',
+                        border: `3px solid ${done || active ? 'var(--c-primary)' : 'var(--c-gray-200)'}`,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: 18, flexShrink: 0,
+                        boxShadow: active ? '0 0 0 4px var(--c-primary-light)' : 'none',
+                      }}
+                    >
+                      {done
+                        ? <CheckCircle size={22} color="#fff" />
+                        : <Icon size={20} color={active ? '#fff' : 'var(--c-gray-400)'} />
+                      }
+                    </motion.div>
+                    <p style={{
+                      margin: '6px 0 2px', fontSize: 11, fontWeight: 700, textAlign: 'center',
+                      color: done || active ? 'var(--c-primary)' : 'var(--c-gray-400)',
+                    }}>
+                      {step.label}
+                    </p>
+                    <p style={{ margin: 0, fontSize: 10, textAlign: 'center', color: 'var(--c-gray-400)', lineHeight: 1.3 }}>
+                      {step.desc}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
 
-                <div style={{
-                  display: 'flex', flexDirection: 'column', alignItems: 'center',
-                  padding: '0 4px', position: 'relative', zIndex: 1,
+        {/* ── Items ── */}
+        {order.items?.length > 0 && (
+          <div style={{ marginBottom: 20 }}>
+            <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--c-gray-700)', marginBottom: 10 }}>Items Ordered</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {order.items.map((item, idx) => (
+                <div key={item.id ?? idx} style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: 12, background: 'var(--c-gray-50)', borderRadius: 10,
+                  border: '1.5px solid var(--c-gray-100)',
                 }}>
-                  <motion.div
-                    animate={{ scale: active ? [1, 1.12, 1] : 1 }}
-                    transition={{ duration: 0.4, repeat: active ? Infinity : 0, repeatDelay: 1.5 }}
+                  <div style={{
+                    width: 44, height: 44, borderRadius: 8, overflow: 'hidden', flexShrink: 0,
+                    background: 'var(--c-primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    {item.image && item.image.startsWith('http') ? (
+                      <img src={item.image} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        onError={e => { e.target.style.display = 'none'; }} />
+                    ) : (
+                      <Utensils size={18} color="var(--c-primary)" />
+                    )}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <p style={{ margin: 0, fontWeight: 600, fontSize: 14, color: 'var(--c-gray-900)' }}>{item.name}</p>
+                    <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--c-gray-400)' }}>Qty: {item.quantity}</p>
+                  </div>
+                  <p style={{ margin: 0, fontWeight: 700, fontSize: 14, color: 'var(--c-gray-800)' }}>
+                    ৳{(item.price * item.quantity).toFixed(2)}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── Order Summary ── */}
+        <div style={{ borderTop: '1.5px solid var(--c-gray-100)', paddingTop: 14 }}>
+          <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--c-gray-700)', marginBottom: 10 }}>Order Summary</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {[
+              { label: `Sub Total (${order.items?.length ?? 0} items)`, value: `৳${order.subtotal?.toFixed(2) ?? '0.00'}` },
+              { label: 'Delivery', value: order.deliveryFee === 0 ? 'Free' : `৳${order.deliveryFee?.toFixed(2) ?? '0.00'}` },
+              ...(order.discountAmount > 0 ? [{ label: 'Discount', value: `-৳${order.discountAmount?.toFixed(2)}`, green: true }] : []),
+              ...(order.tip > 0 ? [{ label: "Rider's Tip", value: `৳${order.tip?.toFixed(2)}` }] : []),
+            ].map(({ label, value, green }) => (
+              <div key={label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+                <span style={{ color: 'var(--c-gray-500)' }}>{label}</span>
+                <span style={{ fontWeight: 600, color: green ? '#10b981' : 'var(--c-gray-800)' }}>{value}</span>
+              </div>
+            ))}
+            <div style={{
+              display: 'flex', justifyContent: 'space-between', fontSize: 16, fontWeight: 800,
+              marginTop: 8, paddingTop: 10, borderTop: '2px solid var(--c-gray-100)',
+            }}>
+              <span style={{ color: 'var(--c-gray-900)' }}>Total Amount</span>
+              <span style={{ color: 'var(--c-primary)' }}>৳{order.total?.toFixed(2) ?? '0.00'}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Review Section (only for DELIVERED orders) ── */}
+        {isDelivered && (
+          <div style={{
+            marginTop: 20, paddingTop: 16,
+            borderTop: '1.5px solid var(--c-gray-100)',
+          }}>
+            {review ? (
+              /* Existing review card */
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: 'var(--c-gray-700)' }}>
+                    Your Review
+                  </h3>
+                  <button
+                    onClick={() => setShowModal(true)}
                     style={{
-                      width: 42, height: 42, borderRadius: '50%',
-                      background: done || active ? 'var(--c-primary)' : 'var(--c-gray-100)',
-                      border: `3px solid ${done || active ? 'var(--c-primary)' : 'var(--c-gray-200)'}`,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: 18, flexShrink: 0,
-                      boxShadow: active ? '0 0 0 4px var(--c-primary-light)' : 'none',
+                      display: 'flex', alignItems: 'center', gap: 5,
+                      background: 'none', border: '1.5px solid var(--c-primary)',
+                      borderRadius: 8, padding: '5px 10px', cursor: 'pointer',
+                      fontSize: 12, fontWeight: 600, color: 'var(--c-primary)',
                     }}
                   >
-                    {done ? (
-                      <CheckCircle size={20} color="white" fill="white" strokeWidth={2.5} />
-                    ) : active ? (
-                      <step.Icon size={18} color="white" strokeWidth={2} />
-                    ) : (
-                      <step.Icon size={18} color="var(--c-gray-400)" strokeWidth={1.8} />
-                    )}
-                  </motion.div>
-
-                  <p style={{
-                    fontSize: 11, fontWeight: active || done ? 700 : 500, marginTop: 8,
-                    color: active || done ? 'var(--c-gray-900)' : 'var(--c-gray-400)',
-                    textAlign: 'center', lineHeight: 1.3,
-                  }}>
-                    {step.label}
+                    <Edit2 size={13} /> Edit
+                  </button>
+                </div>
+                <div style={{
+                  background: 'var(--c-gray-50)', borderRadius: 10,
+                  padding: '12px 14px', border: '1.5px solid var(--c-gray-100)',
+                }}>
+                  <StarRating value={Number(review.rating)} readonly size={20} />
+                  <p style={{ margin: '8px 0 0', fontSize: 13, color: 'var(--c-gray-700)', lineHeight: 1.5 }}>
+                    {review.comment}
                   </p>
                 </div>
               </div>
-            );
-          })}
-        </div>
-
-        {/* Current status description */}
-        <div style={{
-          marginTop: 16, padding: '10px 14px', background: 'var(--c-primary-light)',
-          borderRadius: 10, borderLeft: '3px solid var(--c-primary)',
-        }}>
-          <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: 'var(--c-primary)' }}>
-            {STEPS[stepIdx]?.desc}
-          </p>
-        </div>
-      </div>
-
-      {/* ── Restaurant info ── */}
-      {order.restaurant?.name && (
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 12,
-          padding: '14px 0', borderTop: '1.5px solid var(--c-gray-100)', marginBottom: 14,
-        }}>
-          <div style={{
-            width: 48, height: 48, borderRadius: 10, overflow: 'hidden', flexShrink: 0,
-            background: 'var(--c-gray-100)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            {order.restaurant.image_url ? (
-              <img
-                src={order.restaurant.image_url}
-                alt={order.restaurant.name}
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                onError={e => { e.target.style.display = 'none'; }}
-              />
             ) : (
-              <Utensils size={22} color="var(--c-gray-400)" />
-            )}
-          </div>
-          <div>
-            <p style={{ margin: 0, fontWeight: 700, fontSize: 15, color: 'var(--c-gray-900)' }}>
-              {order.restaurant.name}
-            </p>
-            <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--c-gray-400)' }}>Restaurant</p>
-          </div>
-        </div>
-      )}
-
-      {/* ── Items list ── */}
-      {order.items && order.items.length > 0 && (
-        <div style={{ marginBottom: 16 }}>
-          <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--c-gray-700)', marginBottom: 10 }}>Items</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {order.items.map((item, idx) => (
-              <div
-                key={item.id ?? idx}
+              /* No review yet — show "Leave a Review" button */
+              <button
+                onClick={() => setShowModal(true)}
                 style={{
-                  display: 'flex', alignItems: 'center', gap: 12,
-                  padding: 12, background: 'var(--c-gray-50)', borderRadius: 10,
-                  border: '1.5px solid var(--c-gray-100)',
+                  width: '100%', padding: '13px 0',
+                  borderRadius: 12, border: '2px dashed var(--c-primary)',
+                  background: 'var(--c-primary-light)',
+                  cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                  fontSize: 14, fontWeight: 700, color: 'var(--c-primary)',
+                  transition: 'background 0.15s',
                 }}
               >
-                <div style={{
-                  width: 44, height: 44, borderRadius: 8, overflow: 'hidden', flexShrink: 0,
-                  background: 'var(--c-primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>
-                  {item.image && item.image.startsWith('http') ? (
-                    <img src={item.image} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                      onError={e => { e.target.style.display = 'none'; }} />
-                  ) : (
-                    <Utensils size={18} color="var(--c-primary)" />
-                  )}
-                </div>
-                <div style={{ flex: 1 }}>
-                  <p style={{ margin: 0, fontWeight: 600, fontSize: 14, color: 'var(--c-gray-900)' }}>{item.name}</p>
-                  <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--c-gray-400)' }}>Qty: {item.quantity}</p>
-                </div>
-                <p style={{ margin: 0, fontWeight: 700, fontSize: 14, color: 'var(--c-gray-800)' }}>
-                  ৳{(item.price * item.quantity).toFixed(2)}
-                </p>
-              </div>
-            ))}
+                <Star size={18} fill="var(--c-primary)" color="var(--c-primary)" />
+                Leave a Review
+              </button>
+            )}
           </div>
-        </div>
-      )}
+        )}
+      </motion.div>
 
-      {/* ── Order Summary totals ── */}
-      <div style={{ borderTop: '1.5px solid var(--c-gray-100)', paddingTop: 14 }}>
-        <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--c-gray-700)', marginBottom: 10 }}>Order Summary</h3>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {[
-            { label: `Sub Total (${order.items?.length ?? 0} items)`, value: `৳${order.subtotal?.toFixed(2) ?? '0.00'}` },
-            { label: 'Delivery', value: order.deliveryFee === 0 ? 'Free' : `৳${order.deliveryFee?.toFixed(2) ?? '0.00'}` },
-            ...(order.discountAmount > 0 ? [{ label: 'Discount', value: `-৳${order.discountAmount?.toFixed(2)}`, green: true }] : []),
-            ...(order.tip > 0 ? [{ label: "Rider's Tip", value: `৳${order.tip?.toFixed(2)}` }] : []),
-          ].map(({ label, value, green }) => (
-            <div key={label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-              <span style={{ color: 'var(--c-gray-500)' }}>{label}</span>
-              <span style={{ fontWeight: 600, color: green ? '#10b981' : 'var(--c-gray-800)' }}>{value}</span>
-            </div>
-          ))}
-          <div style={{
-            display: 'flex', justifyContent: 'space-between', fontSize: 16, fontWeight: 800,
-            marginTop: 8, paddingTop: 10, borderTop: '2px solid var(--c-gray-100)',
-          }}>
-            <span style={{ color: 'var(--c-gray-900)' }}>Total Amount</span>
-            <span style={{ color: 'var(--c-primary)' }}>৳{order.total?.toFixed(2) ?? '0.00'}</span>
-          </div>
-        </div>
-      </div>
-    </motion.div>
+      {/* Review Modal */}
+      {showModal && (
+        <ReviewModal
+          order={order}
+          existingReview={review}
+          onClose={() => setShowModal(false)}
+          onSaved={handleReviewSaved}
+        />
+      )}
+    </>
   );
 };
 
@@ -353,29 +547,23 @@ const OrderStatus = ({
       setError(null);
 
       if (!isLoggedIn) {
-        // Not logged in — nothing to show
         setOrders([]);
         setLoading(false);
         return;
       }
 
       try {
-        // 1. Fetch the summary list of all customer orders
         const summaryList = await fetchOrdersFromBackend();
-
         if (!summaryList || summaryList.length === 0) {
           setOrders([]);
           setLoading(false);
           return;
         }
 
-        // 2. Fetch full detail for each order (to get items + charges)
-        //    Run in parallel for speed
         const detailResults = await Promise.all(
           summaryList.map((o) => fetchOrderDetail(o.order_id))
         );
 
-        // 3. Map to display shape
         const mapped = summaryList.map((summary, i) =>
           mapBackendOrder(summary, detailResults[i])
         );
@@ -429,8 +617,7 @@ const OrderStatus = ({
 
         ) : error ? (
           <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
+            initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
             style={{
               background: 'var(--c-white)', borderRadius: 16, padding: '40px 20px',
               textAlign: 'center', border: '1.5px solid #fca5a5',
@@ -441,8 +628,7 @@ const OrderStatus = ({
 
         ) : !isLoggedIn ? (
           <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
+            initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
             style={{
               background: 'var(--c-white)', borderRadius: 16, padding: '60px 20px',
               textAlign: 'center', border: '1.5px solid var(--c-gray-100)',
@@ -450,15 +636,12 @@ const OrderStatus = ({
           >
             <ClipboardList size={56} color="var(--c-gray-300)" strokeWidth={1.5} style={{ marginBottom: 12 }} />
             <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--c-gray-700)', margin: '0 0 8px' }}>Please log in</h2>
-            <p style={{ fontSize: 14, color: 'var(--c-gray-400)', margin: 0 }}>
-              Log in to see your order history.
-            </p>
+            <p style={{ fontSize: 14, color: 'var(--c-gray-400)', margin: 0 }}>Log in to see your order history.</p>
           </motion.div>
 
         ) : orders.length === 0 ? (
           <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
+            initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
             style={{
               background: 'var(--c-white)', borderRadius: 16, padding: '60px 20px',
               textAlign: 'center', border: '1.5px solid var(--c-gray-100)',
