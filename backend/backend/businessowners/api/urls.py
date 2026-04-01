@@ -6,6 +6,9 @@ from . import views
 # Import the two new history views from the restaurants app
 
 urlpatterns = [
+    # ── Restaurant profile (name, phone, times, image) ───────────────
+    path('profile/', views.RestaurantProfileView.as_view()),
+
     # ── your existing vendor routes (keep all of these) ──────────
     path('discounts/', views.RestaurantDiscountView.as_view()),
     path('discounts/<int:pk>/', views.RestaurantDiscountDetailedView.as_view()),

@@ -26,6 +26,9 @@ const BusinessProfile = ({
   const [restData, setRestData] = useState({
     name: '', opening_time: '', closing_time: '', phone: '',
   });
+  const [imageFile,    setImageFile]    = useState(null);      // File object chosen by user
+  const [imagePreview, setImagePreview] = useState(null);      // local object-URL for <img>
+  const [currentImage, setCurrentImage] = useState(null);      // Cloudinary URL from server
   const [passwordData, setPasswordData] = useState({ current_password: '', new_password: '' });
   const [isEditingOwner,    setIsEditingOwner]    = useState(false);
   const [isEditingRest,     setIsEditingRest]     = useState(false);
@@ -51,26 +54,26 @@ const BusinessProfile = ({
   // Load restaurant data on mount
   useEffect(() => {
     const fetchRestaurantDetails = async () => {
-      if (!restaurant?.id) return;
       try {
         const data = await authService.authenticatedFetch(
-          `http://127.0.0.1:8000/api/v1/restaurants/${restaurant.id}/`
+          'http://127.0.0.1:8000/api/vendor/profile/'
         );
         if (data) {
           setRestData({
-            name:         data.name         || restaurant.name || '',
+            name:         data.name         || '',
             opening_time: data.opening_time || '',
             closing_time: data.closing_time || '',
             phone:        data.phone        || '',
           });
+          if (data.image_url) setCurrentImage(data.image_url);
         }
       } catch (e) {
         // fallback to prop data
         setRestData({
-          name:         restaurant.name || '',
-          opening_time: restaurant.opening_time || '',
-          closing_time: restaurant.closing_time || '',
-          phone:        restaurant.phone || '',
+          name:         restaurant?.name         || '',
+          opening_time: restaurant?.opening_time || '',
+          closing_time: restaurant?.closing_time || '',
+          phone:        restaurant?.phone        || '',
         });
       }
     };
@@ -97,21 +100,51 @@ const BusinessProfile = ({
     }
   };
 
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setImageFile(file);
+    setImagePreview(URL.createObjectURL(file));
+    // Reset input so the same file can be re-selected if needed
+    e.target.value = '';
+  };
+
   const handleUpdateRestaurant = async () => {
     setRestLoading(true);
     try {
-      await authService.authenticatedFetch(
-        'http://127.0.0.1:8000/api/vendor/update/',
-        {
-          method: 'PATCH',
-          body: JSON.stringify({
-            name:         restData.name,
-            opening_time: restData.opening_time || null,
-            closing_time: restData.closing_time || null,
-            phone:        restData.phone,
-          }),
-        }
-      );
+      const formData = new FormData();
+      formData.append('name',         restData.name);
+      formData.append('phone',        restData.phone);
+      formData.append('opening_time', restData.opening_time || '');
+      formData.append('closing_time', restData.closing_time || '');
+      if (imageFile) formData.append('restaurant_image', imageFile);
+
+      // FIX: fetch directly so we never accidentally set Content-Type to
+      // application/json — the browser must set it automatically with the
+      // multipart boundary when the body is FormData.
+      const token = authService.getAccessToken?.() || localStorage.getItem('accessToken');
+      const response = await fetch('http://127.0.0.1:8000/api/vendor/profile/', {
+        method: 'PATCH',
+        headers: {
+          // Only Authorization — do NOT set Content-Type here.
+          // The browser sets it automatically as:
+          //   multipart/form-data; boundary=----WebKitFormBoundaryXXX
+          // Manually setting Content-Type would strip the boundary and
+          // cause the Django server to respond 415 Unsupported Media Type.
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.detail || `Request failed with status ${response.status}`);
+      }
+
+      const data = await response.json();
+      if (data?.image_url) setCurrentImage(data.image_url);
+      setImageFile(null);
+      setImagePreview(null);
       toast.success('Restaurant info updated successfully');
       setIsEditingRest(false);
     } catch (err) {
@@ -196,8 +229,16 @@ const BusinessProfile = ({
         {/* ── RESTAURANT INFO SECTION ── */}
         <motion.div className="profile-section" {...MOTION.slideUp}>
           <div className="profile-avatar-section">
-            <div className="profile-avatar" style={{ background: 'linear-gradient(135deg, var(--c-primary) 0%, var(--c-primary-dark) 100%)', borderRadius: 12, width: 66, height: 66, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Utensils size={28} color="white" />
+            <div className="profile-avatar" style={{ background: 'linear-gradient(135deg, var(--c-primary) 0%, var(--c-primary-dark) 100%)', borderRadius: 12, width: 66, height: 66, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', padding: 0 }}>
+              {(imagePreview || currentImage) ? (
+                <img
+                  src={imagePreview || currentImage}
+                  alt="Restaurant"
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 12 }}
+                />
+              ) : (
+                <Utensils size={28} color="white" />
+              )}
             </div>
             <div>
               <div className="profile-name">{restData.name || 'My Restaurant'}</div>
@@ -217,6 +258,54 @@ const BusinessProfile = ({
 
           {isEditingRest ? (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+              {/* ── Restaurant Image Upload ── */}
+              <div className="field-group" style={{ marginBottom: 14 }}>
+                <label className="field-label">Restaurant Image</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div style={{ width: 56, height: 56, borderRadius: 10, overflow: 'hidden', border: '1.5px solid var(--c-border)', flexShrink: 0, background: 'var(--c-gray-100)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {(imagePreview || currentImage) ? (
+                      <img
+                        src={imagePreview || currentImage}
+                        alt="Preview"
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      />
+                    ) : (
+                      <Utensils size={20} color="var(--c-gray-400)" />
+                    )}
+                  </div>
+
+                  {/*
+                    FIX: Removed the wrapping <label> tag + the onClick calling
+                    .click() on the input. Having both caused the file dialog to
+                    open twice (once from the label's implicit click forwarding,
+                    and once from the manual .click() call).
+
+                    Now the hidden <input> sits beside the button, and the button
+                    simply calls inputRef.current.click() — one trigger, one dialog.
+                  */}
+                  <input
+                    id="rest-img-input"
+                    type="file"
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    onChange={handleImageChange}
+                  />
+                  <button
+                    type="button"
+                    className="btn-ghost"
+                    style={{ fontSize: 12, padding: '6px 14px', cursor: 'pointer' }}
+                    onClick={() => document.getElementById('rest-img-input').click()}
+                  >
+                    {imageFile ? 'Change Image' : 'Upload Image'}
+                  </button>
+
+                  {imageFile && (
+                    <span style={{ fontSize: 12, color: 'var(--c-gray-500)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 140 }}>
+                      {imageFile.name}
+                    </span>
+                  )}
+                </div>
+              </div>
               <div className="field-group" style={{ marginBottom: 12 }}>
                 <label className="field-label">Restaurant Name</label>
                 <input className="profile-input" value={restData.name}
@@ -247,7 +336,7 @@ const BusinessProfile = ({
                 <button className="btn-primary" onClick={handleUpdateRestaurant} disabled={restLoading}>
                   {restLoading ? <span className="btn-loading"><span/><span/><span/></span> : 'Save Changes'}
                 </button>
-                <button className="btn-ghost" onClick={() => setIsEditingRest(false)}>Cancel</button>
+                <button className="btn-ghost" onClick={() => { setIsEditingRest(false); setImageFile(null); setImagePreview(null); }}>Cancel</button>
               </div>
             </motion.div>
           ) : (

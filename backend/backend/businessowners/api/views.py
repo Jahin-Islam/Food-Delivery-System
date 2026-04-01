@@ -13,8 +13,85 @@ from orders.api.services import (
     get_history_order_items,            
     get_restaurant_order_history_stats, 
 )
-from resturants.api.services import get_restaurant_id
+from resturants.api.services import get_restaurant_id, get_restaurant_profile, update_restaurant_profile
 HISTORY_STATUSES = {'DELIVERED', 'CANCELLED'}
+
+class RestaurantProfileView(APIView):
+    """
+    GET  /api/v1/vendor/profile/   — fetch current restaurant profile
+    PATCH /api/v1/vendor/profile/  — update name, phone, opening_time,
+                                     closing_time, and/or restaurant image
+
+    Image upload
+    ------------
+    Send as multipart/form-data with key `restaurant_image`.
+    The image is uploaded to Cloudinary under the folder
+    "media/restaurant_profile_image" and the returned public_id is stored
+    in resturants_restaurant.image_url.
+    Text-only updates can still be sent as application/json (no image key).
+    """
+    permission_classes = [IsAuthenticated]
+    parser_classes     = [MultiPartParser, FormParser]
+
+    def get(self, request):
+        if request.user.role != 'RESTAURANT':
+            return Response({"detail": "Access denied."}, status=status.HTTP_403_FORBIDDEN)
+
+        restaurant_id = get_restaurant_id(request.user.id)
+        if not restaurant_id:
+            return Response({"detail": "Restaurant profile not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        profile = get_restaurant_profile(restaurant_id)
+        return Response(profile, status=status.HTTP_200_OK)
+
+    def patch(self, request):
+        if request.user.role != 'RESTAURANT':
+            return Response({"detail": "Access denied."}, status=status.HTTP_403_FORBIDDEN)
+
+        restaurant_id = get_restaurant_id(request.user.id)
+        if not restaurant_id:
+            return Response({"detail": "Restaurant profile not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        data        = request.data
+        image_file  = request.FILES.get('restaurant_image')
+        image_url   = None
+
+        # ── Upload image to Cloudinary if provided ──────────────────────
+        if image_file:
+            try:
+                result = cloudinary.uploader.upload(
+                    image_file,
+                    folder    = "media/restaurant_profile_image",
+                    public_id = f"restaurant_{restaurant_id}_profile",
+                    overwrite = True,
+                )
+                # Store only the public_id path in the `image` column,
+                # consistent with how other restaurant images are saved.
+                image_url = result.get('public_id', '')
+            except Exception as e:
+                return Response(
+                    {"detail": f"Image upload failed: {str(e)}"},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
+
+        # ── Collect text fields ─────────────────────────────────────────
+        updates = {}
+        for field in ('name', 'phone', 'opening_time', 'closing_time'):
+            if field in data:
+                updates[field] = data[field] or None   # empty string → NULL
+        if image_url is not None:
+            updates['image'] = image_url    # column name is `image`, not `image_url`
+
+        if not updates:
+            return Response(
+                {"detail": "No valid fields provided for update."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        update_restaurant_profile(restaurant_id, updates)
+        profile = get_restaurant_profile(restaurant_id)
+        return Response(profile, status=status.HTTP_200_OK)
+
 
 class RestaurantDiscountView(APIView):
     # We enforce basic token auth availability, but we check role manually below

@@ -82,6 +82,69 @@ def insert_restaurant(cursor, user_id, phone_number, data):
         )
 
 
+def get_restaurant_profile(restaurant_id):
+    """
+    Return the editable profile fields for a restaurant.
+
+    Image handling
+    --------------
+    The `image` column stores only the Cloudinary public_id path
+    (e.g. "media/restaurant_profile_image/restaurant_4_profile").
+    We build the full delivery URL via CloudinaryImage so the frontend
+    receives a ready-to-use `image_url` string and never has to know
+    about Cloudinary internals.
+    """
+    from cloudinary import CloudinaryImage
+
+    with connection.cursor() as cursor:
+        cursor.execute("""
+            SELECT id, name, phone, opening_time, closing_time, image,
+                   restaurant_category, rating, min_order
+            FROM resturants_restaurant
+            WHERE id = %s
+        """, [restaurant_id])
+        row = cursor.fetchone()
+    if not row:
+        return None
+    keys = ('id', 'name', 'phone', 'opening_time', 'closing_time',
+            'image', 'restaurant_category', 'rating', 'min_order')
+    result = dict(zip(keys, row))
+
+    # Serialise time fields to "HH:MM" strings so JSON is clean
+    for tf in ('opening_time', 'closing_time'):
+        val = result[tf]
+        if hasattr(val, 'strftime'):
+            result[tf] = val.strftime('%H:%M')
+
+    # Build full Cloudinary URL from the stored public_id path
+    raw_image = result.pop('image')   # remove raw path, expose clean URL instead
+    if raw_image:
+        result['image_url'] = CloudinaryImage(raw_image).build_url()
+    else:
+        result['image_url'] = None
+
+    return result
+
+
+def update_restaurant_profile(restaurant_id, updates):
+    """
+    Dynamically update only the supplied fields on resturants_restaurant.
+
+    `updates` is a dict of {column_name: value} for any subset of:
+        name, phone, opening_time, closing_time, image
+    Note: the image column stores the Cloudinary public_id path only.
+    """
+    if not updates:
+        return
+    set_clause = ', '.join(f"{col} = %s" for col in updates)
+    params     = list(updates.values()) + [restaurant_id]
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"UPDATE resturants_restaurant SET {set_clause} WHERE id = %s",
+            params,
+        )
+
+
 def check_restaurant_owner(request):
     """
     Validates if user is authenticated and has the correct role.

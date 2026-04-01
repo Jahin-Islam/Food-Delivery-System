@@ -1,25 +1,23 @@
 from django.shortcuts import render
 from django.db import connection
-from rest_framework import mixins, generics, status
+from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from ..models import Discount, Restaurant, Serve
-from .serializers import DiscountSerializer, RestaurantSerializer, ResturantDetailedSerializer
-from items.serializers import ItemSerializer
-from items.models import MenuItem, Category
 from cloudinary import CloudinaryImage
 from orders.api.services import (
     get_restaurant_orders, update_order_status_by_restaurant,
-    get_order_items, get_order_details, 
+    get_order_items, get_order_details,
 )
 
 
 VALID_ORDER_STATUSES = {'PENDING', 'PREPARING', 'PICKED_UP', 'DELIVERED', 'CANCELLED'}
 
+
 def dictfetchall(cursor):
     columns = [col[0] for col in cursor.description]
     return [dict(zip(columns, row)) for row in cursor.fetchall()]
+
 
 def dictfetchone(cursor):
     row = cursor.fetchone()
@@ -28,110 +26,195 @@ def dictfetchone(cursor):
     columns = [col[0] for col in cursor.description]
     return dict(zip(columns, row))
 
+
 def get_restaurant_id(user_id):
     with connection.cursor() as cursor:
-        cursor.execute("""
-            SELECT id FROM resturants_restaurant WHERE user_id = %s
-        """, [user_id])
+        cursor.execute(
+            "SELECT id FROM resturants_restaurant WHERE user_id = %s",
+            [user_id]
+        )
         row = cursor.fetchone()
     return row[0] if row else None
 
 
-class RestaurantView(mixins.ListModelMixin, generics.GenericAPIView):
+def build_cloudinary_url(public_id):
+    """
+    Build a full Cloudinary delivery URL from a stored public_id path.
+    Returns None when public_id is empty/null.
+    """
+    if not public_id:
+        return None
+    return CloudinaryImage(public_id).build_url(
+        quality="auto",
+        fetch_format="auto",
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# HOME PAGE — list all restaurants (raw SQL, no serializers)
+# ─────────────────────────────────────────────────────────────────────────────
+
+class RestaurantView(APIView):
+    """
+    GET /api/v1/restaurants/
+
+    Returns every restaurant with its best active discount and a ready-to-use
+    Cloudinary image_url.  No ORM serializers are used — pure raw SQL.
+
+    Response shape (per restaurant):
+    {
+      "id":                   <int>,
+      "name":                 <str>,
+      "rating":               <decimal>,
+      "total_rated":          <int>,
+      "opening_time":         <"HH:MM" | null>,
+      "closing_time":         <"HH:MM" | null>,
+      "min_order":            <decimal>,
+      "restaurant_category":  <str | null>,
+      "phone":                <str | null>,
+      "street_address":       <str | null>,
+      "latitude":             <float | null>,
+      "longitude":            <float | null>,
+      "image_url":            <full Cloudinary URL | null>,
+      "percentage":           <float | null>,        // best discount %
+      "min_order_for_discount": <decimal | null>,
+      "discount_desc":        <str | null>
+    }
+    """
     permission_classes = [AllowAny]
 
-    query = """
-     SELECT *
-    FROM (
-        SELECT 
-        res.id,
-        res.name,
-        res.rating,
-        res.opening_time,
-        res.closing_time,
-        res.min_order,
-        addr.street_address,
-        addr.latitude,
-        addr.longitude,
-        disc.percentage, 
-        disc.min_order AS min_order_for_discount, 
-        disc.description AS discount_desc,
-        ROW_NUMBER() OVER (
-            PARTITION BY res.id 
-            ORDER BY disc.percentage DESC
-        ) AS rank_id
-        FROM resturants_restaurant res
-        LEFT JOIN resturants_discount disc ON res.id = disc.resturant_id
-        LEFT JOIN addresses_address addr ON addr.address_id = res.address_id
-    ) AS ranked_results
-    WHERE rank_id = 1;
-        """
-    queryset = Restaurant.objects.raw(query)
-    serializer_class = RestaurantSerializer
+    # Pick the single best (highest %) active discount per restaurant via
+    # a ROW_NUMBER window function; restaurants with no discounts still appear
+    # (LEFT JOIN).  The `image` column stores only the Cloudinary public_id —
+    # we resolve it to a full URL in Python after the query.
+    _SQL = """
+        SELECT *
+        FROM (
+            SELECT
+                res.id,
+                res.name,
+                res.rating,
+                res.total_rated,
+                res.opening_time,
+                res.closing_time,
+                res.min_order,
+                res.restaurant_category,
+                res.phone,
+                res.image,
+                addr.street_address,
+                addr.latitude,
+                addr.longitude,
+                disc.percentage,
+                disc.min_order   AS min_order_for_discount,
+                disc.description AS discount_desc,
+                ROW_NUMBER() OVER (
+                    PARTITION BY res.id
+                    ORDER BY COALESCE(disc.percentage, -1) DESC
+                ) AS rank_id
+            FROM resturants_restaurant res
+            LEFT JOIN resturants_discount disc
+                   ON disc.resturant_id = res.id
+                  AND disc.is_active    = 1
+            LEFT JOIN addresses_address addr
+                   ON addr.address_id = res.address_id
+        ) AS ranked
+        WHERE rank_id = 1
+        ORDER BY id ASC
+    """
 
     def get(self, request):
-        response = self.list(request)
-        return response
+        with connection.cursor() as cursor:
+            cursor.execute(self._SQL)
+            rows = dictfetchall(cursor)
 
+        # Post-process each row:
+        #  1. Build Cloudinary image_url from the stored public_id path.
+        #  2. Serialise time objects to "HH:MM" strings.
+        #  3. Drop the internal rank_id and raw image columns.
+        for row in rows:
+            # Image
+            row['image_url'] = build_cloudinary_url(row.pop('image', None))
+
+            # Time fields → "HH:MM" strings
+            for tf in ('opening_time', 'closing_time'):
+                val = row.get(tf)
+                if val is not None and hasattr(val, 'strftime'):
+                    row[tf] = val.strftime('%H:%M')
+
+            # Remove the window-function helper column
+            row.pop('rank_id', None)
+
+        return Response(rows, status=status.HTTP_200_OK)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# RESTAURANT DETAIL
+# ─────────────────────────────────────────────────────────────────────────────
 
 class RestaurantDetailedView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request, pk):
         with connection.cursor() as cursor:
-            res_find_query = """
-                    SELECT 
+
+            # ── Restaurant row ───────────────────────────────────────────
+            cursor.execute("""
+                SELECT
                     res.*,
                     addr.street_address,
                     addr.latitude,
                     addr.longitude
-                    FROM resturants_Restaurant res
-                    LEFT JOIN addresses_address addr ON addr.address_id = res.address_id
-                    WHERE res.id = %s
-                """
-            cursor.execute(res_find_query, [pk])
+                FROM resturants_restaurant res
+                LEFT JOIN addresses_address addr
+                       ON addr.address_id = res.address_id
+                WHERE res.id = %s
+            """, [pk])
             restaurant = dictfetchone(cursor)
 
             if not restaurant:
-                return Response({
-                    "detail": "Not found."
-                }, status=status.HTTP_404_NOT_FOUND)
+                return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
 
-            item_find_query = """
-                SELECT 
-                mi.*, 
-                c.category_name,
-                c.category_id
+            # Build Cloudinary URL for the restaurant banner image
+            restaurant['image_url'] = build_cloudinary_url(restaurant.pop('image', None))
+
+            # Serialise time fields
+            for tf in ('opening_time', 'closing_time'):
+                val = restaurant.get(tf)
+                if val is not None and hasattr(val, 'strftime'):
+                    restaurant[tf] = val.strftime('%H:%M')
+
+            # ── Menu items ───────────────────────────────────────────────
+            cursor.execute("""
+                SELECT
+                    mi.*,
+                    c.category_name,
+                    c.category_id
                 FROM items_menuitem mi
                 LEFT JOIN items_category c ON mi.category_id = c.category_id
                 WHERE mi.restaurant_id = %s
-                """
-            cursor.execute(item_find_query, [pk])
+            """, [pk])
             items = dictfetchall(cursor)
 
             for item in items:
-                public_id = item.get('image')
-                if public_id:
-                    item['image_url'] = CloudinaryImage(public_id).build_url(
-                        quality="auto",
-                        fetch_format="auto",
-                    )
-                else:
-                    item['image_url'] = None
+                item['image_url'] = build_cloudinary_url(item.get('image'))
 
-            discount_find_query = """
+            # ── Active discounts ─────────────────────────────────────────
+            cursor.execute("""
                 SELECT *
-                FROM resturants_Discount
+                FROM resturants_discount
                 WHERE resturant_id = %s AND is_active = 1
-            """
-            cursor.execute(discount_find_query, [pk])
+            """, [pk])
             discounts = dictfetchall(cursor)
 
-            restaurant['items'] = items
-            restaurant['discounts'] = discounts
+        restaurant['items']     = items
+        restaurant['discounts'] = discounts
 
-            return Response(restaurant, status=status.HTTP_200_OK)
+        return Response(restaurant, status=status.HTTP_200_OK)
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# RESTAURANT ORDERS
+# ─────────────────────────────────────────────────────────────────────────────
 
 class RestaurantOrderListView(APIView):
     permission_classes = [IsAuthenticated]
@@ -145,7 +228,6 @@ class RestaurantOrderListView(APIView):
             )
 
         status_filter = request.query_params.get('status')
-
         if status_filter:
             status_filter = status_filter.upper()
             if status_filter not in VALID_ORDER_STATUSES:
@@ -182,7 +264,6 @@ class RestaurantOrderDetailView(APIView):
 
         order = get_order_details(order_id)
         order['items'] = get_order_items(order_id)
-
         return Response(order, status=status.HTTP_200_OK)
 
     def patch(self, request, order_id):
@@ -195,20 +276,13 @@ class RestaurantOrderDetailView(APIView):
 
         new_status = request.data.get('status')
         if not new_status:
-            return Response(
-                {"error": "status is required."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"error": "status is required."}, status=status.HTTP_400_BAD_REQUEST)
 
         new_status = new_status.upper()
-
         try:
             update_order_status_by_restaurant(order_id, restaurant_id, new_status)
         except ValueError as e:
-            return Response(
-                {"error": str(e)},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
         return Response(
             {"message": f"Order {order_id} status updated to {new_status}."},
@@ -231,9 +305,8 @@ class RestaurantUpdateView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        data    = request.data
         ALLOWED = {'name', 'opening_time', 'closing_time', 'phone'}
-        updates = {k: v for k, v in data.items() if k in ALLOWED}
+        updates = {k: v for k, v in request.data.items() if k in ALLOWED}
 
         if not updates:
             return Response(
@@ -251,13 +324,6 @@ class RestaurantUpdateView(APIView):
                     values
                 )
         except Exception as e:
-            return Response(
-                {"error": str(e)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-        return Response(
-            {"message": "Restaurant updated successfully."},
-            status=status.HTTP_200_OK
-        )
-    
+        return Response({"message": "Restaurant updated successfully."}, status=status.HTTP_200_OK)
