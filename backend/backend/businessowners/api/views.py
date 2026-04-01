@@ -8,6 +8,13 @@ import cloudinary.uploader
 from cloudinary import CloudinaryImage
 from resturants.api.services import get_all_discounts, create_discount
 from exceptions import PermissionError, ValidationError, NotFoundError, ConflictError
+from orders.api.services import (
+    get_restaurant_order_history,        
+    get_history_order_items,            
+    get_restaurant_order_history_stats, 
+)
+from resturants.api.services import get_restaurant_id
+HISTORY_STATUSES = {'DELIVERED', 'CANCELLED'}
 
 class RestaurantDiscountView(APIView):
     # We enforce basic token auth availability, but we check role manually below
@@ -565,3 +572,105 @@ class MenuItemDetailedView(APIView):
                 return Response({"detail": "Item not found or permission denied."}, status=status.HTTP_401_UNAUTHORIZED)
 
         return Response({"detail": "Item deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
+
+class RestaurantOrderHistoryView(APIView):
+    """
+    GET /api/v1/vendor/order-history/
+ 
+    Query params
+    ------------
+    status      : DELIVERED | CANCELLED   (default = both)
+    date_from   : YYYY-MM-DD
+    date_to     : YYYY-MM-DD
+    limit       : int  (default 50)
+    offset      : int  (default 0)
+ 
+    Returns paginated list of past orders + summary stats.
+    """
+    permission_classes = [IsAuthenticated]
+ 
+    def get(self, request):
+        from orders.api.services import (
+            get_restaurant_order_history,
+            get_restaurant_order_history_stats,
+        )
+ 
+        restaurant_id = get_restaurant_id(request.user.id)
+        if not restaurant_id:
+            return Response(
+                {"error": "Restaurant profile not found."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+ 
+        status_filter = request.query_params.get('status', '').upper() or None
+        if status_filter and status_filter not in HISTORY_STATUSES:
+            return Response(
+                {"error": f"Invalid status. Valid values: {sorted(HISTORY_STATUSES)}"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+ 
+        date_from = request.query_params.get('date_from')
+        date_to   = request.query_params.get('date_to')
+ 
+        try:
+            limit  = int(request.query_params.get('limit',  50))
+            offset = int(request.query_params.get('offset',  0))
+        except ValueError:
+            return Response(
+                {"error": "limit and offset must be integers."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+ 
+        history = get_restaurant_order_history(
+            restaurant_id,
+            status_filter=status_filter,
+            date_from=date_from,
+            date_to=date_to,
+            limit=limit,
+            offset=offset,
+        )
+        stats = get_restaurant_order_history_stats(restaurant_id)
+ 
+        return Response({
+            "stats":   stats,
+            "history": history,
+        }, status=status.HTTP_200_OK)
+ 
+ 
+class RestaurantOrderHistoryDetailView(APIView):
+    """
+    GET /api/v1/vendor/order-history/<order_id>/
+ 
+    Returns the full detail of a single historical order including its items.
+    """
+    permission_classes = [IsAuthenticated]
+ 
+    def get(self, request, order_id):
+        from orders.api.services import get_history_order_items, get_order_details
+ 
+        restaurant_id = get_restaurant_id(request.user.id)
+        if not restaurant_id:
+            return Response(
+                {"error": "Restaurant profile not found."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+ 
+        # Security: ensure the order belongs to this restaurant AND is historical
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT 1
+                FROM orders_order
+                WHERE order_id = %s
+                  AND restaurant_id = %s
+                  AND status IN ('DELIVERED', 'CANCELLED')
+            """, [order_id, restaurant_id])
+            if not cursor.fetchone():
+                return Response(
+                    {"error": "Order not found in your history."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+ 
+        order = get_order_details(order_id)
+        order['items'] = get_history_order_items(order_id)
+ 
+        return Response(order, status=status.HTTP_200_OK)

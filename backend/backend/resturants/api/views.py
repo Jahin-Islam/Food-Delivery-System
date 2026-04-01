@@ -9,7 +9,10 @@ from .serializers import DiscountSerializer, RestaurantSerializer, ResturantDeta
 from items.serializers import ItemSerializer
 from items.models import MenuItem, Category
 from cloudinary import CloudinaryImage
-from orders.api.services import get_restaurant_orders, update_order_status_by_restaurant, get_order_items, get_order_details
+from orders.api.services import (
+    get_restaurant_orders, update_order_status_by_restaurant,
+    get_order_items, get_order_details, 
+)
 
 
 VALID_ORDER_STATUSES = {'PENDING', 'PREPARING', 'PICKED_UP', 'DELIVERED', 'CANCELLED'}
@@ -257,3 +260,4 @@ class RestaurantUpdateView(APIView):
             {"message": "Restaurant updated successfully."},
             status=status.HTTP_200_OK
         )
+    

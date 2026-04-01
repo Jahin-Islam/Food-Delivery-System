@@ -463,3 +463,164 @@ def get_rider_orders(rider_id, status_filter=None):
         order['items'] = items_map.get(order['order_id'], [])
  
     return orders
+
+def get_restaurant_order_history(restaurant_id, status_filter=None, date_from=None, date_to=None, limit=50, offset=0):
+    """
+    Returns completed/cancelled orders for a restaurant with full item details.
+
+    Filters
+    -------
+    status_filter : str | None   — one of DELIVERED, CANCELLED (or None = both)
+    date_from     : str | None   — ISO date string e.g. "2025-01-01"
+    date_to       : str | None   — ISO date string e.g. "2025-12-31"
+    limit / offset               — pagination
+    """
+
+    # History = orders that are no longer active
+    HISTORY_STATUSES = ('DELIVERED', 'CANCELLED')
+
+    conditions = ["o.restaurant_id = %s"]
+    params = [restaurant_id]
+
+    if status_filter and status_filter in HISTORY_STATUSES:
+        conditions.append("o.status = %s")
+        params.append(status_filter)
+    else:
+        # Default: show both DELIVERED and CANCELLED
+        conditions.append("o.status IN ('DELIVERED', 'CANCELLED')")
+
+    if date_from:
+        conditions.append("DATE(o.created_at) >= %s")
+        params.append(date_from)
+
+    if date_to:
+        conditions.append("DATE(o.created_at) <= %s")
+        params.append(date_to)
+
+    where_clause = " AND ".join(conditions)
+
+    # Total count query (for pagination metadata)
+    count_sql = f"""
+        SELECT COUNT(*)
+        FROM orders_order o
+        WHERE {where_clause}
+    """
+
+    # Main query — one row per order, aggregated item summary in JSON
+    orders_sql = f"""
+        SELECT
+            o.order_id,
+            o.status,
+            o.total_amount,
+            o.discount_amount,
+            o.delivery_charge,
+            o.service_charge,
+            o.rider_tip,
+            o.created_at,
+            o.delivered_at,
+            o.first_name,
+            o.last_name,
+            o.email,
+            o.phone_number,
+            addr.street_address  AS delivery_address,
+            addr.city            AS delivery_city,
+            COUNT(oi.id)         AS item_count,
+            SUM(oi.quantity)     AS total_quantity
+        FROM orders_order o
+        LEFT JOIN addresses_address addr ON addr.address_id = o.address_id
+        LEFT JOIN orders_orderitem oi   ON oi.order_id = o.order_id
+        WHERE {where_clause}
+        GROUP BY
+            o.order_id, o.status, o.total_amount, o.discount_amount,
+            o.delivery_charge, o.service_charge, o.rider_tip,
+            o.created_at, o.delivered_at,
+            o.first_name, o.last_name, o.email, o.phone_number,
+            addr.street_address, addr.city
+        ORDER BY o.created_at DESC
+        LIMIT %s OFFSET %s
+    """
+
+    with connection.cursor() as cursor:
+        cursor.execute(count_sql, params)
+        total_count = cursor.fetchone()[0]
+
+        cursor.execute(orders_sql, params + [limit, offset])
+        orders = dictfetchall(cursor)
+
+    # Convert Decimal/datetime to JSON-safe types
+    for order in orders:
+        for field in ('total_amount', 'discount_amount', 'delivery_charge',
+                      'service_charge', 'rider_tip'):
+            if order[field] is not None:
+                order[field] = float(order[field])
+        for field in ('created_at', 'delivered_at'):
+            if order[field] is not None:
+                order[field] = order[field].isoformat()
+
+    return {
+        "count":   total_count,
+        "limit":   limit,
+        "offset":  offset,
+        "orders":  orders,
+    }
+
+
+def get_history_order_items(order_id):
+    """
+    Returns items for a specific historical order.
+    Same as get_order_items but explicitly for history use.
+    """
+    sql = """
+        SELECT
+            oi.id,
+            oi.quantity,
+            oi.price_at_purchase,
+            mi.food_id,
+            mi.name      AS item_name,
+            mi.image     AS item_image
+        FROM orders_orderitem oi
+        LEFT JOIN items_menuitem mi ON mi.food_id = oi.item_id
+        WHERE oi.order_id = %s
+    """
+    with connection.cursor() as cursor:
+        cursor.execute(sql, [order_id])
+        items = dictfetchall(cursor)
+
+    for item in items:
+        if item['price_at_purchase'] is not None:
+            item['price_at_purchase'] = float(item['price_at_purchase'])
+
+    return items
+
+
+def get_restaurant_order_history_stats(restaurant_id):
+    """
+    Returns aggregate statistics for the restaurant's completed order history.
+    Used for the summary cards at the top of the history page.
+    """
+    sql = """
+        SELECT
+            COUNT(*)                                        AS total_orders,
+            SUM(CASE WHEN status = 'DELIVERED'  THEN 1 ELSE 0 END) AS delivered_count,
+            SUM(CASE WHEN status = 'CANCELLED'  THEN 1 ELSE 0 END) AS cancelled_count,
+            COALESCE(SUM(CASE WHEN status = 'DELIVERED' THEN total_amount ELSE 0 END), 0) AS total_revenue,
+            COALESCE(AVG(CASE WHEN status = 'DELIVERED' THEN total_amount END), 0)        AS avg_order_value
+        FROM orders_order
+        WHERE restaurant_id = %s
+          AND status IN ('DELIVERED', 'CANCELLED')
+    """
+    with connection.cursor() as cursor:
+        cursor.execute(sql, [restaurant_id])
+        row = cursor.fetchone()
+        if not row:
+            return {
+                "total_orders": 0, "delivered_count": 0, "cancelled_count": 0,
+                "total_revenue": 0.0, "avg_order_value": 0.0,
+            }
+        columns = [col[0] for col in cursor.description]
+        stats = dict(zip(columns, row))
+
+    for field in ('total_revenue', 'avg_order_value'):
+        stats[field] = float(stats[field] or 0)
+
+    return stats

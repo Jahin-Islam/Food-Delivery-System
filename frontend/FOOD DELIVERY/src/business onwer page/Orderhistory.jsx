@@ -1,368 +1,546 @@
-import React, { useState, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState, useEffect, useCallback } from 'react';
 import {
-  ScrollText, TrendingUp, ShoppingBag, Bike, Clock,
-  CheckCircle, ChevronDown, ChevronUp, BarChart2,
-  ArrowUpRight, Star,
+  Clock, Package, CheckCircle, XCircle,
+  ChevronDown, ChevronUp, Search, Filter,
+  TrendingUp, ShoppingBag, AlertCircle,
 } from 'lucide-react';
-import { COLORS } from '../constants.js';
+import authService from '../Authservice.js';
 import BusinessHeader from './BusinessHeader.jsx';
-import './Orderhistory.css';
+import './Businessdashboard.css';
+import './BusinessHeader.css';
 
-// ─── MOCK DATA ────────────────────────────────────────────────────────────────
-const ALL_ORDERS = [
-  {
-    id: '#3276', orderId: 'z9y8-x7w6', customerName: 'Fatima Rahman', riderName: 'Karim',
-    items: [{ name: 'Nasi Goreng', quantity: 2, price: 495 }, { name: 'Coleslaw', quantity: 1, price: 135 }],
-    subtotal: 1125, deliveryFee: 50, serviceFee: 15, total: 1190,
-    completedAt: new Date('2024-02-14T15:30:00'), status: 'Delivered',
-  },
-  {
-    id: '#3275', orderId: 'p8o7-n6m5', customerName: 'Hassan Ali', riderName: 'Ibrahim',
-    items: [{ name: 'BBQ Chicken Rice Bowl', quantity: 1, price: 315 }],
-    subtotal: 315, deliveryFee: 40, serviceFee: 8, total: 363,
-    completedAt: new Date('2024-02-14T14:15:00'), status: 'Delivered',
-  },
-  {
-    id: '#3274', orderId: 'k5j4-i3h2', customerName: 'Ayesha Begum', riderName: 'Rashid',
-    items: [{ name: 'Chicken Cashewnut Salad', quantity: 1, price: 387 }, { name: 'Mushroom Salad', quantity: 1, price: 405 }],
-    subtotal: 792, deliveryFee: 60, serviceFee: 12, total: 864,
-    completedAt: new Date('2024-02-13T18:45:00'), status: 'Delivered',
-  },
-  {
-    id: '#3273', orderId: 'g2f1-e0d9', customerName: 'Tariq Mahmud', riderName: 'Salman',
-    items: [{ name: 'Vegetable Letka Khichuri', quantity: 3, price: 198 }],
-    subtotal: 594, deliveryFee: 50, serviceFee: 10, total: 654,
-    completedAt: new Date('2024-02-13T12:20:00'), status: 'Delivered',
-  },
-  {
-    id: '#3272', orderId: 'h7g6-f5e4', customerName: 'Nasrin Akter', riderName: 'Karim',
-    items: [{ name: 'Beef Kacchi Biryani', quantity: 2, price: 420 }],
-    subtotal: 840, deliveryFee: 60, serviceFee: 12, total: 912,
-    completedAt: new Date('2024-02-12T20:10:00'), status: 'Delivered',
-  },
-];
+// ─── Constants ────────────────────────────────────────────────────────────────
+const BASE = 'http://127.0.0.1:8000/api';
+const HISTORY_URL      = `${BASE}/vendor/order-history/`;
+const HISTORY_ITEM_URL = (id) => `${BASE}/vendor/order-history/${id}/`;
 
-const WEEKLY = [
-  { day: 'Mon', orders: 12, revenue: 8400  },
-  { day: 'Tue', orders: 18, revenue: 12600 },
-  { day: 'Wed', orders: 15, revenue: 10500 },
-  { day: 'Thu', orders: 22, revenue: 15400 },
-  { day: 'Fri', orders: 28, revenue: 19600 },
-  { day: 'Sat', orders: 35, revenue: 24500 },
-  { day: 'Sun', orders: 24, revenue: 16800 },
-];
-
-const fmt = n => `৳${Number(n).toLocaleString('en-BD')}`;
-
-const fmtDate = date => {
-  const d = new Date(date);
-  const now = new Date();
-  const diff = Math.floor((now - d) / 86400000);
-  if (diff === 0) return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-  if (diff === 1) return 'Yesterday';
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+const STATUS_STYLES = {
+  DELIVERED: { bg: '#d1fae5', color: '#065f46', label: 'Delivered', Icon: CheckCircle },
+  CANCELLED: { bg: '#fee2e2', color: '#991b1b', label: 'Cancelled', Icon: XCircle },
 };
 
-// ─── STAT CARD ────────────────────────────────────────────────────────────────
-const StatCard = ({ Icon, label, value, sub, color, bg, trend }) => (
-  <motion.div className="oh-stat" whileHover={{ y: -3 }} transition={{ duration: 0.18 }}>
-    <div className="oh-stat-icon" style={{ background: bg }}><Icon size={20} color={color} strokeWidth={2} /></div>
-    <div className="oh-stat-body">
-      <span className="oh-stat-label">{label}</span>
-      <span className="oh-stat-value">{value}</span>
-      {sub && <span className="oh-stat-sub">{sub}</span>}
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+const fmt = (val) =>
+  val != null ? `৳${Number(val).toFixed(2)}` : '—';
+
+const fmtDate = (iso) => {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return d.toLocaleDateString('en-GB', {
+    day: '2-digit', month: 'short', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  });
+};
+
+// ─── Stat Card ────────────────────────────────────────────────────────────────
+const StatCard = ({ icon: Icon, label, value, color }) => (
+  <div style={{
+    background: 'var(--white)',
+    border: '1.5px solid var(--gray-200)',
+    borderRadius: 14,
+    padding: '18px 22px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 16,
+    flex: '1 1 180px',
+    minWidth: 0,
+  }}>
+    <div style={{
+      width: 44, height: 44, borderRadius: 12,
+      background: color + '22',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      flexShrink: 0,
+    }}>
+      <Icon size={22} color={color} />
     </div>
-    {trend != null && (
-      <span className="oh-stat-trend" style={{ color: trend >= 0 ? '#10b981' : '#ef4444' }}>
-        <ArrowUpRight size={13} style={{ transform: trend < 0 ? 'rotate(90deg)' : 'none', verticalAlign: 'middle' }} />
-        {Math.abs(trend)}%
-      </span>
-    )}
-  </motion.div>
+    <div style={{ minWidth: 0 }}>
+      <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--gray-500)', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 2 }}>{label}</div>
+      <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--gray-900)', whiteSpace: 'nowrap' }}>{value}</div>
+    </div>
+  </div>
 );
 
-// ─── BAR CHART ────────────────────────────────────────────────────────────────
-const BarChart = ({ data, metric }) => {
-  const [hover, setHover] = useState(null);
-  const max = Math.max(...data.map(d => d[metric]));
-  return (
-    <div className="oh-chart">
-      {data.map((d, i) => {
-        const isLast = i === data.length - 1;
-        const isHov  = hover === i;
-        return (
-          <div key={d.day} className="oh-bar-col"
-            onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(null)}>
-            {isHov && (
-              <div className="oh-tooltip">
-                <span className="oh-tip-day">{d.day}</span>
-                <span className="oh-tip-val">
-                  {metric === 'orders' ? `${d[metric]} orders` : fmt(d[metric])}
-                </span>
-              </div>
-            )}
-            <div className="oh-bar-track">
-              <motion.div className="oh-bar"
-                initial={{ height: '0%' }}
-                animate={{ height: `${(d[metric] / max) * 100}%` }}
-                transition={{ duration: 0.55, delay: i * 0.05, ease: [0.22, 1, 0.36, 1] }}
-                style={{
-                  background: (isLast || isHov) ? 'var(--gradient-primary)' : 'var(--gray-200)',
-                  boxShadow: (isLast || isHov) ? 'var(--shadow-primary)' : 'none',
-                  borderRadius: '6px 6px 0 0',
-                }}
-              />
-            </div>
-            <span className="oh-bar-label" style={{ fontWeight: isLast ? 800 : 500, color: isLast ? 'var(--primary)' : 'var(--gray-500)' }}>
-              {d.day}
-            </span>
-          </div>
-        );
-      })}
-    </div>
-  );
-};
-
-// ─── ORDER ROW (expandable) ───────────────────────────────────────────────────
+// ─── Order Row ────────────────────────────────────────────────────────────────
 const OrderRow = ({ order }) => {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="oh-row">
-      <div className="oh-row-main" onClick={() => setOpen(p => !p)}>
-        <div className="oh-row-id-block">
-          <div className="oh-row-avatar">{order.customerName[0]}</div>
-          <div>
-            <p className="oh-row-num">{order.id}</p>
-            <p className="oh-row-code">{order.orderId}</p>
-          </div>
-        </div>
-        <p className="oh-row-cust">{order.customerName}</p>
-        <p className="oh-row-time"><Clock size={11} style={{ marginRight: 3, verticalAlign: 'middle' }} />{fmtDate(order.completedAt)}</p>
-        <p className="oh-row-rider"><Bike size={11} style={{ marginRight: 3, verticalAlign: 'middle' }} />{order.riderName}</p>
-        <p className="oh-row-total">{fmt(order.total)}</p>
-        <span className="oh-row-status"><CheckCircle size={14} color="#10b981" /></span>
-        <button className="oh-row-expand">{open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}</button>
-      </div>
+  const [expanded, setExpanded] = useState(false);
+  const [items, setItems]       = useState(null);
+  const [loadingItems, setLoadingItems] = useState(false);
 
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-            style={{ overflow: 'hidden' }}>
-            <div className="oh-row-detail">
-              <div className="oh-detail-items">
-                {order.items.map((item, i) => (
-                  <div key={i} className="oh-detail-item">
-                    <span className="oh-d-qty">{item.quantity}×</span>
-                    <span className="oh-d-name">{item.name}</span>
-                    <span className="oh-d-price">{fmt(item.price)}</span>
-                  </div>
-                ))}
-              </div>
-              <div className="oh-detail-totals">
-                <div className="oh-d-row"><span>Subtotal</span><span>{fmt(order.subtotal)}</span></div>
-                {order.deliveryFee > 0 && <div className="oh-d-row"><span>Delivery</span><span>{fmt(order.deliveryFee)}</span></div>}
-                {order.serviceFee  > 0 && <div className="oh-d-row"><span>Service</span><span>{fmt(order.serviceFee)}</span></div>}
-                <div className="oh-d-row final"><span>Total</span><span>{fmt(order.total)}</span></div>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-};
+  const style = STATUS_STYLES[order.status] ?? STATUS_STYLES.DELIVERED;
+  const { Icon } = style;
 
-// ─── MAIN ─────────────────────────────────────────────────────────────────────
-const OrderHistory = ({ user, restaurant, onLogout, onNavigateToMenu, onNavigateToOrders }) => {
-  const [dateFilter,   setDateFilter]   = useState('7days');
-  const [chartMetric,  setChartMetric]  = useState('orders');
-
-  const DATE_TABS = [
-    { id: 'today',     label: 'Today'     },
-    { id: 'yesterday', label: 'Yesterday' },
-    { id: '7days',     label: '7 Days'    },
-    { id: '30days',    label: '30 Days'   },
-  ];
-
-  const filtered = useMemo(() => {
-    const now   = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const yest  = new Date(today); yest.setDate(today.getDate() - 1);
-    const d7    = new Date(today); d7.setDate(today.getDate() - 7);
-    const d30   = new Date(today); d30.setDate(today.getDate() - 30);
-    return ALL_ORDERS.filter(o => {
-      const d = new Date(o.completedAt);
-      if (dateFilter === 'today')     return d >= today;
-      if (dateFilter === 'yesterday') return d >= yest && d < today;
-      if (dateFilter === '7days')     return d >= d7;
-      if (dateFilter === '30days')    return d >= d30;
-      return true;
-    });
-  }, [dateFilter]);
-
-  const totalRev = ALL_ORDERS.reduce((s, o) => s + o.total, 0);
-  const totalOrd = ALL_ORDERS.length;
-  const avgVal   = Math.round(totalRev / totalOrd);
-  const riders   = new Set(ALL_ORDERS.map(o => o.riderName)).size;
-
-  const STATS = [
-    { Icon: TrendingUp,  label: 'Total Revenue',   value: fmt(totalRev), bg: 'var(--primary-bg)',  color: COLORS.primary, trend: 12 },
-    { Icon: ShoppingBag, label: 'Completed Orders', value: totalOrd,      bg: '#f0fdf4',            color: '#10b981',      trend: 8  },
-    { Icon: BarChart2,   label: 'Avg. Order Value', value: `৳${avgVal}`,  bg: '#fef3c7',            color: '#f59e0b',      trend: 3  },
-    { Icon: Bike,        label: 'Active Riders',    value: riders,        bg: '#eef2ff',            color: '#6366f1',      trend: 0  },
-  ];
+  const handleExpand = async () => {
+    if (!expanded && items === null) {
+      setLoadingItems(true);
+      try {
+        const data = await authService.authenticatedFetch(HISTORY_ITEM_URL(order.order_id));
+        setItems(data?.items ?? []);
+      } catch {
+        setItems([]);
+      } finally {
+        setLoadingItems(false);
+      }
+    }
+    setExpanded(p => !p);
+  };
 
   return (
-    <div className="order-history-page">
-      <BusinessHeader
-        activePage="history"
-        user={user} restaurant={restaurant} onLogout={onLogout}
-        onNavigateToMenu={onNavigateToMenu}
-        onNavigateToOrders={onNavigateToOrders}
-        onNavigateToHistory={() => {}}
-      />
-
-      <div className="oh-page-body">
-
-        {/* ── STATS ── */}
-        <div className="oh-stats-grid">
-          {STATS.map((s, i) => (
-            <motion.div key={s.label} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.07 }}>
-              <StatCard {...s} />
-            </motion.div>
-          ))}
+    <div style={{
+      border: '1.5px solid var(--gray-200)',
+      borderRadius: 12,
+      background: 'var(--white)',
+      overflow: 'hidden',
+      transition: 'box-shadow 0.2s',
+    }}>
+      {/* ── Summary row ── */}
+      <button
+        onClick={handleExpand}
+        style={{
+          width: '100%', background: 'none', border: 'none',
+          padding: '16px 20px', cursor: 'pointer',
+          display: 'flex', alignItems: 'center', gap: 16,
+          textAlign: 'left', fontFamily: 'var(--font)',
+        }}
+      >
+        {/* Status icon */}
+        <div style={{
+          width: 36, height: 36, borderRadius: 10,
+          background: style.bg,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          flexShrink: 0,
+        }}>
+          <Icon size={18} color={style.color} />
         </div>
 
-        {/* ── ANALYTICS ROW ── */}
-        <div className="oh-analytics-row">
-
-          {/* Chart card */}
-          <div className="oh-card oh-chart-card">
-            <div className="oh-card-top">
-              <div>
-                <h2 className="oh-card-title">Weekly Performance</h2>
-                <p className="oh-card-sub">Last 7 days overview</p>
-              </div>
-              <div className="oh-toggle-group">
-                {['orders', 'revenue'].map(m => (
-                  <button key={m} className={`oh-toggle ${chartMetric === m ? 'active' : ''}`}
-                    onClick={() => setChartMetric(m)}>
-                    {m.charAt(0).toUpperCase() + m.slice(1)}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <BarChart data={WEEKLY} metric={chartMetric} />
-            <div className="oh-chart-foot">
-              {WEEKLY.map(d => (
-                <div key={d.day} className="oh-foot-col">
-                  <span className="oh-foot-day">{d.day}</span>
-                  <span className="oh-foot-val">
-                    {chartMetric === 'orders' ? d.orders : `৳${(d.revenue / 1000).toFixed(0)}k`}
-                  </span>
-                </div>
-              ))}
-            </div>
+        {/* Order ID + date */}
+        <div style={{ flex: '0 0 auto', minWidth: 110 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--gray-900)' }}>
+            #{order.order_id}
           </div>
-
-          {/* Side cards */}
-          <div className="oh-side-col">
-
-            {/* Live ops */}
-            <div className="oh-card oh-liveops">
-              <h3 className="oh-card-title">Live Ops Monitor</h3>
-              <div className="oh-live-row">
-                <span className="oh-live-dot" /><span className="oh-live-text">Operating normally</span>
-              </div>
-              <div className="oh-lm-grid">
-                {[
-                  { label: 'Avg. Prep Time',      val: '18 min',   },
-                  { label: 'Delivery Success',     val: '98.2%',    highlight: true },
-                  { label: 'Customer Rating',      val: '★ 4.8',   },
-                  { label: 'Peak Hours',           val: '12–2 PM', },
-                ].map(m => (
-                  <div key={m.label} className="oh-lm-item">
-                    <span className="oh-lm-label">{m.label}</span>
-                    <span className={`oh-lm-val ${m.highlight ? 'success' : ''}`}>{m.val}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Top items */}
-            <div className="oh-card oh-topitems">
-              <h3 className="oh-card-title">Top Items This Week</h3>
-              {[
-                { name: 'Chicken Cashewnut Salad', orders: 34, pct: 100 },
-                { name: 'Nasi Goreng',              orders: 28, pct: 82  },
-                { name: 'BBQ Chicken Rice Bowl',    orders: 22, pct: 65  },
-              ].map((item, i) => (
-                <div key={item.name} className="oh-top-item">
-                  <span className="oh-top-rank">#{i + 1}</span>
-                  <div className="oh-top-body">
-                    <span className="oh-top-name">{item.name}</span>
-                    <div className="oh-top-track">
-                      <motion.div className="oh-top-fill"
-                        initial={{ width: 0 }} animate={{ width: `${item.pct}%` }}
-                        transition={{ duration: 0.6, delay: i * 0.1 }} />
-                    </div>
-                  </div>
-                  <span className="oh-top-orders">{item.orders}</span>
-                </div>
-              ))}
-            </div>
+          <div style={{ fontSize: 11, color: 'var(--gray-500)', marginTop: 2 }}>
+            {fmtDate(order.created_at)}
           </div>
         </div>
 
-        {/* ── ORDERS LIST ── */}
-        <div className="oh-card oh-history-section">
-          <div className="oh-card-top">
-            <div>
-              <h2 className="oh-card-title">Completed Orders</h2>
-              <p className="oh-card-sub">Click any row to see breakdown</p>
-            </div>
-            <div className="oh-date-tabs">
-              {DATE_TABS.map(({ id, label }) => (
-                <button key={id}
-                  className={`oh-date-tab ${dateFilter === id ? 'active' : ''}`}
-                  onClick={() => setDateFilter(id)}>
-                  {label}
-                </button>
-              ))}
-            </div>
+        {/* Customer name */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--gray-800)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {[order.first_name, order.last_name].filter(Boolean).join(' ') || 'Guest'}
           </div>
-
-          {/* Header row */}
-          <div className="oh-list-head">
-            <span>Order</span><span>Customer</span>
-            <span>Time</span><span>Rider</span>
-            <span>Total</span><span>Status</span><span></span>
-          </div>
-
-          <div className="oh-orders-wrap">
-            <AnimatePresence>
-              {filtered.length > 0
-                ? filtered.map(o => <OrderRow key={o.id} order={o} />)
-                : (
-                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="oh-empty">
-                    <ScrollText size={52} color={COLORS.primary} strokeWidth={1} opacity={0.25} />
-                    <p>No orders found for this period</p>
-                  </motion.div>
-                )}
-            </AnimatePresence>
-          </div>
-
-          {filtered.length > 0 && (
-            <div className="oh-list-foot">
-              <span>{filtered.length} order{filtered.length !== 1 ? 's' : ''}</span>
-              <span>Period revenue: <strong>{fmt(filtered.reduce((s, o) => s + o.total, 0))}</strong></span>
+          {order.delivery_address && (
+            <div style={{ fontSize: 11, color: 'var(--gray-500)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 2 }}>
+              {order.delivery_address}{order.delivery_city ? `, ${order.delivery_city}` : ''}
             </div>
           )}
         </div>
+
+        {/* Items count */}
+        <div style={{ flex: '0 0 auto', textAlign: 'center', minWidth: 60 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--gray-800)' }}>{order.total_quantity ?? order.item_count ?? '—'}</div>
+          <div style={{ fontSize: 10, color: 'var(--gray-400)', marginTop: 1 }}>items</div>
+        </div>
+
+        {/* Total */}
+        <div style={{ flex: '0 0 auto', textAlign: 'right', minWidth: 90 }}>
+          <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--primary)' }}>{fmt(order.total_amount)}</div>
+          <span style={{
+            display: 'inline-block', marginTop: 3,
+            padding: '2px 8px', borderRadius: 999,
+            fontSize: 10, fontWeight: 700,
+            background: style.bg, color: style.color,
+          }}>
+            {style.label}
+          </span>
+        </div>
+
+        {/* Chevron */}
+        <div style={{ color: 'var(--gray-400)', flexShrink: 0 }}>
+          {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+        </div>
+      </button>
+
+      {/* ── Expanded detail ── */}
+      {expanded && (
+        <div style={{
+          borderTop: '1px solid var(--gray-200)',
+          padding: '16px 20px',
+          background: 'var(--gray-50)',
+        }}>
+          {loadingItems ? (
+            <div style={{ textAlign: 'center', padding: '12px 0', color: 'var(--gray-400)', fontSize: 13 }}>
+              Loading items…
+            </div>
+          ) : (
+            <>
+              {/* Items list */}
+              {items && items.length > 0 ? (
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--gray-500)', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 8 }}>
+                    Items Ordered
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {items.map((item, i) => (
+                      <div key={item.id ?? i} style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        padding: '8px 12px', background: 'var(--white)',
+                        borderRadius: 8, border: '1px solid var(--gray-200)',
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <span style={{
+                            width: 22, height: 22, borderRadius: 6,
+                            background: 'var(--primary-bg)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: 11, fontWeight: 700, color: 'var(--primary)',
+                          }}>
+                            {item.quantity}×
+                          </span>
+                          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--gray-800)' }}>
+                            {item.item_name ?? `Item #${item.food_id}`}
+                          </span>
+                        </div>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--gray-700)' }}>
+                          {fmt(item.price_at_purchase * item.quantity)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <p style={{ fontSize: 13, color: 'var(--gray-400)', marginBottom: 16 }}>No item details available.</p>
+              )}
+
+              {/* Charges breakdown */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
+                gap: 8,
+              }}>
+                {[
+                  { label: 'Subtotal',       value: fmt(order.total_amount) },
+                  { label: 'Delivery Charge', value: fmt(order.delivery_charge) },
+                  { label: 'Discount',        value: order.discount_amount ? `-${fmt(order.discount_amount)}` : '—' },
+                  { label: 'Service Charge',  value: fmt(order.service_charge) },
+                  { label: 'Rider Tip',       value: fmt(order.rider_tip) },
+                  { label: 'Delivered At',    value: fmtDate(order.delivered_at) },
+                ].map(({ label, value }) => (
+                  <div key={label} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--gray-400)', textTransform: 'uppercase', letterSpacing: '0.3px' }}>{label}</span>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--gray-700)' }}>{value}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Contact */}
+              {(order.email || order.phone_number) && (
+                <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px dashed var(--gray-200)', display: 'flex', gap: 20, flexWrap: 'wrap' }}>
+                  {order.email && (
+                    <div style={{ fontSize: 12, color: 'var(--gray-500)' }}>
+                      <span style={{ fontWeight: 700 }}>Email: </span>{order.email}
+                    </div>
+                  )}
+                  {order.phone_number && (
+                    <div style={{ fontSize: 12, color: 'var(--gray-500)' }}>
+                      <span style={{ fontWeight: 700 }}>Phone: </span>{order.phone_number}
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ─── Main Component ───────────────────────────────────────────────────────────
+const OrderHistory = ({
+  restaurant,
+  user,
+  isLoggedIn,
+  onLogout,
+  onNavigateToMenu,
+  onNavigateToOrders,
+  onNavigateToProfile,
+}) => {
+  const [history,    setHistory]    = useState([]);
+  const [stats,      setStats]      = useState(null);
+  const [loading,    setLoading]    = useState(true);
+  const [error,      setError]      = useState(null);
+
+  // Filters
+  const [statusFilter, setStatusFilter] = useState('');   // '' | 'DELIVERED' | 'CANCELLED'
+  const [dateFrom,     setDateFrom]     = useState('');
+  const [dateTo,       setDateTo]       = useState('');
+  const [searchQuery,  setSearchQuery]  = useState('');
+
+  // Pagination
+  const [offset, setOffset] = useState(0);
+  const [total,  setTotal]  = useState(0);
+  const LIMIT = 20;
+
+  const fetchHistory = useCallback(async (newOffset = 0) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const params = new URLSearchParams({ limit: LIMIT, offset: newOffset });
+      if (statusFilter) params.set('status', statusFilter);
+      if (dateFrom)     params.set('date_from', dateFrom);
+      if (dateTo)       params.set('date_to', dateTo);
+
+      const url = `${HISTORY_URL}?${params.toString()}`;
+      const data = await authService.authenticatedFetch(url);
+
+      setStats(data.stats);
+      setHistory(data.history?.orders ?? []);
+      setTotal(data.history?.count ?? 0);
+      setOffset(newOffset);
+    } catch (e) {
+      setError(e.message ?? 'Failed to load order history.');
+    } finally {
+      setLoading(false);
+    }
+  }, [statusFilter, dateFrom, dateTo]);
+
+  useEffect(() => { fetchHistory(0); }, [fetchHistory]);
+
+  // Client-side search filter on already-fetched orders
+  const filteredHistory = searchQuery.trim()
+    ? history.filter(o => {
+        const q = searchQuery.toLowerCase();
+        const name = [o.first_name, o.last_name].join(' ').toLowerCase();
+        return (
+          String(o.order_id).includes(q) ||
+          name.includes(q) ||
+          (o.email ?? '').toLowerCase().includes(q) ||
+          (o.phone_number ?? '').includes(q)
+        );
+      })
+    : history;
+
+  const handleApplyFilters = () => fetchHistory(0);
+  const handleClearFilters = () => {
+    setStatusFilter('');
+    setDateFrom('');
+    setDateTo('');
+    setSearchQuery('');
+  };
+
+  // ── Layout constants ──
+  const inputStyle = {
+    padding: '8px 12px', borderRadius: 8,
+    border: '1.5px solid var(--gray-200)',
+    background: 'var(--white)', color: 'var(--gray-800)',
+    fontSize: 13, fontFamily: 'var(--font)', outline: 'none',
+    width: '100%', boxSizing: 'border-box',
+  };
+
+  return (
+    <div className="business-dashboard">
+      <BusinessHeader
+        activePage="history"
+        user={user}
+        restaurant={restaurant}
+        onLogout={onLogout}
+        onNavigateToMenu={onNavigateToMenu     ?? (() => {})}
+        onNavigateToOrders={onNavigateToOrders ?? (() => {})}
+        onNavigateToHistory={() => {}}
+        onNavigateToProfile={onNavigateToProfile ?? (() => {})}
+      />
+
+      <div style={{ maxWidth: 960, margin: '0 auto', padding: '28px 20px 60px' }}>
+
+        {/* ── Page Title ── */}
+        <div style={{ marginBottom: 24 }}>
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--gray-900)', margin: 0 }}>
+            Order History
+          </h1>
+          <p style={{ fontSize: 13, color: 'var(--gray-500)', marginTop: 4 }}>
+            All delivered and cancelled orders for {restaurant?.name ?? 'your restaurant'}
+          </p>
+        </div>
+
+        {/* ── Stats ── */}
+        {stats && (
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 28 }}>
+            <StatCard icon={Package}      label="Total Orders"    value={stats.total_orders}                         color="var(--primary)" />
+            <StatCard icon={CheckCircle}  label="Delivered"       value={stats.delivered_count}                      color="#10b981" />
+            <StatCard icon={XCircle}      label="Cancelled"       value={stats.cancelled_count}                      color="#ef4444" />
+            <StatCard icon={TrendingUp}   label="Total Revenue"   value={`৳${Number(stats.total_revenue).toFixed(0)}`}  color="#f59e0b" />
+            <StatCard icon={ShoppingBag}  label="Avg Order Value" value={`৳${Number(stats.avg_order_value).toFixed(0)}`} color="#8b5cf6" />
+          </div>
+        )}
+
+        {/* ── Filters ── */}
+        <div style={{
+          background: 'var(--white)', border: '1.5px solid var(--gray-200)',
+          borderRadius: 14, padding: '16px 20px', marginBottom: 20,
+          display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end',
+        }}>
+          {/* Search */}
+          <div style={{ flex: '1 1 200px', minWidth: 0 }}>
+            <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--gray-500)', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.3px' }}>Search</label>
+            <div style={{ position: 'relative' }}>
+              <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--gray-400)' }} />
+              <input
+                type="text"
+                placeholder="Order ID, name, email…"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                style={{ ...inputStyle, paddingLeft: 30 }}
+              />
+            </div>
+          </div>
+
+          {/* Status */}
+          <div style={{ flex: '0 0 150px' }}>
+            <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--gray-500)', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.3px' }}>Status</label>
+            <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={inputStyle}>
+              <option value="">All</option>
+              <option value="DELIVERED">Delivered</option>
+              <option value="CANCELLED">Cancelled</option>
+            </select>
+          </div>
+
+          {/* Date From */}
+          <div style={{ flex: '0 0 140px' }}>
+            <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--gray-500)', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.3px' }}>From</label>
+            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} style={inputStyle} />
+          </div>
+
+          {/* Date To */}
+          <div style={{ flex: '0 0 140px' }}>
+            <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--gray-500)', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.3px' }}>To</label>
+            <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} style={inputStyle} />
+          </div>
+
+          {/* Buttons */}
+          <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+            <button
+              onClick={handleApplyFilters}
+              style={{
+                padding: '9px 16px', borderRadius: 8, border: 'none',
+                background: 'var(--primary)', color: '#fff',
+                fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'var(--font)',
+              }}
+            >
+              <Filter size={14} /> Apply
+            </button>
+            <button
+              onClick={handleClearFilters}
+              style={{
+                padding: '9px 14px', borderRadius: 8,
+                border: '1.5px solid var(--gray-200)',
+                background: 'var(--white)', color: 'var(--gray-600)',
+                fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font)',
+              }}
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+
+        {/* ── Results count ── */}
+        {!loading && !error && (
+          <div style={{ fontSize: 13, color: 'var(--gray-500)', marginBottom: 12, fontWeight: 500 }}>
+            Showing {filteredHistory.length} of {total} order{total !== 1 ? 's' : ''}
+            {(statusFilter || dateFrom || dateTo) && ' (filtered)'}
+          </div>
+        )}
+
+        {/* ── Loading ── */}
+        {loading && (
+          <div style={{ textAlign: 'center', padding: '60px 0' }}>
+            <div style={{
+              width: 44, height: 44, border: '3px solid var(--primary-light)',
+              borderTopColor: 'var(--primary)', borderRadius: '50%',
+              margin: '0 auto 16px', animation: 'spin 0.8s linear infinite',
+            }} />
+            <p style={{ color: 'var(--gray-400)', fontSize: 14 }}>Loading order history…</p>
+            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+          </div>
+        )}
+
+        {/* ── Error ── */}
+        {!loading && error && (
+          <div style={{
+            background: '#fee2e2', border: '1.5px solid #fecaca',
+            borderRadius: 12, padding: '16px 20px',
+            display: 'flex', alignItems: 'center', gap: 12,
+            color: '#991b1b', fontSize: 14, fontWeight: 600,
+          }}>
+            <AlertCircle size={18} />
+            {error}
+            <button
+              onClick={() => fetchHistory(0)}
+              style={{ marginLeft: 'auto', padding: '6px 14px', borderRadius: 7, border: 'none',
+                background: '#dc2626', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
+        {/* ── Empty state ── */}
+        {!loading && !error && filteredHistory.length === 0 && (
+          <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--gray-400)' }}>
+            <Clock size={52} style={{ opacity: 0.3, marginBottom: 16 }} />
+            <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--gray-600)', marginBottom: 6 }}>No order history yet</p>
+            <p style={{ fontSize: 13 }}>
+              {searchQuery || statusFilter || dateFrom || dateTo
+                ? 'No orders match your filters. Try adjusting them.'
+                : 'Completed and cancelled orders will appear here.'}
+            </p>
+          </div>
+        )}
+
+        {/* ── Order list ── */}
+        {!loading && !error && filteredHistory.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {filteredHistory.map(order => (
+              <OrderRow key={order.order_id} order={order} />
+            ))}
+          </div>
+        )}
+
+        {/* ── Pagination ── */}
+        {!loading && !error && total > LIMIT && (
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12, marginTop: 28 }}>
+            <button
+              disabled={offset === 0}
+              onClick={() => fetchHistory(Math.max(0, offset - LIMIT))}
+              style={{
+                padding: '8px 20px', borderRadius: 8,
+                border: '1.5px solid var(--gray-200)',
+                background: offset === 0 ? 'var(--gray-100)' : 'var(--white)',
+                color: offset === 0 ? 'var(--gray-400)' : 'var(--gray-700)',
+                fontWeight: 600, fontSize: 13, cursor: offset === 0 ? 'not-allowed' : 'pointer',
+                fontFamily: 'var(--font)',
+              }}
+            >
+              ← Previous
+            </button>
+            <span style={{ fontSize: 13, color: 'var(--gray-500)', fontWeight: 500 }}>
+              {offset + 1}–{Math.min(offset + LIMIT, total)} of {total}
+            </span>
+            <button
+              disabled={offset + LIMIT >= total}
+              onClick={() => fetchHistory(offset + LIMIT)}
+              style={{
+                padding: '8px 20px', borderRadius: 8,
+                border: '1.5px solid var(--gray-200)',
+                background: offset + LIMIT >= total ? 'var(--gray-100)' : 'var(--white)',
+                color: offset + LIMIT >= total ? 'var(--gray-400)' : 'var(--gray-700)',
+                fontWeight: 600, fontSize: 13,
+                cursor: offset + LIMIT >= total ? 'not-allowed' : 'pointer',
+                fontFamily: 'var(--font)',
+              }}
+            >
+              Next →
+            </button>
+          </div>
+        )}
 
       </div>
     </div>
