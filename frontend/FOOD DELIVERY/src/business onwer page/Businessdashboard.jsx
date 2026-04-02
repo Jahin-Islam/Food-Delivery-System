@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import './Businessdashboard.css';
 import './BusinessHeader.css';
 import { COLORS } from '../constants.js';
-import { Search, Utensils, Bike, Star, Camera, Pencil, Trash2, Plus, AlertCircle } from 'lucide-react';
+import { Search, Utensils, Bike, Star, Camera, Pencil, Trash2, Plus, AlertCircle, Upload, X, ImagePlus } from 'lucide-react';
 import authService from '../Authservice.js';
 import vendorApiService from '../Vendorapiservice.js';
 import BusinessHeader from './BusinessHeader.jsx';
@@ -47,9 +47,166 @@ const ConfirmDialog = ({ message, onConfirm, onCancel }) => (
   </div>
 );
 
+// ─── Logo Upload Modal ────────────────────────────────────────────────────────
+const LogoUploadModal = ({ currentImage, onClose, onSave, saving }) => {
+  const [preview, setPreview] = useState(currentImage);
+  const [file, setFile]       = useState(null);
+  const inputRef              = useRef(null);
+  const [dragging, setDragging] = useState(false);
+
+  const handleFile = (f) => {
+    if (!f || !f.type.startsWith('image/')) return;
+    setFile(f);
+    setPreview(URL.createObjectURL(f));
+  };
+
+  const onInputChange = (e) => handleFile(e.target.files[0]);
+
+  const onDrop = (e) => {
+    e.preventDefault();
+    setDragging(false);
+    handleFile(e.dataTransfer.files[0]);
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div
+        style={{
+          background: '#fff', borderRadius: 20, padding: '32px',
+          maxWidth: 460, width: '100%',
+          boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+        }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+          <div>
+            <h2 style={{ fontSize: 20, fontWeight: 800, color: 'var(--gray-900)', margin: 0, letterSpacing: '-0.3px' }}>
+              Restaurant Photo
+            </h2>
+            <p style={{ fontSize: 13, color: 'var(--gray-400)', margin: '3px 0 0', fontWeight: 500 }}>
+              Upload a logo or banner for your restaurant
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            style={{ background: 'var(--gray-100)', border: 'none', borderRadius: '50%',
+              width: 32, height: 32, cursor: 'pointer', display: 'flex', alignItems: 'center',
+              justifyContent: 'center', color: 'var(--gray-500)' }}
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Drop zone */}
+        <div
+          onDragOver={e => { e.preventDefault(); setDragging(true); }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={onDrop}
+          onClick={() => inputRef.current?.click()}
+          style={{
+            border: `2px dashed ${dragging ? 'var(--primary)' : preview ? 'var(--gray-200)' : 'var(--gray-300)'}`,
+            borderRadius: 14,
+            background: dragging ? 'var(--primary-bg)' : preview ? '#000' : 'var(--gray-50)',
+            cursor: 'pointer',
+            height: 200,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            overflow: 'hidden',
+            transition: 'all 0.15s',
+            position: 'relative',
+            marginBottom: 20,
+          }}
+        >
+          <input
+            ref={inputRef}
+            type="file"
+            accept="image/*"
+            onChange={onInputChange}
+            style={{ display: 'none' }}
+          />
+          {preview ? (
+            <>
+              <img
+                src={preview}
+                alt="Preview"
+                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+              />
+              {/* overlay hint */}
+              <div style={{
+                position: 'absolute', inset: 0,
+                background: 'rgba(0,0,0,0.45)',
+                display: 'flex', flexDirection: 'column',
+                alignItems: 'center', justifyContent: 'center',
+                gap: 6, opacity: 0, transition: 'opacity 0.15s',
+              }}
+                className="logo-preview-hover"
+              >
+                <Camera size={28} color="white" />
+                <span style={{ color: 'white', fontSize: 13, fontWeight: 600 }}>Click to change</span>
+              </div>
+            </>
+          ) : (
+            <div style={{ textAlign: 'center', color: 'var(--gray-400)', pointerEvents: 'none' }}>
+              <ImagePlus size={36} style={{ marginBottom: 10, opacity: 0.5 }} />
+              <p style={{ fontSize: 14, fontWeight: 600, margin: '0 0 4px', color: 'var(--gray-600)' }}>
+                Drop image here or click to browse
+              </p>
+              <p style={{ fontSize: 12, margin: 0 }}>PNG, JPG, WEBP · Max 5 MB</p>
+            </div>
+          )}
+        </div>
+
+        {/* Actions */}
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button
+            className="modal-cancel-btn"
+            style={{ flex: 1 }}
+            onClick={onClose}
+            disabled={saving}
+          >
+            Cancel
+          </button>
+          <button
+            style={{
+              flex: 2, padding: '12px', borderRadius: 10, border: 'none', cursor: file ? 'pointer' : 'not-allowed',
+              background: file ? 'var(--gradient-primary)' : 'var(--gray-200)',
+              color: file ? 'white' : 'var(--gray-400)',
+              fontWeight: 700, fontSize: 14, fontFamily: 'var(--font)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+              boxShadow: file ? 'var(--shadow-primary)' : 'none',
+              transition: 'all 0.15s',
+            }}
+            onClick={() => file && onSave(file)}
+            disabled={!file || saving}
+          >
+            {saving ? (
+              <>
+                <div style={{ width: 15, height: 15, border: '2px solid rgba(255,255,255,0.3)',
+                  borderTopColor: 'white', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+                Uploading…
+              </>
+            ) : (
+              <>
+                <Upload size={15} />
+                Save Photo
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+      <style>{`
+        .logo-preview-hover { pointer-events: none; }
+        div:hover > .logo-preview-hover { opacity: 1 !important; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+      `}</style>
+    </div>
+  );
+};
+
 const BusinessDashboard = ({
   restaurant, onBack, isLoggedIn, user, onLoginClick, onSignUpClick, onLogout,
-  // ── FIX: receive all navigation props from App.jsx ──
   onNavigateToMenu,
   onNavigateToOrders,
   onNavigateToHistory,
@@ -63,6 +220,11 @@ const BusinessDashboard = ({
   const [deals, setDeals] = useState([]);
   const [restaurantDetails, setRestaurantDetails] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // Logo upload state
+  const [showLogoModal, setShowLogoModal]   = useState(false);
+  const [logoUploading, setLogoUploading]   = useState(false);
+  const [localLogoUrl, setLocalLogoUrl]     = useState(null);
 
   const [toast, setToast] = useState(null);
   const showToast = (message, type = 'success') => setToast({ message, type });
@@ -135,6 +297,8 @@ const BusinessDashboard = ({
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
   const displayRestaurant = restaurantDetails ?? restaurant;
+  // prefer locally uploaded logo over server URL
+  const displayLogoUrl = localLogoUrl ?? displayRestaurant?.image_url;
 
   const filteredItems = menuItems.filter(item => {
     const q = searchQuery.toLowerCase();
@@ -303,6 +467,51 @@ const BusinessDashboard = ({
     });
   };
 
+  // ── Logo upload handler ──────────────────────────────────────────────────────
+  const handleLogoSave = async (file) => {
+    setLogoUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+
+      // Use raw fetch — NOT authenticatedFetch — so the browser sets the
+      // correct multipart/form-data Content-Type with boundary automatically.
+      // authenticatedFetch merges in Content-Type: application/json which
+      // causes the "Unsupported media type" 415 error from the backend.
+      let token = authService.getAccessToken();
+      let res = await fetch('http://127.0.0.1:8000/api/vendor/profile/', {
+        method: 'PATCH',
+        body: formData,
+        headers: { Authorization: `Bearer ${token}` },
+        // Do NOT include Content-Type — browser sets it with multipart boundary
+      });
+
+      // If token expired, try refreshing once
+      if (res.status === 401) {
+        try { token = await authService.refreshAccessToken(); } catch { throw new Error('Session expired. Please log in again.'); }
+        res = await fetch('http://127.0.0.1:8000/api/vendor/profile/', {
+          method: 'PATCH',
+          body: formData,
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      }
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.detail || errData.image?.[0] || `Upload failed (${res.status})`);
+      }
+
+      // Show the new logo immediately without a full refetch
+      setLocalLogoUrl(URL.createObjectURL(file));
+      showToast('Restaurant photo updated!');
+      setShowLogoModal(false);
+    } catch (e) {
+      showToast(e.message || 'Failed to upload photo', 'error');
+    } finally {
+      setLogoUploading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="business-dashboard" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
@@ -320,7 +529,6 @@ const BusinessDashboard = ({
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       {confirm && <ConfirmDialog message={confirm.message} onConfirm={confirm.onConfirm} onCancel={() => setConfirm(null)} />}
 
-      {/* ── FIX: all 4 nav handlers passed correctly ── */}
       <BusinessHeader
         activePage="menu"
         user={user}
@@ -335,11 +543,24 @@ const BusinessDashboard = ({
       {/* ── Restaurant Banner ── */}
       <div className="business-restaurant-banner">
         <div className="business-banner-content">
-          <div className="business-banner-image">
-            {displayRestaurant?.image_url
-              ? <img src={displayRestaurant.image_url} alt={displayRestaurant.name} className="restaurant-banner-img" />
-              : <Utensils size={64} color="var(--primary)" style={{ opacity: 0.6 }} />}
+
+          {/* ── Logo with upload overlay ── */}
+          <div className="business-banner-image bd-logo-wrap">
+            {displayLogoUrl
+              ? <img src={displayLogoUrl} alt={displayRestaurant?.name} className="restaurant-banner-img" />
+              : <Utensils size={64} color="var(--primary)" style={{ opacity: 0.6 }} />
+            }
+            {/* Camera overlay button */}
+            <button
+              className="bd-logo-upload-btn"
+              onClick={() => setShowLogoModal(true)}
+              title="Change restaurant photo"
+            >
+              <Camera size={17} />
+              <span>Change Photo</span>
+            </button>
           </div>
+
           <div className="business-restaurant-info">
             <h1 className="business-restaurant-name">{displayRestaurant?.name}</h1>
             <p className="business-restaurant-subtitle">Restaurant</p>
@@ -354,6 +575,15 @@ const BusinessDashboard = ({
               <span className="rating-number">{displayRestaurant?.rating || '4.8'}</span>
               <span className="rating-count">({displayRestaurant?.total_reviews || '0'})</span>
             </div>
+
+            {/* Quick update photo button (alternate location for visibility) */}
+            <button
+              className="bd-update-photo-btn"
+              onClick={() => setShowLogoModal(true)}
+            >
+              <ImagePlus size={14} />
+              {displayLogoUrl ? 'Update Photo' : 'Add Restaurant Photo'}
+            </button>
           </div>
         </div>
       </div>
@@ -660,6 +890,16 @@ const BusinessDashboard = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── LOGO UPLOAD MODAL ── */}
+      {showLogoModal && (
+        <LogoUploadModal
+          currentImage={displayLogoUrl}
+          onClose={() => setShowLogoModal(false)}
+          onSave={handleLogoSave}
+          saving={logoUploading}
+        />
       )}
     </div>
   );

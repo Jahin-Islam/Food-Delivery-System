@@ -51,9 +51,33 @@ function AddressMapPicker({ onLocationSelect, initialLat, initialLng }) {
         attribution: '© OpenStreetMap',
       }).addTo(map);
 
+      const pinSize = 42;
+      const pinStem = 13;
       const icon = L.divIcon({
-        html: `<div style="width:28px;height:28px;background:${COLORS.primary};border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3)"></div>`,
-        iconSize: [28, 28], iconAnchor: [14, 28], className: '',
+        html: `<div style="
+            width:${pinSize}px;height:${pinSize}px;
+            background:${COLORS.primary};
+            border-radius:50%;
+            border:3px solid rgba(255,255,255,0.95);
+            box-shadow:0 4px 14px rgba(215,15,100,0.38),0 1px 4px rgba(0,0,0,0.2);
+            display:flex;align-items:center;justify-content:center;
+            position:relative;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+            stroke="#fff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/>
+            <path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h1"/><path d="M18 22V15"/>
+          </svg>
+          <div style="
+              position:absolute;bottom:-${pinStem}px;left:50%;
+              transform:translateX(-50%);
+              width:0;height:0;
+              border-left:${Math.round(pinSize*0.22)}px solid transparent;
+              border-right:${Math.round(pinSize*0.22)}px solid transparent;
+              border-top:${pinStem}px solid ${COLORS.primary};"></div>
+        </div>`,
+        iconSize: [pinSize, pinSize + pinStem],
+        iconAnchor: [pinSize / 2, pinSize + pinStem],
+        className: '',
       });
 
       const marker = L.marker([lat, lng], { draggable: true, icon }).addTo(map);

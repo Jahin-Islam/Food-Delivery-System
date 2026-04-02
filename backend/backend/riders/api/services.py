@@ -30,7 +30,7 @@ from django.utils import timezone
 # FIX 1: Added PENDING → PICKED_UP so a rider who accepted a PENDING order
 # can still advance it to PICKED_UP when they collect the food.
 RIDER_VALID_TRANSITIONS = {
-    'PENDING':   ['PICKED_UP'],       # ← NEW
+    
     'PREPARING': ['PICKED_UP'],
     'PICKED_UP': ['DELIVERED'],
 }
@@ -604,7 +604,7 @@ def accept_order(order_id, rider_id):
     if current_rider_id is not None:
         raise ValidationError("This order has already been accepted by another rider.")
 
-    if current_status not in ('PENDING', 'PREPARING'):
+    if current_status != 'PREPARING':
         raise ValidationError(
             f"Order cannot be accepted because its current status is '{current_status}'."
         )

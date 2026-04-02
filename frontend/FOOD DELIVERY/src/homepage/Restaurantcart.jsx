@@ -1,7 +1,7 @@
 import React from 'react';
 import './Restaurantcart.css';
 import { COLORS } from '../constants.js';
-import { ShoppingCart, Trash2, UtensilsCrossed, Utensils, Coffee } from 'lucide-react';
+import { ShoppingCart, Trash2, UtensilsCrossed, Utensils } from 'lucide-react';
 
 const RestaurantCart = ({ 
   isOpen, 
@@ -13,16 +13,6 @@ const RestaurantCart = ({
   restaurantName
 }) => {
   const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  const serviceFee = 3;
-  const deliveryFee = 0;
-  const savings = 30;
-  const total = subtotal + serviceFee + deliveryFee;
-
-  const popularSuggestions = [
-    { id: 1, name: 'Americano', price: 145, originalPrice: 170, image: 'coffee' },
-    { id: 2, name: 'Latte', price: 179, originalPrice: 210, image: 'coffee' },
-    { id: 3, name: 'Hot Chocolate', price: 187, originalPrice: 200, image: 'coffee' }
-  ];
 
   return (
     <>
@@ -105,39 +95,10 @@ const RestaurantCart = ({
                 </div>
               </div>
 
-              <div className="popular-section">
-                <h3 className="section-title">Popular with your order</h3>
-                <p className="section-subtitle">Based on what other customers bought together</p>
-                
-                <div className="popular-items-scroll">
-                  {popularSuggestions.map((item) => (
-                    <div key={item.id} className="popular-item-card">
-                      <div className="popular-item-image">
-                        <span className="popular-emoji" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <Coffee size={48} color={COLORS.primary} />
-                        </span>
-                        <button className="add-popular-btn">+</button>
-                      </div>
-                      <div className="popular-item-info">
-                        <div className="popular-price">
-                          ৳{item.price} 
-                          <span className="popular-original">৳{item.originalPrice}</span>
-                        </div>
-                        <div className="popular-name">{item.name}</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
               <div className="cart-summary">
                 <div className="summary-row">
                   <span>Subtotal</span>
                   <span>৳{subtotal}</span>
-                </div>
-                <div className="summary-row">
-                  <span>Service fee</span>
-                  <span>৳{serviceFee}</span>
                 </div>
               </div>
 
@@ -159,18 +120,11 @@ const RestaurantCart = ({
 
               <div className="cart-total-section">
                 <div className="total-row">
-                  <div>
-                    <div className="total-label">Total</div>
-                    <div className="total-sublabel">(incl. fees and tax)</div>
-                  </div>
+                  <div className="total-label">Total</div>
                   <div className="total-amounts">
-                    <div className="total-price">৳{total}</div>
-                    {savings > 0 && (
-                      <div className="total-original">৳{total + savings}</div>
-                    )}
+                    <div className="total-price">৳{subtotal}</div>
                   </div>
                 </div>
-                <button className="see-summary-btn">See summary</button>
               </div>
 
               <button className="checkout-btn" onClick={onCheckout}>

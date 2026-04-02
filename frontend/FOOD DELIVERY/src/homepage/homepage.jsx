@@ -254,9 +254,21 @@ const Homepage = ({
                           <p className="deal-address">{r.address}</p>
                           <div className="deal-footer">
                             <div className="deal-rating">
-                              <span className="star-icon"><Star size={13} fill="currentColor" /></span>
-                              <span>{r.rating}</span>
-                              <span className="rating-count">({r.total_rated})</span>
+                              {parseFloat(r.total_rated) > 0 ? (
+                                <>
+                                  {[1,2,3,4,5].map(s => (
+                                    <Star key={s} size={12}
+                                      fill={s <= Math.round(parseFloat(r.rating)) ? '#f59e0b' : 'none'}
+                                      color={s <= Math.round(parseFloat(r.rating)) ? '#f59e0b' : '#d1d5db'}
+                                      style={{ marginRight: 1 }}
+                                    />
+                                  ))}
+                                  <span style={{ marginLeft: 4 }}>{parseFloat(r.rating).toFixed(1)}</span>
+                                  <span className="rating-count">({r.total_rated})</span>
+                                </>
+                              ) : (
+                                <span style={{ fontSize: 12, color: 'var(--c-gray-400)' }}>New</span>
+                              )}
                             </div>
                             <span className="deal-min-order">Min: ৳{r.min_order}</span>
                           </div>

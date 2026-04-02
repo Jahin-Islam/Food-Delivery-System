@@ -7,7 +7,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from cloudinary import CloudinaryImage
 from orders.api.services import (
     get_restaurant_orders, update_order_status_by_restaurant,
-    get_order_items, get_order_details,
+    get_order_items, get_order_details, cancel_order,
 )
 
 
@@ -38,10 +38,6 @@ def get_restaurant_id(user_id):
 
 
 def build_cloudinary_url(public_id):
-    """
-    Build a full Cloudinary delivery URL from a stored public_id path.
-    Returns None when public_id is empty/null.
-    """
     if not public_id:
         return None
     return CloudinaryImage(public_id).build_url(
@@ -51,42 +47,12 @@ def build_cloudinary_url(public_id):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# HOME PAGE — list all restaurants (raw SQL, no serializers)
+# HOME PAGE — list all restaurants
 # ─────────────────────────────────────────────────────────────────────────────
 
 class RestaurantView(APIView):
-    """
-    GET /api/v1/restaurants/
-
-    Returns every restaurant with its best active discount and a ready-to-use
-    Cloudinary image_url.  No ORM serializers are used — pure raw SQL.
-
-    Response shape (per restaurant):
-    {
-      "id":                   <int>,
-      "name":                 <str>,
-      "rating":               <decimal>,
-      "total_rated":          <int>,
-      "opening_time":         <"HH:MM" | null>,
-      "closing_time":         <"HH:MM" | null>,
-      "min_order":            <decimal>,
-      "restaurant_category":  <str | null>,
-      "phone":                <str | null>,
-      "street_address":       <str | null>,
-      "latitude":             <float | null>,
-      "longitude":            <float | null>,
-      "image_url":            <full Cloudinary URL | null>,
-      "percentage":           <float | null>,        // best discount %
-      "min_order_for_discount": <decimal | null>,
-      "discount_desc":        <str | null>
-    }
-    """
     permission_classes = [AllowAny]
 
-    # Pick the single best (highest %) active discount per restaurant via
-    # a ROW_NUMBER window function; restaurants with no discounts still appear
-    # (LEFT JOIN).  The `image` column stores only the Cloudinary public_id —
-    # we resolve it to a full URL in Python after the query.
     _SQL = """
         SELECT *
         FROM (
@@ -127,21 +93,12 @@ class RestaurantView(APIView):
             cursor.execute(self._SQL)
             rows = dictfetchall(cursor)
 
-        # Post-process each row:
-        #  1. Build Cloudinary image_url from the stored public_id path.
-        #  2. Serialise time objects to "HH:MM" strings.
-        #  3. Drop the internal rank_id and raw image columns.
         for row in rows:
-            # Image
             row['image_url'] = build_cloudinary_url(row.pop('image', None))
-
-            # Time fields → "HH:MM" strings
             for tf in ('opening_time', 'closing_time'):
                 val = row.get(tf)
                 if val is not None and hasattr(val, 'strftime'):
                     row[tf] = val.strftime('%H:%M')
-
-            # Remove the window-function helper column
             row.pop('rank_id', None)
 
         return Response(rows, status=status.HTTP_200_OK)
@@ -157,7 +114,6 @@ class RestaurantDetailedView(APIView):
     def get(self, request, pk):
         with connection.cursor() as cursor:
 
-            # ── Restaurant row ───────────────────────────────────────────
             cursor.execute("""
                 SELECT
                     res.*,
@@ -174,16 +130,13 @@ class RestaurantDetailedView(APIView):
             if not restaurant:
                 return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
 
-            # Build Cloudinary URL for the restaurant banner image
             restaurant['image_url'] = build_cloudinary_url(restaurant.pop('image', None))
 
-            # Serialise time fields
             for tf in ('opening_time', 'closing_time'):
                 val = restaurant.get(tf)
                 if val is not None and hasattr(val, 'strftime'):
                     restaurant[tf] = val.strftime('%H:%M')
 
-            # ── Menu items ───────────────────────────────────────────────
             cursor.execute("""
                 SELECT
                     mi.*,
@@ -198,7 +151,6 @@ class RestaurantDetailedView(APIView):
             for item in items:
                 item['image_url'] = build_cloudinary_url(item.get('image'))
 
-            # ── Active discounts ─────────────────────────────────────────
             cursor.execute("""
                 SELECT *
                 FROM resturants_discount
@@ -267,6 +219,18 @@ class RestaurantOrderDetailView(APIView):
         return Response(order, status=status.HTTP_200_OK)
 
     def patch(self, request, order_id):
+        """
+        PATCH /api/v1/restaurants/orders/<order_id>/
+
+        Restaurant can only do:
+            PENDING   → PREPARING  (accept the order)
+            PENDING   → CANCELLED  (deny immediately)
+            PREPARING → CANCELLED  (cancel after accepting — clears rider_id too)
+
+        FIX: update_order_status_by_restaurant now:
+          - Enforces the above transition table (raises ValueError on bad transition)
+          - Sets rider_id = NULL when cancelling (so rider dashboard updates)
+        """
         restaurant_id = get_restaurant_id(request.user.id)
         if not restaurant_id:
             return Response(
@@ -288,6 +252,45 @@ class RestaurantOrderDetailView(APIView):
             {"message": f"Order {order_id} status updated to {new_status}."},
             status=status.HTTP_200_OK
         )
+
+
+class RestaurantCancelOrderView(APIView):
+    """
+    POST /api/v1/restaurants/orders/<order_id>/cancel/
+
+    Dedicated cancel endpoint. Calls cancel_order() which:
+      1. Sets status = CANCELLED
+      2. Sets rider_id = NULL  ← so rider's dashboard reflects the cancellation
+      3. Raises ValueError if already DELIVERED or CANCELLED
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, order_id):
+        restaurant_id = get_restaurant_id(request.user.id)
+        if not restaurant_id:
+            return Response(
+                {"error": "Restaurant profile not found."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Verify order belongs to this restaurant before cancelling
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT 1 FROM orders_order
+                WHERE order_id = %s AND restaurant_id = %s
+            """, [order_id, restaurant_id])
+            if not cursor.fetchone():
+                return Response(
+                    {"error": "Order not found or does not belong to your restaurant."},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+        try:
+            result = cancel_order(order_id, cancelled_by='restaurant')
+        except ValueError as e:
+            return Response({"detail": str(e)}, status=status.HTTP_409_CONFLICT)
+
+        return Response(result, status=status.HTTP_200_OK)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

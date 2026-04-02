@@ -64,40 +64,15 @@ const ItemDetailModal = ({
 
   const handleAddToCart = () => {
     // For items without variations, use the base item price
-    if (!selectedVariation) {
-      const cartItem = {
-        id: `${item.food_id}-${item.restaurantId}`,
-        foodId: item.food_id,
-        name: item.name,
-        price: item.price,
-        originalPrice: item.original_price,
-        restaurant: item.restaurant,
-        restaurantId: item.restaurantId,
-        restaurantImage: item.restaurantImage,
-        image: item.image_url,
-        emoji: item.emoji || '🍽️',
-        quantity: quantity,
-        variation: null,
-        extras: selectedExtras,
-        specialInstructions: specialInstructions,
-        unavailableAction: unavailableAction
-      };
+    const basePrice = selectedVariation ? selectedVariation.price : (item?.price || 0);
 
-      // Calculate total price including extras (per item)
-      const extrasTotal = selectedExtras.reduce((sum, extra) => sum + extra.price, 0);
-      cartItem.price = item.price + extrasTotal;
-
-      onAddToCart(cartItem);
-      onClose();
-      return;
-    }
-
-    // For items with variations
     const cartItem = {
-      id: `${item.food_id}-${selectedVariation.id}-${item.restaurantId}`,
+      id: selectedVariation
+        ? `${item.food_id}-${selectedVariation.id}-${item.restaurantId}`
+        : `${item.food_id}-${item.restaurantId}`,
       foodId: item.food_id,
-      name: `${item.name} (${selectedVariation.size})`,
-      price: selectedVariation.price,
+      name: selectedVariation ? `${item.name} (${selectedVariation.size})` : item.name,
+      price: basePrice,
       originalPrice: item.original_price,
       restaurant: item.restaurant,
       restaurantId: item.restaurantId,
@@ -105,18 +80,37 @@ const ItemDetailModal = ({
       image: item.image_url,
       emoji: item.emoji || '🍽️',
       quantity: quantity,
-      variation: selectedVariation,
-      extras: selectedExtras,
+      variation: selectedVariation || null,
+      extras: [],
       specialInstructions: specialInstructions,
-      unavailableAction: unavailableAction
+      unavailableAction: unavailableAction,
     };
 
-    // Calculate total price including extras (per item)
-    const extrasTotal = selectedExtras.reduce((sum, extra) => sum + extra.price, 0);
-    cartItem.price = selectedVariation.price + extrasTotal;
-
+    // Add the main item
     onAddToCart(cartItem);
-    onClose(); // Auto-close modal after adding to cart
+
+    // Add each selected extra as its own separate cart item (qty 1 per main item)
+    selectedExtras.forEach(extra => {
+      onAddToCart({
+        id: `extra-${extra.id}-${item.restaurantId}`,
+        foodId: extra.id,
+        name: extra.name,
+        price: extra.price,
+        originalPrice: null,
+        restaurant: item.restaurant,
+        restaurantId: item.restaurantId,
+        restaurantImage: item.restaurantImage,
+        image: extra.image || null,
+        emoji: '🍽️',
+        quantity: quantity,
+        variation: null,
+        extras: [],
+        specialInstructions: '',
+        unavailableAction: 'Remove it from my order',
+      });
+    });
+
+    onClose();
   };
 
   const displayedExtras = showAllExtras ? frequentlyBoughtItems : frequentlyBoughtItems.slice(0, 3);

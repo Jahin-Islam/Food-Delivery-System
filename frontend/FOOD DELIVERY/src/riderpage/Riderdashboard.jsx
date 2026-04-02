@@ -1,50 +1,37 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  CheckCircle, Bike, MapPin, Clock, DollarSign, History,
-  Wallet, User, Package, ChevronRight,
-  ChevronLeft, LogOut, Calendar, Upload, AlertCircle, Check,
-  Phone, Mail, Lock, CreditCard, FileText, Shield, Edit2,
-  Utensils, Sun, Moon, HelpCircle, Navigation, RefreshCw,
+  CheckCircle, Bike, MapPin, Clock, History,
+  User, Package, ChevronRight, ChevronLeft, LogOut,
+  Calendar, Upload, AlertCircle, Check,
+  Phone, Mail, Lock, CreditCard, FileText,
+  Edit2, Sun, Moon, HelpCircle, Navigation, RefreshCw,
+  Zap, TrendingUp, Star, DollarSign, Activity,
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import { COLORS, BRAND } from '../constants.js';
 import './Riderdashboard.css';
-import './RiderDashboardExtra.css';
 import RiderMap from './RiderMap.jsx';
 import authService from '../Authservice.js';
 
 // ─── STATUS HELPERS ───────────────────────────────────────────────────────────
-/**
- * Maps the raw backend status string to the UI status string used by card
- * components.  The backend keeps the real status; we only translate for
- * display / routing.
- *
- *  PENDING   → 'ongoing'   (rider is heading to the restaurant)
- *  PREPARING → 'ongoing'   (restaurant is cooking; rider still heading there)
- *  PICKED_UP → 'picked_up' (rider has the food, en route to customer)
- *  DELIVERED → 'completed'
- */
 function backendToUIStatus(backendStatus) {
   switch ((backendStatus || '').toUpperCase()) {
     case 'PENDING':
     case 'PREPARING': return 'ongoing';
     case 'PICKED_UP': return 'picked_up';
     case 'DELIVERED': return 'completed';
+    case 'CANCELLED': return 'cancelled';
     default:          return 'ongoing';
   }
 }
 
-/**
- * Normalise a raw backend order object (from /me/orders/ or /nearby/) into
- * the shape expected by every UI card component.
- */
 function normaliseOrder(raw) {
   return {
     id:            `#${raw.order_id}`,
     orderId:       String(raw.order_id),
     backendId:     raw.order_id,
-    backendStatus: (raw.status || '').toUpperCase(),  // keep the real status
+    backendStatus: (raw.status || '').toUpperCase(),
     status:        backendToUIStatus(raw.status),
     customer: {
       name:  `${raw.customer_first_name || ''} ${raw.customer_last_name || ''}`.trim() || 'Customer',
@@ -53,15 +40,12 @@ function normaliseOrder(raw) {
     restaurant: {
       name:    raw.restaurant_name    || 'Restaurant',
       address: raw.restaurant_address || '',
-      pickup:  '~5 mins',
-      // FIX: include restaurant coords so RiderMap can pin the restaurant
       lat: raw.restaurant_lat  ?? null,
       lng: raw.restaurant_lng  ?? null,
     },
     delivery: {
       address: [raw.street_number, raw.apartment_number, raw.address_description]
                   .filter(Boolean).join(', ') || 'Delivery address',
-      time: '~10 mins',
       lat: raw.delivery_lat  ?? null,
       lng: raw.delivery_lng  ?? null,
     },
@@ -74,66 +58,40 @@ function normaliseOrder(raw) {
 }
 
 // ─── API HELPERS ──────────────────────────────────────────────────────────────
-
-/**
- * FIX: Load the rider's own orders from the backend on mount.
- * This restores ongoing / picked-up orders after a page refresh.
- */
 async function fetchMyOrders() {
   try {
-    const data = await authService.authenticatedFetch(
-      'http://127.0.0.1:8000/api/riders/me/orders/'
-    );
+    const data = await authService.authenticatedFetch('http://127.0.0.1:8000/api/riders/me/orders/');
     return data?.orders ?? [];
-  } catch (e) { console.error('fetchMyOrders:', e); return []; }
+  } catch { return []; }
 }
-
 async function fetchRiderStats() {
-  try {
-    return await authService.authenticatedFetch(
-      'http://127.0.0.1:8000/api/riders/me/stats/'
-    );
-  } catch (e) { console.error('fetchRiderStats:', e); return null; }
+  try { return await authService.authenticatedFetch('http://127.0.0.1:8000/api/riders/me/stats/'); }
+  catch { return null; }
 }
-
 async function fetchRiderHistory(days = 30) {
-  try {
-    return await authService.authenticatedFetch(
-      `http://127.0.0.1:8000/api/riders/me/history/?days=${days}`
-    );
-  } catch (e) { console.error('fetchRiderHistory:', e); return null; }
+  try { return await authService.authenticatedFetch(`http://127.0.0.1:8000/api/riders/me/history/?days=${days}`); }
+  catch { return null; }
 }
-
 async function fetchNearbyOrders() {
   try {
-    const data = await authService.authenticatedFetch(
-      'http://127.0.0.1:8000/api/riders/orders/nearby/?radius=50'
-    );
+    const data = await authService.authenticatedFetch('http://127.0.0.1:8000/api/riders/orders/nearby/?radius=50');
     return data?.orders ?? [];
-  } catch (e) { console.error('fetchNearbyOrders:', e); return []; }
+  } catch { return []; }
 }
-
 async function acceptOrderApi(orderId) {
-  return authService.authenticatedFetch(
-    `http://127.0.0.1:8000/api/riders/orders/accept/${orderId}/`,
-    { method: 'POST' }
-  );
+  return authService.authenticatedFetch(`http://127.0.0.1:8000/api/riders/orders/accept/${orderId}/`, { method: 'POST' });
 }
-
 async function updateOrderStatusApi(orderId, newStatus) {
-  return authService.authenticatedFetch(
-    `http://127.0.0.1:8000/api/riders/orders/update-status/${orderId}/`,
-    { method: 'PATCH', body: JSON.stringify({ status: newStatus }) }
-  );
+  return authService.authenticatedFetch(`http://127.0.0.1:8000/api/riders/orders/update-status/${orderId}/`, {
+    method: 'PATCH', body: JSON.stringify({ status: newStatus }),
+  });
 }
-
 async function updateRiderLocation(lat, lng) {
   try {
     await authService.authenticatedFetch('http://127.0.0.1:8000/api/riders/location/', {
-      method: 'PATCH',
-      body: JSON.stringify({ current_latitude: lat, current_longitude: lng }),
+      method: 'PATCH', body: JSON.stringify({ current_latitude: lat, current_longitude: lng }),
     });
-  } catch (e) { console.warn('Location update failed:', e); }
+  } catch {}
 }
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
@@ -151,13 +109,10 @@ const RiderDashboard = ({ rider = {}, onLogout }) => {
   const [isOnline,      setIsOnline]      = useState(false);
   const [isDark,        setIsDark]        = useState(() => localStorage.getItem('theme') === 'dark');
   const [showProfile,   setShowProfile]   = useState(false);
-
   const [nearbyOrders,  setNearbyOrders]  = useState([]);
   const [myOrders,      setMyOrders]      = useState([]);
   const [orderTab,      setOrderTab]      = useState('nearby');
   const [loadingOrders, setLoadingOrders] = useState(false);
-
-  const [walletBalance, setWalletBalance] = useState(0);
   const [todayEarnings, setTodayEarnings] = useState(0);
   const [ordersToday,   setOrdersToday]   = useState(0);
 
@@ -170,93 +125,65 @@ const RiderDashboard = ({ rider = {}, onLogout }) => {
     if (!navigator.geolocation) return;
     navigator.geolocation.getCurrentPosition(
       ({ coords }) => updateRiderLocation(coords.latitude, coords.longitude),
-      () => {},
-      { enableHighAccuracy: true }
+      () => {}, { enableHighAccuracy: true }
     );
   }, []);
 
-  // ── Load live stats from backend (header bar numbers) ────────────────────
   const loadStats = useCallback(async () => {
     const stats = await fetchRiderStats();
-    if (stats) {
-      setOrdersToday(stats.orders_today);
-      setTodayEarnings(stats.today_earnings);
-      setWalletBalance(stats.wallet_balance);
-    }
+    if (stats) { setOrdersToday(stats.orders_today); setTodayEarnings(stats.today_earnings); }
   }, []);
 
-  // ── FIX: Restore ongoing orders from backend on every mount / refresh ──────
   const loadMyOrders = useCallback(async () => {
-    try {
-      const raw        = await fetchMyOrders();
-      const normalised = raw.map(normaliseOrder);
-      setMyOrders(normalised);
-    } catch (e) {
-      console.error('loadMyOrders:', e);
-    }
+    try { setMyOrders((await fetchMyOrders()).map(normaliseOrder)); } catch {}
   }, []);
 
-  // Run once on mount so a page refresh always restores in-progress orders + stats
   useEffect(() => { loadMyOrders(); loadStats(); }, [loadMyOrders, loadStats]);
+  // Poll every 8s — catches new orders immediately without manual refresh
+  useEffect(() => { const id = setInterval(loadMyOrders, 8_000); return () => clearInterval(id); }, [loadMyOrders]);
+  useEffect(() => { const id = setInterval(loadStats, 30_000); return () => clearInterval(id); }, [loadStats]);
 
-  // ── Load nearby orders (only while online) ────────────────────────────────
   const loadNearbyOrders = useCallback(async () => {
     setLoadingOrders(true);
-    try {
-      const raw        = await fetchNearbyOrders();
-      // Force UI status to 'new' for nearby cards (they haven't been accepted yet)
-      const normalised = raw.map(o => ({ ...normaliseOrder(o), status: 'new' }));
-      setNearbyOrders(normalised);
-    } catch (e) {
-      console.error('loadNearbyOrders error:', e);
-    } finally {
-      setLoadingOrders(false);
-    }
+    try { setNearbyOrders((await fetchNearbyOrders()).map(o => ({ ...normaliseOrder(o), status: 'new' }))); }
+    catch {} finally { setLoadingOrders(false); }
   }, []);
 
-  // Auto-refresh every 30 s while online
   useEffect(() => {
     if (!isOnline) return;
     loadNearbyOrders();
-    const id = setInterval(loadNearbyOrders, 30000);
+    const id = setInterval(loadNearbyOrders, 10_000);
     return () => clearInterval(id);
   }, [isOnline, loadNearbyOrders]);
 
   const handleToggleOnline = () => {
     const next = !isOnline;
     setIsOnline(next);
-    if (next) {
-      pushLocation();
-      toast.success('You are now online! Waiting for orders...');
-      loadNearbyOrders();
-    } else {
-      toast('You are now offline', { icon: '🔴' });
-    }
+    if (next) { pushLocation(); toast.success("You're online! Ready for orders 🏍️"); loadNearbyOrders(); }
+    else toast("You're now offline", { icon: '🔴' });
   };
 
-  // Accept a nearby order
   const handleAcceptOrder = async (orderId, backendId) => {
     try {
       await acceptOrderApi(backendId);
-      // Re-fetch myOrders from DB so we get the true backend status + coords
       await loadMyOrders();
       setNearbyOrders(prev => prev.filter(o => o.id !== orderId));
       setOrderTab('ongoing');
-      toast.success('Order accepted! Head to the restaurant.');
-    } catch (e) { toast.error(e.message || 'Failed to accept order'); }
+      toast.success('Order accepted! Head to the restaurant 🍴');
+    } catch (e) {
+      const msg = e.message || '';
+      if (msg.includes('PENDING')) toast.error("Restaurant hasn't accepted yet — try again shortly.");
+      else if (msg.includes('already')) { toast.error('Another rider grabbed this.'); setNearbyOrders(prev => prev.filter(o => o.id !== orderId)); }
+      else if (msg.includes('cancel')) { toast.error('Order was cancelled.'); setNearbyOrders(prev => prev.filter(o => o.id !== orderId)); }
+      else toast.error(msg || 'Failed to accept order');
+    }
   };
 
   const handlePickedUp = async (orderId, backendId) => {
     try {
       await updateOrderStatusApi(backendId, 'PICKED_UP');
-      setMyOrders(prev =>
-        prev.map(o =>
-          o.id === orderId
-            ? { ...o, status: 'picked_up', backendStatus: 'PICKED_UP' }
-            : o
-        )
-      );
-      toast.success('Order picked up! Delivering now.');
+      setMyOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: 'picked_up', backendStatus: 'PICKED_UP' } : o));
+      toast.success('Picked up! Now deliver to the customer 🚴');
     } catch (e) { toast.error(e.message || 'Failed to update status'); }
   };
 
@@ -264,41 +191,28 @@ const RiderDashboard = ({ rider = {}, onLogout }) => {
     try {
       await updateOrderStatusApi(backendId, 'DELIVERED');
       const order = myOrders.find(o => o.id === orderId);
-      if (order) {
-        setMyOrders(prev =>
-          prev.map(o =>
-            o.id === orderId
-              ? { ...o, status: 'completed', backendStatus: 'DELIVERED', completedAt: new Date() }
-              : o
-          )
-        );
-        setOrderTab('completed');
-        toast.success(`✅ Delivered! ৳${order.amount} earned`);
-        // Refresh live stats from backend (earnings, orders today, wallet)
-        loadStats();
-      }
+      setMyOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: 'completed', backendStatus: 'DELIVERED' } : o));
+      setOrderTab('completed');
+      if (order) { toast.success(`✅ Delivered! ৳${order.amount} earned`); loadStats(); }
     } catch (e) { toast.error(e.message || 'Failed to update status'); }
   };
 
   const ongoingOrders   = myOrders.filter(o => o.status === 'ongoing' || o.status === 'picked_up');
   const completedOrders = myOrders.filter(o => o.status === 'completed');
-  const activeOrder     = ongoingOrders[0] || null;
-
   const initials = riderData.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'RD';
 
   const TABS = [
-    { id: 'status',     Icon: CheckCircle, label: 'Status'     },
-    { id: 'deliveries', Icon: Bike,        label: 'Deliveries', badge: nearbyOrders.length + ongoingOrders.length },
-    { id: 'history',    Icon: History,     label: 'History'    },
-    { id: 'wallet',     Icon: Wallet,      label: 'Wallet'     },
-    { id: 'profile',    Icon: User,        label: 'Profile'    },
+    { id: 'status',     Icon: Activity, label: 'Status'     },
+    { id: 'deliveries', Icon: Bike,     label: 'Deliveries', badge: nearbyOrders.length + ongoingOrders.length },
+    { id: 'history',    Icon: History,  label: 'History'    },
+    { id: 'profile',    Icon: User,     label: 'Profile'    },
   ];
 
   return (
-    <div className="rdb-container">
+    <div className="rdb-wrap">
       <Toaster position="top-center" toastOptions={{
-        style: { borderRadius: '10px', fontFamily: 'Segoe UI,sans-serif', fontSize: '14px' },
-        success: { iconTheme: { primary: COLORS.primary, secondary: '#fff' } },
+        style: { borderRadius: '12px', fontFamily: 'var(--rdb-font)', fontSize: '14px', fontWeight: 600 },
+        success: { iconTheme: { primary: '#ff2d78', secondary: '#fff' } },
       }} />
 
       {/* Profile dropdown */}
@@ -307,116 +221,119 @@ const RiderDashboard = ({ rider = {}, onLogout }) => {
           <>
             <div style={{ position: 'fixed', inset: 0, zIndex: 999 }} onClick={() => setShowProfile(false)} />
             <motion.div
-              initial={{ opacity: 0, y: -10, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -10, scale: 0.97 }} transition={{ duration: 0.18 }}
-              style={{ position: 'fixed', top: 72, right: 20, width: 280, zIndex: 1000,
-                background: 'var(--white)', borderRadius: 12, boxShadow: '0 8px 32px rgba(0,0,0,0.14)',
-                border: '1.5px solid var(--gray-200)', overflow: 'hidden' }}
-              onClick={e => e.stopPropagation()}>
-              <div style={{ padding: 16, display: 'flex', alignItems: 'center', gap: 12, background: 'linear-gradient(135deg, var(--primary-light), #fed7aa)' }}>
-                <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--gradient-primary)', color: 'white', fontSize: 18, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{initials}</div>
+              initial={{ opacity: 0, y: -8, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -8, scale: 0.97 }} transition={{ duration: 0.15 }}
+              className="rdb-dropdown"
+            >
+              <div className="rdb-dropdown-hero">
+                <div className="rdb-dropdown-av">{initials}</div>
                 <div>
-                  <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--gray-900)', margin: 0 }}>{riderData.name}</p>
-                  <p style={{ fontSize: 12, color: 'var(--gray-500)', margin: 0 }}>{riderData.email}</p>
+                  <div className="rdb-dropdown-name">{riderData.name}</div>
+                  <div className="rdb-dropdown-email">{riderData.email}</div>
                 </div>
               </div>
-              <div style={{ height: 1, background: 'var(--gray-200)' }} />
-              <div style={{ padding: '8px 0' }}>
-                {[
-                  { Icon: User,       label: 'Profile',      action: () => { setActiveTab('profile'); setShowProfile(false); } },
-                  { Icon: MapPin,     label: riderData.city,  noAction: true },
-                  { Icon: HelpCircle, label: 'Help Center',   action: () => { window.open('https://www.foodpanda.com.bd/contents/help-center', '_blank'); setShowProfile(false); } },
-                ].map(({ Icon, label, action, noAction }, i) => (
-                  <button key={i} onClick={noAction ? undefined : action}
-                    style={{ width: '100%', padding: '12px 16px', background: 'none', border: 'none',
-                      display: 'flex', alignItems: 'center', gap: 12, cursor: noAction ? 'default' : 'pointer',
-                      fontFamily: 'var(--font)', textAlign: 'left' }}
-                    onMouseEnter={e => { if (!noAction) e.currentTarget.style.background = 'var(--gray-50)'; }}
-                    onMouseLeave={e => { e.currentTarget.style.background = 'none'; }}>
-                    <Icon size={17} style={{ color: 'var(--gray-500)' }} />
-                    <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--gray-700)' }}>{label}</span>
-                  </button>
-                ))}
-                <div style={{ height: 1, background: 'var(--gray-200)', margin: '4px 0' }} />
-                <button onClick={() => { setShowProfile(false); onLogout?.(); }}
-                  style={{ width: '100%', padding: '12px 16px', background: 'none', border: 'none',
-                    display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', fontFamily: 'var(--font)' }}
-                  onMouseEnter={e => { e.currentTarget.style.background = '#fef2f2'; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = 'none'; }}>
-                  <LogOut size={17} style={{ color: '#dc2626' }} />
-                  <span style={{ fontSize: 14, fontWeight: 600, color: '#dc2626' }}>Logout</span>
+              <div className="rdb-dropdown-sep" />
+              {[
+                { Icon: User,       label: 'Profile',     fn: () => { setActiveTab('profile'); setShowProfile(false); } },
+                { Icon: MapPin,     label: riderData.city, fn: null },
+                { Icon: HelpCircle, label: 'Help Center', fn: () => { window.open('https://www.foodpanda.com.bd/contents/help-center', '_blank'); setShowProfile(false); } },
+              ].map(({ Icon, label, fn }, i) => (
+                <button key={i} className="rdb-dropdown-row" onClick={fn || undefined} style={{ cursor: fn ? 'pointer' : 'default' }}>
+                  <Icon size={15} /><span>{label}</span>
                 </button>
-              </div>
+              ))}
+              <div className="rdb-dropdown-sep" />
+              <button className="rdb-dropdown-row danger" onClick={() => { setShowProfile(false); onLogout?.(); }}>
+                <LogOut size={15} /><span>Logout</span>
+              </button>
             </motion.div>
           </>
         )}
       </AnimatePresence>
 
-      {/* Header */}
+      {/* ══ HEADER ══ */}
       <header className="rdb-header">
-        <div className="rdb-header-top">
-          <div className="rdb-logo-section">
-            <div className="rdb-logo-icon"><Bike size={18} color={COLORS.primary} strokeWidth={2.5} /></div>
-            <span className="rdb-logo-main">panda</span>
-            <span className="rdb-logo-sub">rider</span>
+        <div className="rdb-header-inner">
+          <div className="rdb-brand">
+            <div className="rdb-brand-icon"><Bike size={17} strokeWidth={2.5} /></div>
+            <span className="rdb-brand-name">panda</span>
+            <span className="rdb-brand-tag">rider</span>
           </div>
           <div className="rdb-header-right">
-            <div className="rdb-status-pill" style={{ background: isOnline ? 'rgba(16,185,129,0.15)' : 'rgba(0,0,0,0.05)' }}>
-              <div className={`rdb-status-dot ${isOnline ? 'online' : ''}`} />
-              <span className="rdb-status-text">{isOnline ? 'Online' : 'Offline'}</span>
+            <div className={`rdb-pill ${isOnline ? 'online' : ''}`}>
+              <span className={`rdb-pill-dot ${isOnline ? 'on' : ''}`} />
+              {isOnline ? 'Online' : 'Offline'}
             </div>
-            <motion.button className="rdb-icon-btn" onClick={() => setIsDark(p => !p)} whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.92 }}>
+            <button className="rdb-icon-btn" onClick={() => setIsDark(p => !p)}>
               <AnimatePresence mode="wait">
                 {isDark
-                  ? <motion.span key="sun"  initial={{ rotate: -90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: 90, opacity: 0 }} transition={{ duration: 0.15 }} style={{ display: 'flex' }}><Sun size={16} /></motion.span>
-                  : <motion.span key="moon" initial={{ rotate:  90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate:-90, opacity: 0 }} transition={{ duration: 0.15 }} style={{ display: 'flex' }}><Moon size={16} /></motion.span>
+                  ? <motion.span key="s" initial={{ rotate: -90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: 90, opacity: 0 }} transition={{ duration: 0.12 }} style={{ display: 'flex' }}><Sun size={15} /></motion.span>
+                  : <motion.span key="m" initial={{ rotate:  90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate:-90, opacity: 0 }} transition={{ duration: 0.12 }} style={{ display: 'flex' }}><Moon size={15} /></motion.span>
                 }
               </AnimatePresence>
-            </motion.button>
-            <button className="rdb-profile-btn" onClick={() => setShowProfile(true)}>
-              <div className="rdb-header-avatar">{initials}</div>
-              <div className="rdb-profile-btn-info">
-                <span className="rdb-profile-btn-name">{riderData.name.split(' ')[0]}</span>
-                <span className="rdb-profile-btn-role">Rider</span>
+            </button>
+            <button className="rdb-profile-btn" onClick={() => setShowProfile(p => !p)}>
+              <div className="rdb-hdr-av">{initials}</div>
+              <div className="rdb-hdr-info">
+                <span className="rdb-hdr-name">{riderData.name.split(' ')[0]}</span>
+                <span className="rdb-hdr-role">Rider</span>
               </div>
-              <ChevronRight size={13} style={{ color: 'var(--gray-400)' }} />
+              <ChevronRight size={12} style={{ opacity: 0.4 }} />
             </button>
           </div>
         </div>
-        <nav className="rdb-nav-tabs">
-          <div className="rdb-nav-tabs-inner">
-            {TABS.map(({ id, Icon, label, badge }) => (
-              <button key={id} className={`rdb-nav-tab ${activeTab === id ? 'active' : ''}`} onClick={() => setActiveTab(id)}>
-                <Icon size={16} strokeWidth={activeTab === id ? 2.5 : 1.8} />
-                <span>{label}</span>
-                {badge > 0 && <span className="rdb-tab-badge">{badge}</span>}
-              </button>
-            ))}
-          </div>
+
+        <nav className="rdb-nav">
+          {TABS.map(({ id, Icon, label, badge }) => (
+            <button key={id} className={`rdb-nav-btn ${activeTab === id ? 'active' : ''}`} onClick={() => setActiveTab(id)}>
+              <Icon size={14} strokeWidth={activeTab === id ? 2.5 : 1.8} />
+              {label}
+              {badge > 0 && <span className="rdb-badge">{badge}</span>}
+            </button>
+          ))}
         </nav>
       </header>
 
-      {/* Stats bar */}
-      <div className="rdb-stats-bar">
-        <div className="rdb-stat"><span className="rdb-stat-label">Today's Earnings</span><span className="rdb-stat-val" style={{ color: COLORS.success }}>৳{todayEarnings}</span></div>
-        <div className="rdb-stat"><span className="rdb-stat-label">Orders Today</span><span className="rdb-stat-val" style={{ color: COLORS.primary }}>{ordersToday}</span></div>
-        <div className="rdb-stat"><span className="rdb-stat-label">Status</span><span className="rdb-stat-val" style={{ color: isOnline ? '#10b981' : '#6b7280' }}>{isOnline ? '🟢 Online' : '🔴 Offline'}</span></div>
+      {/* ══ STATS BAR ══ */}
+      <div className="rdb-stats">
+        <div className="rdb-stat">
+          <TrendingUp size={14} className="rdb-stat-ico green" />
+          <div>
+            <div className="rdb-stat-lbl">Today's Earnings</div>
+            <div className="rdb-stat-val green">৳{todayEarnings}</div>
+          </div>
+        </div>
+        <div className="rdb-stat-sep" />
+        <div className="rdb-stat">
+          <Package size={14} className="rdb-stat-ico pink" />
+          <div>
+            <div className="rdb-stat-lbl">Orders Today</div>
+            <div className="rdb-stat-val pink">{ordersToday}</div>
+          </div>
+        </div>
+        <div className="rdb-stat-sep" />
+        <div className="rdb-stat">
+          <Activity size={14} className={`rdb-stat-ico ${isOnline ? 'green' : ''}`} />
+          <div>
+            <div className="rdb-stat-lbl">Status</div>
+            <div className={`rdb-stat-val ${isOnline ? 'green' : 'muted'}`}>{isOnline ? '🟢 Online' : '🔴 Offline'}</div>
+          </div>
+        </div>
       </div>
 
-      {/* Tab content */}
+      {/* ══ CONTENT ══ */}
       <div className="rdb-content">
         <AnimatePresence mode="wait">
-          {activeTab === 'status'     && <StatusTab     key="status"     isOnline={isOnline} ongoingOrders={ongoingOrders} onToggleOnline={handleToggleOnline} />}
-          {activeTab === 'deliveries' && <DeliveriesTab key="deliveries"
+          {activeTab === 'status'     && <StatusTab     key="s" isOnline={isOnline} ongoingOrders={ongoingOrders} onToggle={handleToggleOnline} />}
+          {activeTab === 'deliveries' && <DeliveriesTab key="d"
             nearbyOrders={nearbyOrders} ongoingOrders={ongoingOrders} completedOrders={completedOrders}
             orderTab={orderTab} setOrderTab={setOrderTab}
-            isOnline={isOnline} loadingOrders={loadingOrders}
-            onAccept={handleAcceptOrder}
-            onPickedUp={handlePickedUp} onDelivered={handleDelivered} onRefresh={loadNearbyOrders}
+            isOnline={isOnline} loading={loadingOrders}
+            onAccept={handleAcceptOrder} onPickedUp={handlePickedUp}
+            onDelivered={handleDelivered} onRefresh={loadNearbyOrders}
           />}
-          {activeTab === 'history'  && <HistoryTab  key="history"  />}
-          {activeTab === 'wallet'   && <WalletTab   key="wallet"   balance={walletBalance} onRefreshStats={loadStats} />}
-          {activeTab === 'profile'  && <ProfileTab  key="profile"  rider={riderData} />}
+          {activeTab === 'history' && <HistoryTab key="h" />}
+          {activeTab === 'profile' && <ProfileTab key="p" rider={riderData} />}
         </AnimatePresence>
       </div>
     </div>
@@ -424,525 +341,349 @@ const RiderDashboard = ({ rider = {}, onLogout }) => {
 };
 
 // ─── STATUS TAB ───────────────────────────────────────────────────────────────
-const StatusTab = ({ isOnline, ongoingOrders, onToggleOnline }) => {
-  const activeOrder = ongoingOrders[0] || null;
-  return (
-    <motion.div className="rdb-tab-pane"
-      initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -12 }} transition={{ duration: 0.25 }}>
+const StatusTab = ({ isOnline, ongoingOrders, onToggle }) => (
+  <motion.div className="rdb-pane" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.22 }}>
+    <RiderMap orders={ongoingOrders} isOnline={isOnline} />
 
-      {/*
-        Pass the FULL ongoingOrders array so RiderMap can:
-        - pin ALL restaurants and delivery addresses
-        - draw route from rider's current location to the correct next waypoint
-          for each order (restaurant if ongoing, customer if picked_up)
-      */}
-      <RiderMap orders={ongoingOrders} isOnline={isOnline} />
-
-      <div style={{ background: 'var(--white)', borderRadius: 14, padding: '20px 22px',
-        border: '1.5px solid var(--gray-200)', boxShadow: 'var(--shadow-sm)', marginBottom: 16 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--gray-900)', marginBottom: 4 }}>
-              {isOnline ? '🟢 You are Online' : '🔴 You are Offline'}
-            </p>
-            <p style={{ fontSize: 13, color: 'var(--gray-500)' }}>
-              {isOnline ? 'You are visible to customers and can receive orders.' : 'Toggle to go online and start receiving orders.'}
-            </p>
-          </div>
-          <button onClick={onToggleOnline}
-            style={{ padding: '10px 22px', borderRadius: 999, border: 'none', cursor: 'pointer',
-              fontWeight: 700, fontSize: 14, fontFamily: 'var(--font)', color: 'white',
-              background: isOnline ? 'linear-gradient(135deg,#dc2626,#b91c1c)' : 'linear-gradient(135deg,#10b981,#059669)',
-              boxShadow: isOnline ? '0 4px 12px rgba(220,38,38,0.3)' : '0 4px 12px rgba(16,185,129,0.3)' }}>
-            {isOnline ? 'Go Offline' : 'Go Online'}
-          </button>
+    <div className="rdb-toggle-card">
+      <div className="rdb-toggle-left">
+        <div className={`rdb-toggle-glow ${isOnline ? 'on' : ''}`}><Zap size={20} /></div>
+        <div>
+          <p className="rdb-toggle-title">{isOnline ? '🟢 You are Online' : '🔴 You are Offline'}</p>
+          <p className="rdb-toggle-sub">{isOnline ? 'Visible · receiving orders' : 'Toggle to start receiving orders'}</p>
         </div>
       </div>
+      <motion.button className={`rdb-toggle-btn ${isOnline ? 'off' : 'on'}`} onClick={onToggle} whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}>
+        {isOnline ? 'Go Offline' : 'Go Online'}
+      </motion.button>
+    </div>
 
-      {ongoingOrders.length > 0 ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {ongoingOrders.map(order => (
-            <div key={order.id} style={{ background: 'var(--primary-bg)', borderRadius: 12,
-              padding: '14px 16px', border: '1.5px solid var(--primary-light)' }}>
-              <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--primary)', marginBottom: 6 }}>
-                {order.status === 'picked_up' ? '🚴 Delivering' : '📦 Active Order'}
-              </p>
-              <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--gray-900)' }}>
-                {order.id} — {order.customer?.name}
-              </p>
-              <p style={{ fontSize: 12, color: 'var(--gray-500)', marginTop: 3 }}>
-                {order.status === 'picked_up'
-                  ? `🏠 En route to ${order.delivery?.address || 'customer'}`
-                  : order.backendStatus === 'PENDING'
-                    ? '⏳ Waiting for restaurant to start preparing'
-                    : '🍳 Restaurant is preparing — head to pick up'}
-              </p>
+    {ongoingOrders.length > 0 && (
+      <div className="rdb-active-stack">
+        {ongoingOrders.map(o => (
+          <div key={o.id} className={`rdb-active-chip ${o.status === 'picked_up' ? 'delivering' : 'pickup'}`}>
+            <div className="rdb-chip-icon">{o.status === 'picked_up' ? <Bike size={16} /> : <Package size={16} />}</div>
+            <div className="rdb-chip-info">
+              <span className="rdb-chip-status">{o.status === 'picked_up' ? '🚴 Delivering' : '📦 Pickup'}</span>
+              <span className="rdb-chip-id">{o.id} — {o.customer?.name}</span>
+              <span className="rdb-chip-addr">{o.status === 'picked_up' ? o.delivery?.address : o.restaurant?.address}</span>
             </div>
-          ))}
-        </div>
-      ) : isOnline ? (
-        <div style={{ textAlign: 'center', padding: '28px 20px', background: 'var(--gray-50)',
-          borderRadius: 12, border: '1.5px dashed var(--gray-200)' }}>
-          <Bike size={48} color={COLORS.primary} opacity={0.4} strokeWidth={1} style={{ marginBottom: 12 }} />
-          <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--gray-600)' }}>Waiting for orders…</p>
-          <p style={{ fontSize: 13, color: 'var(--gray-400)', marginTop: 6 }}>Check the Deliveries tab for orders near you.</p>
-        </div>
-      ) : null}
-    </motion.div>
-  );
-};
+            <span className="rdb-chip-amt">৳{o.amount}</span>
+          </div>
+        ))}
+      </div>
+    )}
+
+    {isOnline && ongoingOrders.length === 0 && (
+      <div className="rdb-waiting">
+        <motion.div animate={{ y: [0, -6, 0] }} transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }} className="rdb-waiting-icon">
+          <Bike size={38} />
+        </motion.div>
+        <p className="rdb-waiting-title">Waiting for orders…</p>
+        <p className="rdb-waiting-sub">Check Deliveries tab for nearby orders</p>
+      </div>
+    )}
+  </motion.div>
+);
 
 // ─── DELIVERIES TAB ───────────────────────────────────────────────────────────
 const DeliveriesTab = ({ nearbyOrders, ongoingOrders, completedOrders, orderTab, setOrderTab,
-  isOnline, loadingOrders, onAccept, onPickedUp, onDelivered, onRefresh }) => {
+  isOnline, loading, onAccept, onPickedUp, onDelivered, onRefresh }) => {
   const tabs = [
-    { id: 'nearby',    label: 'Nearby',    count: nearbyOrders.length   },
-    { id: 'ongoing',   label: 'Ongoing',   count: ongoingOrders.length  },
-    { id: 'completed', label: 'Completed', count: completedOrders.length },
+    { id: 'nearby',    label: 'Nearby',    n: nearbyOrders.length   },
+    { id: 'ongoing',   label: 'Ongoing',   n: ongoingOrders.length  },
+    { id: 'completed', label: 'Completed', n: completedOrders.length },
   ];
   const current = orderTab === 'nearby' ? nearbyOrders : orderTab === 'ongoing' ? ongoingOrders : completedOrders;
 
   return (
-    <motion.div className="rdb-tab-pane"
-      initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -12 }} transition={{ duration: 0.25 }}>
-
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <div className="rdb-order-tabs" style={{ flex: 1 }}>
+    <motion.div className="rdb-pane" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.22 }}>
+      <div className="rdb-tab-header">
+        <div className="rdb-tabs-row">
           {tabs.map(t => (
-            <button key={t.id} className={`rdb-order-tab ${orderTab === t.id ? 'active' : ''}`} onClick={() => setOrderTab(t.id)}>
-              {t.label}{t.count > 0 && <span className="rdb-order-tab-badge">{t.count}</span>}
+            <button key={t.id} className={`rdb-tab-btn ${orderTab === t.id ? 'active' : ''}`} onClick={() => setOrderTab(t.id)}>
+              {t.label}{t.n > 0 && <span className="rdb-tab-n">{t.n}</span>}
             </button>
           ))}
         </div>
         {orderTab === 'nearby' && (
-          <button onClick={onRefresh} disabled={loadingOrders}
-            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px',
-              background: 'var(--primary-bg)', border: '1.5px solid var(--primary-light)',
-              borderRadius: 8, fontSize: 12, fontWeight: 600, color: 'var(--primary)',
-              cursor: 'pointer', marginLeft: 8, fontFamily: 'var(--font)' }}>
-            <RefreshCw size={13} style={{ animation: loadingOrders ? 'rdbSpin 0.8s linear infinite' : 'none' }} />
-            Refresh
+          <button onClick={onRefresh} disabled={loading} className="rdb-refresh-btn">
+            <RefreshCw size={13} style={{ animation: loading ? 'spin 0.8s linear infinite' : 'none' }} />
           </button>
         )}
       </div>
 
       {orderTab === 'nearby' && !isOnline && (
-        <div style={{ background: '#fef3c7', border: '1.5px solid #f59e0b', borderRadius: 10,
-          padding: '12px 16px', marginBottom: 12, fontSize: 13, fontWeight: 600, color: '#92400e',
-          display: 'flex', alignItems: 'center', gap: 8 }}>
-          <AlertCircle size={16} />
-          Go online in the Status tab to receive orders.
-        </div>
+        <div className="rdb-offline-warn"><AlertCircle size={15} />Go online to receive orders</div>
       )}
 
-      <div className="rdb-orders-list">
-        {loadingOrders && orderTab === 'nearby' ? (
-          <div className="rdb-empty">
-            <div style={{ width: 36, height: 36, border: `3px solid var(--primary-light)`, borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'rdbSpin 0.8s linear infinite', marginBottom: 12 }} />
-            <p>Finding nearby orders…</p>
-          </div>
+      <div className="rdb-list">
+        {loading && orderTab === 'nearby' ? (
+          <div className="rdb-empty"><div className="rdb-ring" /><p>Finding nearby orders…</p></div>
         ) : current.length === 0 ? (
           <div className="rdb-empty">
-            <Bike size={56} color={COLORS.primary} opacity={0.3} strokeWidth={1} />
+            <Bike size={50} strokeWidth={1} style={{ opacity: 0.2, marginBottom: 12 }} />
             <p>No {orderTab} orders</p>
-            <span>{orderTab === 'nearby' ? (isOnline ? 'No orders within 50 km right now.' : 'Go online to see nearby orders.') : orderTab === 'ongoing' ? 'Accept an order to see it here' : 'Completed orders will appear here'}</span>
+            <span>{orderTab === 'nearby' ? (isOnline ? 'No orders nearby right now.' : 'Go online to see orders.') : orderTab === 'ongoing' ? 'Accept an order to see it here.' : 'Completed orders appear here.'}</span>
           </div>
-        ) : (
-          current.map(order =>
-            order.status === 'new'       ? <NearbyOrderCard  key={order.id} order={order} onAccept={() => onAccept(order.id, order.backendId)} /> :
-            order.status === 'ongoing'   ? <OngoingOrderCard key={order.id} order={order} onPickedUp={() => onPickedUp(order.id, order.backendId)} /> :
-            order.status === 'picked_up' ? <PickedUpCard     key={order.id} order={order} onDelivered={() => onDelivered(order.id, order.backendId)} /> :
-                                           <CompletedCard    key={order.id} order={order} />
-          )
+        ) : current.map(order =>
+            order.status === 'new'       ? <NearbyCard   key={order.id} order={order} onAccept={() => onAccept(order.id, order.backendId)} />
+          : order.status === 'ongoing'   ? <PickupCard   key={order.id} order={order} onPickedUp={() => onPickedUp(order.id, order.backendId)} />
+          : order.status === 'picked_up' ? <DeliverCard  key={order.id} order={order} onDelivered={() => onDelivered(order.id, order.backendId)} />
+          :                                <DoneCard     key={order.id} order={order} />
         )}
       </div>
-      <style>{`@keyframes rdbSpin { to { transform: rotate(360deg); } }`}</style>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </motion.div>
   );
 };
 
-// ─── ORDER CARDS ──────────────────────────────────────────────────────────────
-const NearbyOrderCard = ({ order, onAccept }) => {
-  const [timer, setTimer] = useState(order.timer || 90);
+// ─── NEARBY CARD ──────────────────────────────────────────────────────────────
+const NearbyCard = ({ order, onAccept }) => {
+  const [t, setT] = useState(order.timer || 90);
   useEffect(() => {
-    if (timer <= 0) return;
-    const id = setInterval(() => setTimer(p => p - 1), 1000);
+    if (t <= 0) return;
+    const id = setInterval(() => setT(p => p - 1), 1000);
     return () => clearInterval(id);
-  }, [timer]);
-  const mm = String(Math.floor(timer / 60)).padStart(2, '0');
-  const ss = String(timer % 60).padStart(2, '0');
-
-  const distKm = order.distance_km;
-  const distColor = distKm == null ? '#6b7280'
-    : distKm < 2  ? '#10b981'
-    : distKm < 5  ? '#f59e0b'
-    : '#ef4444';
+  }, [t]);
+  const mm = String(Math.floor(t / 60)).padStart(2, '0');
+  const ss = String(t % 60).padStart(2, '0');
+  const urgent = t < 20;
+  const d = order.distance_km;
+  const dc = d == null ? '#6b7280' : d < 2 ? '#10b981' : d < 5 ? '#f59e0b' : '#ef4444';
 
   return (
-    <div className="rdb-new-order-card">
-      <div className="rdb-noc-header">
-        <div><p className="rdb-noc-id">{order.id}</p><p className="rdb-noc-customer">{order.customer.name}</p></div>
-        <div className="rdb-noc-right">
-          <span className="rdb-noc-amount">৳{order.amount}</span>
-          <span className={`rdb-noc-timer ${timer < 20 ? 'urgent' : ''}`}>⏱ {mm}:{ss}</span>
+    <motion.div className="rdb-nearby-card" initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }}>
+      <div className="rdb-nc-pulse" />
+      <div className="rdb-nc-top">
+        <div>
+          <p className="rdb-nc-id">{order.id}</p>
+          <p className="rdb-nc-customer">{order.customer.name}</p>
+        </div>
+        <div style={{ textAlign: 'right' }}>
+          <p className="rdb-nc-amount">৳{order.amount}</p>
+          <span className={`rdb-nc-timer ${urgent ? 'urgent' : ''}`}>{urgent ? '🔥' : '⏱'} {mm}:{ss}</span>
         </div>
       </div>
 
-      {distKm != null && (
-        <div style={{
-          display: 'inline-flex', alignItems: 'center', gap: 5,
-          marginBottom: 10, padding: '4px 10px', borderRadius: 999,
-          background: `${distColor}18`, border: `1.5px solid ${distColor}40`,
-          fontSize: 12, fontWeight: 700, color: distColor,
-        }}>
-          <Navigation size={12} />
-          {distKm.toFixed(1)} km to restaurant
-          <span style={{ fontWeight: 400, color: distColor, opacity: 0.8 }}>
-            · {distKm < 2 ? 'Very close' : distKm < 5 ? 'Nearby' : 'Far'}
-          </span>
+      {d != null && (
+        <div className="rdb-dist" style={{ background: `${dc}15`, border: `1px solid ${dc}35`, color: dc }}>
+          <Navigation size={11} />{d.toFixed(1)} km · {d < 2 ? 'Very close' : d < 5 ? 'Nearby' : 'Far away'}
         </div>
       )}
 
-      <div className="rdb-noc-locations">
-        <div className="rdb-noc-loc-row">
-          <div className="rdb-noc-loc-dot pickup" />
-          <div>
-            <p className="rdb-noc-loc-label">Pickup</p>
-            <p className="rdb-noc-loc-name">{order.restaurant.name}</p>
-            <p className="rdb-noc-loc-addr">{order.restaurant.address}</p>
-          </div>
-        </div>
-        <div className="rdb-noc-loc-line" />
-        <div className="rdb-noc-loc-row">
-          <div className="rdb-noc-loc-dot dropoff" />
-          <div>
-            <p className="rdb-noc-loc-label">Drop-off</p>
-            <p className="rdb-noc-loc-addr">{order.delivery.address}</p>
-          </div>
-        </div>
+      <div className="rdb-route">
+        <div className="rdb-route-row"><div className="rdb-dot pink" /><div><p className="rdb-route-lbl">Pickup</p><p className="rdb-route-name">{order.restaurant.name}</p>{order.restaurant.address && <p className="rdb-route-addr">{order.restaurant.address}</p>}</div></div>
+        <div className="rdb-route-line" />
+        <div className="rdb-route-row"><div className="rdb-dot green" /><div><p className="rdb-route-lbl">Drop-off</p><p className="rdb-route-addr">{order.delivery.address}</p></div></div>
       </div>
 
-      <div className="rdb-noc-items">
-        {order.items.map((item, i) => (
-          <span key={i} className="rdb-noc-item">{item.qty}× {item.name}</span>
-        ))}
-      </div>
+      {order.items?.length > 0 && (
+        <div className="rdb-nc-items">{order.items.map((it, i) => <span key={i} className="rdb-nc-item">{it.qty}× {it.name}</span>)}</div>
+      )}
 
-      <div className="rdb-noc-footer">
-        <span className="rdb-noc-payment">{order.payment}</span>
-        <div className="rdb-noc-actions">
-          <button className="rdb-btn-accept" onClick={onAccept}>Accept Order</button>
-        </div>
-      </div>
-    </div>
+      <motion.button className="rdb-accept-btn" onClick={onAccept} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.96 }}>
+        <Zap size={15} fill="currentColor" /> Accept · ৳{order.amount}
+      </motion.button>
+    </motion.div>
   );
 };
 
-const OngoingOrderCard = ({ order, onPickedUp }) => (
-  <div className="rdb-ongoing-card">
-    <div className="rdb-ongoing-header">
-      <p className="rdb-ongoing-id">{order.id}</p>
-      {/* FIX: show real backend status so rider knows if restaurant started yet */}
-      <span className={`rdb-ongoing-badge ${order.backendStatus === 'PENDING' ? 'pending' : 'preparing'}`}>
-        {order.backendStatus === 'PENDING' ? '⏳ Waiting' : '🍳 Preparing'}
-      </span>
-    </div>
-    <p className="rdb-ongoing-restaurant">{order.restaurant?.name}</p>
-    <p className="rdb-ongoing-addr">{order.restaurant?.address}</p>
-    <div className="rdb-ongoing-status-bar">
-      <div className="rdb-status-step done"><Check size={12} /> Order Placed</div>
-      <div className={`rdb-status-step ${order.backendStatus === 'PREPARING' ? 'active pulse' : 'active'}`}>
-        <Utensils size={12} /> {order.backendStatus === 'PENDING' ? 'Waiting' : 'Preparing'}
-      </div>
-      <div className="rdb-status-step"><Bike size={12} /> Picked Up</div>
-      <div className="rdb-status-step"><MapPin size={12} /> Delivered</div>
-    </div>
-    <button className="rdb-pickup-btn" onClick={onPickedUp}><Package size={16} /> Picked Up — Head to Customer</button>
-  </div>
+// ─── PICKUP CARD (ongoing — restaurant has accepted) ──────────────────────────
+const PickupCard = ({ order, onPickedUp }) => (
+  <motion.div className="rdb-action-card pickup" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+    <div className="rdb-ac-row"><span className="rdb-ac-badge pickup">📦 Pickup Order</span><span className="rdb-ac-id">{order.id}</span></div>
+    <p className="rdb-ac-main">{order.restaurant?.name}</p>
+    {order.restaurant?.address && <p className="rdb-ac-addr"><MapPin size={11} /> {order.restaurant.address}</p>}
+    <div className="rdb-ac-meta"><User size={12} /><span>{order.customer?.name}</span>{order.customer?.phone && <><Phone size={11} /><span>{order.customer.phone}</span></>}</div>
+    {order.items?.length > 0 && <div className="rdb-ac-items">{order.items.map((it, i) => <span key={i} className="rdb-nc-item">{it.qty}× {it.name}</span>)}</div>}
+    <motion.button className="rdb-action-btn pickup" onClick={onPickedUp} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.96 }}>
+      <Package size={15} /> Picked Up from Restaurant
+    </motion.button>
+  </motion.div>
 );
 
-const PickedUpCard = ({ order, onDelivered }) => (
-  <div className="rdb-ongoing-card delivering">
-    <div className="rdb-ongoing-header"><p className="rdb-ongoing-id">{order.id}</p><span className="rdb-ongoing-badge delivering">🚴 Delivering</span></div>
-    <p className="rdb-ongoing-restaurant">{order.customer?.name}</p>
-    <p className="rdb-ongoing-addr">{order.delivery?.address}</p>
-    <div className="rdb-ongoing-status-bar">
-      <div className="rdb-status-step done"><Check size={12} /> Order Placed</div>
-      <div className="rdb-status-step done"><Check size={12} /> Preparing</div>
-      <div className="rdb-status-step done"><Check size={12} /> Picked Up</div>
-      <div className="rdb-status-step active pulse"><MapPin size={12} /> Delivering</div>
-    </div>
-    <button className="rdb-deliver-btn" onClick={onDelivered}><CheckCircle size={16} /> Dropped Off — Order Complete</button>
-  </div>
+// ─── DELIVER CARD (picked_up) ─────────────────────────────────────────────────
+const DeliverCard = ({ order, onDelivered }) => (
+  <motion.div className="rdb-action-card deliver" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+    <div className="rdb-ac-row"><span className="rdb-ac-badge deliver">🚴 Delivering</span><span className="rdb-ac-id">{order.id}</span></div>
+    <p className="rdb-ac-main">{order.customer?.name}</p>
+    {order.delivery?.address && <p className="rdb-ac-addr"><MapPin size={11} /> {order.delivery.address}</p>}
+    <div className="rdb-ac-meta"><Star size={12} style={{ color: '#f59e0b' }} /><span style={{ fontSize: 12, opacity: 0.7 }}>From {order.restaurant?.name}</span></div>
+    <motion.button className="rdb-action-btn deliver" onClick={onDelivered} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.96 }}>
+      <CheckCircle size={15} /> Drop Off — Order Complete
+    </motion.button>
+  </motion.div>
 );
 
-const CompletedCard = ({ order }) => (
-  <div className="rdb-completed-card">
-    <div className="rdb-completed-left"><Check size={16} color={COLORS.success} /><div><p className="rdb-completed-id">{order.id}</p><p className="rdb-completed-customer">{order.customer?.name} · Just now</p></div></div>
-    <span className="rdb-completed-amt">৳{order.amount}</span>
+// ─── DONE CARD ────────────────────────────────────────────────────────────────
+const DoneCard = ({ order }) => (
+  <div className="rdb-done-card">
+    <div className="rdb-done-left"><div className="rdb-done-check"><Check size={13} /></div><div><p className="rdb-done-id">{order.id}</p><p className="rdb-done-name">{order.customer?.name}</p></div></div>
+    <span className="rdb-done-amt">৳{order.amount}</span>
   </div>
 );
 
 // ─── HISTORY TAB ──────────────────────────────────────────────────────────────
 const HistoryTab = () => {
-  const [dateFilter,  setDateFilter]  = useState('30');
-  const [expandedId,  setExpandedId]  = useState(null);
-  const [historyData, setHistoryData] = useState(null);   // raw API response
-  const [loading,     setLoading]     = useState(false);
-  const [error,       setError]       = useState(null);
+  const [df, setDf]             = useState('30');
+  const [expanded, setExpanded] = useState(null);
+  const [data, setData]         = useState(null);
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState(null);
 
-  const dateFilters = [
-    { id: 'today',     label: 'Today',     days: 1   },
-    { id: 'yesterday', label: 'Yesterday', days: 2   },
-    { id: '7',         label: '7 Days',    days: 7   },
-    { id: '30',        label: '30 Days',   days: 30  },
-  ];
+  const filters = [{ id: 'today', label: 'Today', days: 1 }, { id: 'yesterday', label: 'Yesterday', days: 2 }, { id: '7', label: '7 Days', days: 7 }, { id: '30', label: '30 Days', days: 30 }];
 
-  const loadHistory = useCallback(async (days) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await fetchRiderHistory(days);
-      if (data) setHistoryData(data);
-      else setError('Failed to load history.');
-    } catch (e) {
-      setError('Failed to load history.');
-    } finally {
-      setLoading(false);
-    }
+  const load = useCallback(async (days) => {
+    setLoading(true); setError(null);
+    try { const d = await fetchRiderHistory(days); d ? setData(d) : setError('Failed to load history.'); }
+    catch { setError('Failed to load history.'); } finally { setLoading(false); }
   }, []);
 
-  useEffect(() => {
-    const filter = dateFilters.find(f => f.id === dateFilter);
-    loadHistory(filter ? filter.days : 30);
-  }, [dateFilter]);
+  useEffect(() => { const f = filters.find(f => f.id === df); load(f?.days ?? 30); }, [df]);
 
-  // For "today" / "yesterday" filters, trim groups client-side after fetch
-  const getVisibleGroups = () => {
-    if (!historyData?.groups) return [];
-    const groups = historyData.groups;
-    if (dateFilter === 'today')     return groups.filter(g => g.label === 'Today');
-    if (dateFilter === 'yesterday') return groups.filter(g => g.label === 'Yesterday');
-    return groups;
-  };
+  const visible = (() => {
+    if (!data?.groups) return [];
+    if (df === 'today')     return data.groups.filter(g => g.label === 'Today');
+    if (df === 'yesterday') return data.groups.filter(g => g.label === 'Yesterday');
+    return data.groups;
+  })();
 
-  const visible        = getVisibleGroups();
-  const totalOrders    = visible.reduce((s, g) => s + g.order_count,    0);
-  const totalEarnings  = visible.reduce((s, g) => s + g.total_earnings, 0);
+  const totalO = visible.reduce((s, g) => s + g.order_count, 0);
+  const totalE = visible.reduce((s, g) => s + g.total_earnings, 0);
 
   return (
-    <motion.div className="rdb-tab-pane" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -12 }} transition={{ duration: 0.25 }}>
-      <h2 className="rdb-section-title">Order History</h2>
+    <motion.div className="rdb-pane" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+      <h2 className="rdb-title">Order History</h2>
 
-      {/* Summary strip */}
       <div className="rdb-hist-summary">
-        <div className="rdb-hist-stat">
-          <Calendar size={18} color={COLORS.primary} />
-          <span className="rdb-hist-stat-num">{loading ? '—' : totalOrders}</span>
-          <span className="rdb-hist-stat-label">Orders</span>
-        </div>
-        <div className="rdb-hist-stat">
-          <DollarSign size={18} color={COLORS.success} />
-          <span className="rdb-hist-stat-num">{loading ? '—' : `৳${totalEarnings.toFixed(2)}`}</span>
-          <span className="rdb-hist-stat-label">Earnings</span>
-        </div>
+        <div className="rdb-hs-card orders"><Calendar size={16} /><span className="rdb-hs-val">{loading ? '—' : totalO}</span><span className="rdb-hs-lbl">Orders</span></div>
+        <div className="rdb-hs-card earn"><TrendingUp size={16} /><span className="rdb-hs-val">{loading ? '—' : `৳${totalE.toFixed(2)}`}</span><span className="rdb-hs-lbl">Earnings</span></div>
       </div>
 
-      {/* Date filter pills */}
-      <div className="rdb-date-filters">
-        {dateFilters.map(f => (
-          <button key={f.id} className={`rdb-date-filter-btn ${dateFilter === f.id ? 'active' : ''}`}
-            onClick={() => setDateFilter(f.id)}>
-            {f.label}
-          </button>
-        ))}
+      <div className="rdb-filter-row">
+        {filters.map(f => <button key={f.id} className={`rdb-filter-btn ${df === f.id ? 'active' : ''}`} onClick={() => setDf(f.id)}>{f.label}</button>)}
       </div>
 
-      {/* Content */}
-      {loading ? (
-        <div className="rdb-empty" style={{ paddingTop: 32 }}>
-          <div style={{ width: 36, height: 36, border: `3px solid var(--primary-light)`,
-            borderTopColor: 'var(--primary)', borderRadius: '50%',
-            animation: 'rdbSpin 0.8s linear infinite', marginBottom: 12 }} />
-          <p>Loading history…</p>
-        </div>
-      ) : error ? (
-        <div className="rdb-empty" style={{ paddingTop: 32 }}>
-          <AlertCircle size={40} color="#ef4444" opacity={0.5} />
-          <p style={{ color: '#ef4444' }}>{error}</p>
-        </div>
-      ) : visible.length === 0 ? (
-        <div className="rdb-empty" style={{ paddingTop: 32 }}>
-          <History size={48} color={COLORS.primary} opacity={0.3} strokeWidth={1} />
-          <p>No deliveries in this period</p>
-          <span>Completed orders will appear here once delivered.</span>
-        </div>
-      ) : (
-        visible.map(group => (
-          <div key={group.date} className="rdb-hist-group">
-            <h3 className="rdb-hist-date">
-              {group.label}
-              <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--gray-400)', marginLeft: 8 }}>
-                {group.order_count} order{group.order_count !== 1 ? 's' : ''} · ৳{group.total_earnings.toFixed(2)}
-              </span>
-            </h3>
-            {group.orders.map(order => {
-              const cardId = `${group.date}-${order.order_id}`;
-              const isOpen = expandedId === cardId;
-              // Format completed_at as HH:MM
-              const timeStr = order.completed_at
-                ? new Date(order.completed_at).toLocaleTimeString('en-BD', { hour: '2-digit', minute: '2-digit', hour12: true })
-                : '';
+      {loading ? <div className="rdb-empty"><div className="rdb-ring" /><p>Loading…</p></div>
+       : error  ? <div className="rdb-empty"><AlertCircle size={36} color="#ef4444" opacity={0.5} /><p style={{ color: '#ef4444' }}>{error}</p></div>
+       : visible.length === 0 ? <div className="rdb-empty"><History size={44} strokeWidth={1} style={{ opacity: 0.2, marginBottom: 10 }} /><p>No deliveries in this period</p></div>
+       : visible.map(g => (
+          <div key={g.date} className="rdb-hist-group">
+            <h3 className="rdb-hist-label">{g.label}<span className="rdb-hist-meta">{g.order_count} orders · ৳{g.total_earnings.toFixed(2)}</span></h3>
+            {g.orders.map(o => {
+              const cid = `${g.date}-${o.order_id}`;
+              const open = expanded === cid;
+              const ts = o.completed_at ? new Date(o.completed_at).toLocaleTimeString('en-BD', { hour: '2-digit', minute: '2-digit', hour12: true }) : '';
               return (
-                <div key={order.order_id} className="rdb-shift-history-card">
-                  <div className="rdb-shc-header" onClick={() => setExpandedId(isOpen ? null : cardId)}>
-                    <div>
-                      <p className="rdb-shc-time">#{order.order_id} · {timeStr}</p>
-                      <p className="rdb-shc-zone">{order.restaurant_name}</p>
-                    </div>
-                    <div className="rdb-shc-right">
-                      <span className="rdb-shc-total">৳{order.earnings.toFixed(2)}</span>
-                      <ChevronRight size={16} style={{ transform: isOpen ? 'rotate(90deg)' : 'none', transition: '0.2s' }} />
+                <div key={o.order_id} className="rdb-hist-card">
+                  <div className="rdb-hc-row" onClick={() => setExpanded(open ? null : cid)}>
+                    <div><p className="rdb-hc-id">#{o.order_id} · {ts}</p><p className="rdb-hc-rest">{o.restaurant_name}</p></div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span className="rdb-hc-earn">৳{o.earnings.toFixed(2)}</span>
+                      <ChevronRight size={14} style={{ transform: open ? 'rotate(90deg)' : 'none', transition: '0.18s', opacity: 0.4 }} />
                     </div>
                   </div>
-                  {isOpen && (
-                    <div className="rdb-shc-breakdown">
-                      <div className="rdb-pay-row header">
-                        <span>Your Earnings:</span>
-                        <span>৳{order.earnings.toFixed(2)}</span>
-                      </div>
-                      <div className="rdb-pay-row sub">
-                        <span>Order Total</span>
-                        <span>৳{order.total_amount.toFixed(2)}</span>
-                      </div>
-                      <div className="rdb-pay-row sub">
-                        <span>Delivery Charge (50%)</span>
-                        <span>৳{(order.delivery_charge * 0.5).toFixed(2)}</span>
-                      </div>
-                      {order.rider_tip > 0 && (
-                        <div className="rdb-pay-row sub tips">
-                          <span>Tip (50%)</span>
-                          <span>৳{(order.rider_tip * 0.5).toFixed(2)}</span>
-                        </div>
-                      )}
-                      <div className="rdb-pay-order-row" style={{ marginTop: 6 }}>
-                        <span className="rdb-pay-order-icon">👤</span>
-                        <span className="rdb-pay-order-id">{order.customer_name}</span>
-                        <span className="rdb-pay-order-time">{timeStr}</span>
-                        <span className="rdb-pay-order-amt">৳{order.earnings.toFixed(2)}</span>
-                      </div>
-                    </div>
-                  )}
+                  <AnimatePresence>
+                    {open && (
+                      <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.18 }} className="rdb-hc-detail">
+                        <div className="rdb-pay-row header"><span>Your Earnings</span><span>৳{o.earnings.toFixed(2)}</span></div>
+                        <div className="rdb-pay-row sub"><span>Order Total</span><span>৳{o.total_amount.toFixed(2)}</span></div>
+                        <div className="rdb-pay-row sub"><span>Delivery (50%)</span><span>৳{(o.delivery_charge * 0.5).toFixed(2)}</span></div>
+                        {o.rider_tip > 0 && <div className="rdb-pay-row tip"><span>Tip (50%)</span><span>৳{(o.rider_tip * 0.5).toFixed(2)}</span></div>}
+                        <div className="rdb-pay-customer"><User size={12} /><span>{o.customer_name}</span><span className="rdb-pay-ts">{ts}</span></div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               );
             })}
           </div>
         ))
-      )}
-      <style>{`@keyframes rdbSpin { to { transform: rotate(360deg); } }`}</style>
-    </motion.div>
-  );
-};
-
-// ─── WALLET TAB ───────────────────────────────────────────────────────────────
-const WalletTab = ({ balance, onRefreshStats }) => {
-  const [showPayout, setShowPayout] = useState(false);
-  return (
-    <motion.div className="rdb-tab-pane" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }} transition={{ duration: 0.25 }}>
-      <h2 className="rdb-section-title">Wallet</h2>
-      <div className="rdb-wallet-card">
-        <p className="rdb-wallet-label">Current balance</p>
-        <p className="rdb-wallet-balance">৳{parseFloat(balance || 0).toFixed(2)}</p>
-        <button className="rdb-payout-btn" onClick={() => setShowPayout(true)}>💸 Payout</button>
-      </div>
-      {showPayout && (
-        <div className="rdb-modal-overlay" onClick={() => setShowPayout(false)}>
-          <div className="rdb-modal" onClick={e => e.stopPropagation()}>
-            <h3>Request Payout</h3>
-            <p>Available: <strong>৳{parseFloat(balance || 0).toFixed(2)}</strong></p>
-            <p className="rdb-modal-sub">Funds transferred within 1–2 business days.</p>
-            <div className="rdb-modal-actions">
-              <button className="rdb-modal-cancel" onClick={() => setShowPayout(false)}>Cancel</button>
-              <button className="rdb-modal-confirm" onClick={() => {
-                setShowPayout(false);
-                toast.success('Payout request submitted!');
-                onRefreshStats?.();
-              }}>Confirm Payout</button>
-            </div>
-          </div>
-        </div>
-      )}
+      }
     </motion.div>
   );
 };
 
 // ─── PROFILE TAB ──────────────────────────────────────────────────────────────
 const ProfileTab = ({ rider }) => {
-  const [section, setSection] = useState('main');
-  const [bankTab, setBankTab] = useState('info');
-  const [bankData, setBankData] = useState({ bankName: '', bic: '', iban: '' });
-  const [bankDocs, setBankDocs] = useState({ front: null, back: null });
-  const [editField, setEditField] = useState(null);
-  const [profileData, setProfileData] = useState({ email: rider.email, phone: rider.phone, password: '••••••••••' });
+  const [section, setSection]       = useState('main');
+  const [bankTab, setBankTab]       = useState('info');
+  const [bankData, setBankData]     = useState({ bankName: '', bic: '', iban: '' });
+  const [bankDocs, setBankDocs]     = useState({ front: null, back: null });
+  const [editField, setEditField]   = useState(null);
+  const [pd, setPd]                 = useState({ email: rider.email, phone: rider.phone, password: '••••••••••' });
   const initials = rider.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'RD';
 
   if (section === 'bank') return (
-    <motion.div className="rdb-tab-pane" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}>
-      <button className="rdb-back-btn" onClick={() => setSection('main')}><ChevronLeft size={18} /> My Profile</button>
-      <h2 className="rdb-section-title">Edit bank details</h2>
+    <motion.div className="rdb-pane" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+      <button className="rdb-back" onClick={() => setSection('main')}><ChevronLeft size={16} /> Profile</button>
+      <h2 className="rdb-title">Bank Details</h2>
       <div className="rdb-bank-tabs">
         <button className={`rdb-bank-tab ${bankTab === 'info' ? 'active' : ''}`} onClick={() => setBankTab('info')}>Information</button>
         <button className={`rdb-bank-tab ${bankTab === 'documents' ? 'active' : ''}`} onClick={() => setBankTab('documents')}>Documents</button>
       </div>
       {bankTab === 'info' ? (
-        <div className="rdb-bank-form">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           {[{ key: 'bankName', label: 'Bank Name' }, { key: 'bic', label: 'BIC' }, { key: 'iban', label: 'IBAN' }].map(f => (
-            <div key={f.key} className="rdb-bank-field"><label>{f.label} <span className="rdb-required">Required</span></label><input value={bankData[f.key]} onChange={e => setBankData(p => ({ ...p, [f.key]: e.target.value }))} placeholder={`Enter ${f.label}`} /></div>
+            <div key={f.key} className="rdb-bank-field">
+              <label>{f.label} <span className="rdb-req">Required</span></label>
+              <input value={bankData[f.key]} onChange={e => setBankData(p => ({ ...p, [f.key]: e.target.value }))} placeholder={`Enter ${f.label}`} />
+            </div>
           ))}
-          <button className="rdb-continue-btn" onClick={() => setBankTab('documents')}>Continue</button>
-          <button className="rdb-go-back-link" onClick={() => setSection('main')}>Go back</button>
+          <button className="rdb-cta" onClick={() => setBankTab('documents')}>Continue</button>
+          <button className="rdb-link-btn" onClick={() => setSection('main')}>Go back</button>
         </div>
       ) : (
-        <div className="rdb-bank-form">
-          <h4 className="rdb-docs-title">Documents</h4>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           {[{ key: 'front', label: 'Bank Receipt Front' }, { key: 'back', label: 'Bank Receipt Back' }].map(doc => (
-            <div key={doc.key} className="rdb-doc-upload">
-              <div className="rdb-doc-header"><span className="rdb-doc-num">{doc.key === 'front' ? '1' : '2'}</span><span>{doc.label}</span><span className="rdb-required">Required</span></div>
-              <label className="rdb-upload-area">
-                <Upload size={24} color={COLORS.primary} /><span className="rdb-upload-label">Upload documents</span><span className="rdb-upload-hint">Accepted: png, pdf, jpg</span>
-                {bankDocs[doc.key] && <span className="rdb-upload-done">✓ {bankDocs[doc.key].name}</span>}
+            <div key={doc.key}>
+              <div className="rdb-doc-hdr"><span className="rdb-doc-num">{doc.key === 'front' ? '1' : '2'}</span><span>{doc.label}</span><span className="rdb-req">Required</span></div>
+              <label className="rdb-upload">
+                <Upload size={20} style={{ opacity: 0.6 }} />
+                <span className="rdb-upload-label">Upload document</span>
+                <span className="rdb-upload-hint">png, pdf, jpg</span>
+                {bankDocs[doc.key] && <span style={{ color: '#10b981', fontSize: 12, fontWeight: 700 }}>✓ {bankDocs[doc.key].name}</span>}
                 <input type="file" accept=".png,.pdf,.jpg,.jpeg" style={{ display: 'none' }} onChange={e => setBankDocs(p => ({ ...p, [doc.key]: e.target.files[0] }))} />
               </label>
             </div>
           ))}
-          <button className="rdb-continue-btn" onClick={() => { setSection('main'); toast.success('Bank details submitted for review!'); }}>Continue</button>
-          <button className="rdb-go-back-link" onClick={() => setBankTab('info')}>Go back</button>
+          <button className="rdb-cta" onClick={() => { setSection('main'); toast.success('Bank details submitted!'); }}>Continue</button>
+          <button className="rdb-link-btn" onClick={() => setBankTab('info')}>Go back</button>
         </div>
       )}
     </motion.div>
   );
 
   return (
-    <motion.div className="rdb-tab-pane" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }} transition={{ duration: 0.25 }}>
-      <h2 className="rdb-section-title">My Profile</h2>
-      <div className="rdb-profile-hero"><div className="rdb-profile-avatar">{initials}</div><div><p className="rdb-profile-name">{rider.name}</p><p className="rdb-profile-id">ID {rider.id}</p></div></div>
-      <div className="rdb-profile-sections">
-        {[{ key: 'license', label: 'Driver license', Icon: CreditCard }, { key: 'bank', label: 'Bank details', Icon: DollarSign }, { key: 'id', label: 'Id card', Icon: FileText }].map(({ key, label, Icon }) => (
-          <button key={key} className="rdb-profile-section-btn" onClick={() => setSection(key)}><Icon size={18} color={COLORS.primary} /><span>{label}</span><span className="rdb-profile-view">View</span><ChevronRight size={16} color="var(--gray-400)" /></button>
+    <motion.div className="rdb-pane" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+      <h2 className="rdb-title">My Profile</h2>
+      <div className="rdb-profile-hero">
+        <div className="rdb-profile-av">{initials}</div>
+        <div><p className="rdb-profile-name">{rider.name}</p><p className="rdb-profile-meta">ID {rider.id} · {rider.vehicle}</p></div>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
+        {[{ key: 'license', label: 'Driver License', Icon: CreditCard }, { key: 'bank', label: 'Bank Details', Icon: DollarSign }, { key: 'id', label: 'ID Card', Icon: FileText }].map(({ key, label, Icon }) => (
+          <button key={key} className="rdb-profile-row" onClick={() => setSection(key)}>
+            <div className="rdb-pr-icon"><Icon size={15} /></div>
+            <span>{label}</span>
+            <ChevronRight size={14} style={{ marginLeft: 'auto', opacity: 0.35 }} />
+          </button>
         ))}
       </div>
-      <div className="rdb-profile-info">
-        <h3>Other information</h3>
-        {[{ label: 'Email', key: 'email', Icon: Mail, editable: false }, { label: 'Password', key: 'password', Icon: Lock, editable: true }, { label: 'Phone number', key: 'phone', Icon: Phone, editable: false }].map(f => (
+
+      <div className="rdb-info-box">
+        <h3 className="rdb-info-title">Contact Information</h3>
+        {[{ label: 'Email', key: 'email', Icon: Mail, editable: false }, { label: 'Password', key: 'password', Icon: Lock, editable: true }, { label: 'Phone', key: 'phone', Icon: Phone, editable: false }].map(f => (
           <div key={f.key} className="rdb-info-row">
-            <div className="rdb-info-field">
-              <label>{f.label}</label>
-              {editField === f.key ? <input autoFocus value={profileData[f.key]} onChange={e => setProfileData(p => ({ ...p, [f.key]: e.target.value }))} onBlur={() => setEditField(null)} /> : <p className={f.key === 'email' || f.key === 'phone' ? 'rdb-info-obscured' : ''}>{profileData[f.key]}</p>}
+            <div><label className="rdb-info-lbl">{f.label}</label>
+              {editField === f.key
+                ? <input className="rdb-info-input" autoFocus value={pd[f.key]} onChange={e => setPd(p => ({ ...p, [f.key]: e.target.value }))} onBlur={() => setEditField(null)} />
+                : <p className="rdb-info-val" style={f.key !== 'password' ? { opacity: 0.6 } : {}}>{pd[f.key]}</p>
+              }
             </div>
-            {f.editable && <button className="rdb-edit-btn" onClick={() => setEditField(f.key)}><Edit2 size={14} /> Edit</button>}
+            {f.editable && <button className="rdb-edit-btn" onClick={() => setEditField(f.key)}><Edit2 size={12} /> Edit</button>}
           </div>
         ))}
       </div>

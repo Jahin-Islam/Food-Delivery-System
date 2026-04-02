@@ -133,15 +133,45 @@ function NearMeLeafletMap({ userPos, restaurants, selectedId, radius, onMarkerCl
     // Pan smoothly to new user position
     map.setView([userPos.lat, userPos.lng], map.getZoom(), { animate: true });
 
+    // Professional "You are here" pin — pulsing dot with stem
+    const youSize = 40;
+    const youStem = 12;
     const userIcon = L.divIcon({
       className: '',
-      html: `<div style="position:relative;width:22px;height:22px;">
-        <div style="width:22px;height:22px;border-radius:50%;background:#d70f64;border:3px solid white;
-          box-shadow:0 2px 10px rgba(215,15,100,0.5);position:absolute;top:0;left:0;z-index:2;"></div>
-        <div style="width:40px;height:40px;border-radius:50%;background:rgba(215,15,100,0.18);
-          position:absolute;top:-9px;left:-9px;z-index:1;animation:nmpPulse 1.8s ease-in-out infinite;"></div>
-      </div>`,
-      iconSize: [22, 22], iconAnchor: [11, 11],
+      iconSize:   [youSize, youSize + youStem],
+      iconAnchor: [youSize / 2, youSize + youStem],
+      html: `
+        <div style="position:relative;width:${youSize}px;height:${youSize}px;">
+          <!-- pulse ring -->
+          <div style="
+            position:absolute;inset:-8px;border-radius:50%;
+            background:rgba(215,15,100,0.18);
+            animation:nmpPulse 1.8s ease-in-out infinite;
+            z-index:1;"></div>
+          <!-- circle badge -->
+          <div style="
+            position:absolute;inset:0;border-radius:50%;
+            background:#d70f64;border:3px solid #fff;
+            box-shadow:0 4px 14px rgba(215,15,100,0.45);
+            display:flex;align-items:center;justify-content:center;z-index:2;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+              stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M12 2v2M12 20v2M2 12h2M20 12h2
+                M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41
+                M17.66 6.34l-1.41 1.41M6.34 17.66l-1.41 1.41"/>
+            </svg>
+          </div>
+          <!-- stem -->
+          <div style="
+            position:absolute;bottom:-${youStem}px;left:50%;
+            transform:translateX(-50%);
+            width:0;height:0;
+            border-left:${Math.round(youSize*0.22)}px solid transparent;
+            border-right:${Math.round(youSize*0.22)}px solid transparent;
+            border-top:${youStem}px solid #d70f64;
+            z-index:2;"></div>
+        </div>`,
     });
 
     userMarkerRef.current = L.marker([userPos.lat, userPos.lng], { icon: userIcon, zIndexOffset: 1000 })
@@ -167,19 +197,38 @@ function NearMeLeafletMap({ userPos, restaurants, selectedId, radius, onMarkerCl
     restaurants.forEach(r => {
       if (!r.lat || !r.lng) return;
       const isSelected = r.id === selectedId;
+      const bg   = isSelected ? '#d70f64' : '#fff';
+      const fg   = isSelected ? '#fff'    : '#d70f64';
+      const sz   = isSelected ? 42 : 36;
+      const stem = Math.round(sz * 0.30);
+      const svgIcon = `<svg width="${isSelected?20:17}" height="${isSelected?20:17}" viewBox="0 0 24 24"
+        fill="none" stroke="${fg}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/>
+        <path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h1"/><path d="M18 22V15"/>
+      </svg>`;
       const icon = L.divIcon({
         className: '',
+        iconAnchor: [sz / 2, sz + stem],
+        popupAnchor: [0, -(sz + stem + 4)],
         html: `<div style="
-          background:${isSelected ? '#d70f64' : '#fff'};
-          color:${isSelected ? '#fff' : '#d70f64'};
-          border:2.5px solid #d70f64;border-radius:10px;
-          padding:4px 8px;font-size:11px;font-weight:700;white-space:nowrap;
-          box-shadow:0 3px 12px rgba(0,0,0,0.18);font-family:sans-serif;
-          display:flex;align-items:center;gap:4px;
-          transform:${isSelected ? 'scale(1.12)' : 'scale(1)'};transition:all 0.2s;">
-          ${r.name.length > 14 ? r.name.slice(0, 13) + '…' : r.name}
+            width:${sz}px;height:${sz}px;
+            background:${bg};
+            border-radius:50%;
+            border:3px solid ${isSelected ? 'rgba(255,255,255,0.9)' : '#d70f64'};
+            box-shadow:0 4px 14px rgba(0,0,0,${isSelected?'0.30':'0.18'}),0 1px 3px rgba(0,0,0,0.12);
+            display:flex;align-items:center;justify-content:center;
+            position:relative;
+            transform:${isSelected ? 'scale(1.1)' : 'scale(1)'};
+            transition:transform 0.2s;">
+          ${svgIcon}
+          <div style="
+              position:absolute;bottom:-${stem}px;left:50%;
+              transform:translateX(-50%);
+              width:0;height:0;
+              border-left:${Math.round(sz*0.22)}px solid transparent;
+              border-right:${Math.round(sz*0.22)}px solid transparent;
+              border-top:${stem}px solid ${bg};"></div>
         </div>`,
-        iconAnchor: [0, 0],
       });
 
       const marker = L.marker([r.lat, r.lng], { icon }).addTo(map).bindPopup(`
@@ -659,11 +708,18 @@ export default function NearMePage({
                         : r.address?.street_address ?? '—'}
                     </div>
                     <div className="nmp-card-meta">
-                      {r.rating && (
+                      {parseFloat(r.total_rated) > 0 ? (
                         <span className="nmp-badge nmp-badge--star">
-                          <Star size={9} fill="currentColor" />
-                          {r.rating}
+                          {[1,2,3,4,5].map(s => (
+                            <Star key={s} size={9}
+                              fill={s <= Math.round(parseFloat(r.rating)) ? '#f59e0b' : 'none'}
+                              color={s <= Math.round(parseFloat(r.rating)) ? '#f59e0b' : '#d1d5db'}
+                            />
+                          ))}
+                          <span style={{ marginLeft: 2 }}>{parseFloat(r.rating).toFixed(1)}</span>
                         </span>
+                      ) : (
+                        <span className="nmp-badge">New</span>
                       )}
                       {r.delivery_time && (
                         <span className="nmp-badge">

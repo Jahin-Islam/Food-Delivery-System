@@ -2,12 +2,15 @@ from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
+from django.db import connection
 from riders.api.services import (
-    get_rider, get_nearby_orders, get_rider_id,
-    update_order_status_by_rider, accept_order,
+    get_rider, get_rider_id,
     get_rider_stats, get_rider_history, update_rider_location,
 )
-from orders.api.services import get_rider_orders
+from orders.api.services import (
+    get_rider_orders, get_nearby_orders,
+    accept_order, update_order_status_by_rider,
+)
 from exceptions import ValidationError, NotFoundError
 
 RIDER_VALID_TRANSITIONS = {
@@ -16,27 +19,25 @@ RIDER_VALID_TRANSITIONS = {
 }
 VALID_ORDER_STATUSES = {'PENDING', 'PREPARING', 'PICKED_UP', 'DELIVERED', 'CANCELLED'}
 
+
 class RiderOrderListView(APIView):
     """
     GET /api/riders/me/orders/
     GET /api/riders/me/orders/?status=DELIVERED
- 
+
     Returns all orders assigned to the authenticated rider,
     optionally filtered by the `status` query parameter.
     """
     permission_classes = [IsAuthenticated]
- 
+
     def get(self, request):
- 
-        # ── 1. Resolve rider profile ──
         rider_id = get_rider_id(request.user.id)
         if not rider_id:
             return Response(
                 {"error": "Rider profile not found."},
                 status=status.HTTP_403_FORBIDDEN,
             )
- 
-        # ── 2. Parse and validate optional status filter ──
+
         status_filter = request.query_params.get('status', None)
         if status_filter:
             status_filter = status_filter.upper()
@@ -48,8 +49,7 @@ class RiderOrderListView(APIView):
                     },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
- 
-        # ── 3. Fetch and return ──
+
         orders = get_rider_orders(rider_id, status_filter)
         return Response(
             {
@@ -62,14 +62,13 @@ class RiderOrderListView(APIView):
 
 class NearbyOrdersView(APIView):
     """
-    GET /orders/nearby/
+    GET /api/riders/orders/nearby/
 
     Query parameters:
         radius  (float, optional) – search radius in km, default 5, max 50
 
-    The authenticated user must be a Rider.
-    The rider's stored current_latitude / current_longitude are used as the
-    centre of the search circle.
+    FIX: Now ONLY returns PREPARING orders (restaurant accepted).
+    PENDING orders are never shown to riders.
 
     Response 200:
         {
@@ -81,9 +80,6 @@ class NearbyOrdersView(APIView):
     """
     permission_classes = [IsAuthenticated]
 
-    # ── 1. Confirm the user has a rider profile ──────────────────────────
-
-    # ── 2. Parse and clamp the radius query param ────────────────────────
     def _parse_radius(self, request, default=5.0, max_radius=50.0):
         raw = request.query_params.get('radius', default)
         try:
@@ -92,11 +88,9 @@ class NearbyOrdersView(APIView):
                 raise ValueError
         except (TypeError, ValueError):
             raise ValidationError("'radius' must be a positive number (kilometres).")
-        return min(radius, max_radius)   # never exceed max_radius
+        return min(radius, max_radius)
 
-    # ── 3. Main handler ──────────────────────────────────────────────────
     def get(self, request):
-        # Authenticate as rider
         rider = get_rider(request.user.id)
         if not rider:
             return Response(
@@ -104,20 +98,18 @@ class NearbyOrdersView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        # Validate rider has a known location
         if rider['latitude'] is None or rider['longitude'] is None:
             return Response(
                 {"detail": "Rider location is not set. Please update your current position."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Parse radius
         try:
             radius_km = self._parse_radius(request)
         except ValidationError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Fetch nearby orders
+        # FIX: get_nearby_orders now filters status = 'PREPARING' AND rider_id IS NULL
         orders = get_nearby_orders(
             rider_lat=rider['latitude'],
             rider_lng=rider['longitude'],
@@ -134,33 +126,23 @@ class NearbyOrdersView(APIView):
             "orders":    orders,
         }, status=status.HTTP_200_OK)
 
+
 class RiderUpdateOrderStatusView(APIView):
     """
+    PATCH /api/riders/orders/update-status/<order_id>/
 
-    Body:
-        { "status": "PICKED_UP" }   or   { "status": "DELIVERED" }
+    Body: { "status": "PICKED_UP" }  or  { "status": "DELIVERED" }
 
-    Rules:
-        - Caller must be an authenticated rider.
-        - The order must already be assigned to this rider.
-        - Only the transitions below are permitted:
-              PREPARING  → PICKED_UP
-              PICKED_UP  → DELIVERED
-        - Marking an order DELIVERED automatically stamps delivered_at.
+    Allowed transitions (rider only):
+        PREPARING  → PICKED_UP
+        PICKED_UP  → DELIVERED
 
-    Responses:
-        200  { "detail": "Order status updated to PICKED_UP." }
-        400  bad / missing status value, or invalid transition
-        403  user has no rider profile
-        404  order not found or not assigned to this rider
+    FIX: PICKED_UP is only allowed when current status is PREPARING.
+    This prevents marking pick-up before the restaurant has started cooking.
     """
     permission_classes = [IsAuthenticated]
 
-    ALLOWED_STATUSES = set(RIDER_VALID_TRANSITIONS.keys())   # PREPARING, PICKED_UP
-
     def patch(self, request, order_id):
-
-        # ── 1. Resolve rider profile ──
         rider_id = get_rider_id(request.user.id)
         if not rider_id:
             return Response(
@@ -168,7 +150,6 @@ class RiderUpdateOrderStatusView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        # ── 2. Parse and validate the requested new status ──
         new_status = request.data.get('status', '').strip().upper()
 
         if not new_status:
@@ -177,7 +158,6 @@ class RiderUpdateOrderStatusView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Flat list of all values a rider is ever allowed to set
         all_allowed_values = {v for vals in RIDER_VALID_TRANSITIONS.values() for v in vals}
         if new_status not in all_allowed_values:
             return Response(
@@ -188,7 +168,6 @@ class RiderUpdateOrderStatusView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # ── 3. Delegate to the service ──
         try:
             update_order_status_by_rider(order_id, rider_id, new_status)
         except NotFoundError as exc:
@@ -201,28 +180,21 @@ class RiderUpdateOrderStatusView(APIView):
             status=status.HTTP_200_OK,
         )
 
+
 class RiderAcceptOrderView(APIView):
     """
-    POST /orders/<order_id>/accept/
+    POST /api/riders/orders/accept/<order_id>/
 
-    No request body needed — the rider is resolved from the auth token.
+    FIX: Now returns 409 with a human-readable message when:
+      - Order is still PENDING (restaurant hasn't accepted yet)
+      - Order is CANCELLED
+      - Another rider already grabbed it
 
-    Rules:
-        - Caller must be an authenticated rider.
-        - Order must be in PENDING or PREPARING status.
-        - Order must not already be assigned to another rider.
-
-    Responses:
-        200  { "detail": "Order accepted successfully.", "order_id": 42 }
-        400  order already taken or wrong status
-        403  user has no rider profile
-        404  order not found
+    Uses SELECT FOR UPDATE to prevent race conditions.
     """
     permission_classes = [IsAuthenticated]
 
     def post(self, request, order_id):
-
-        # ── 1. Resolve rider profile ──
         rider_id = get_rider_id(request.user.id)
         if not rider_id:
             return Response(
@@ -230,29 +202,24 @@ class RiderAcceptOrderView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        # ── 2. Delegate to the service ──
         try:
-            accept_order(order_id, rider_id)
-        except NotFoundError as exc:
-            return Response({"detail": str(exc)}, status=status.HTTP_404_NOT_FOUND)
-        except ValidationError as exc:
-            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+            # accept_order takes the AUTH user.id — resolves to rider row inside
+            order = accept_order(order_id, request.user.id)
+        except (NotFoundError, ValueError) as exc:
+            return Response(
+                {"detail": str(exc)},
+                status=status.HTTP_409_CONFLICT,
+            )
 
         return Response(
-            {"detail": "Order accepted successfully.", "order_id": order_id},
+            {"detail": "Order accepted successfully.", "order_id": order_id, "order": order},
             status=status.HTTP_200_OK,
         )
+
 
 class RiderStatsView(APIView):
     """
     GET /api/riders/me/stats/
-
-    Returns live header stats for the rider dashboard:
-        {
-            "orders_today":   3,
-            "today_earnings": 145.50,
-            "wallet_balance": 1240.75
-        }
     """
     permission_classes = [IsAuthenticated]
 
@@ -271,37 +238,6 @@ class RiderHistoryView(APIView):
     """
     GET /api/riders/me/history/
     GET /api/riders/me/history/?days=7
-
-    Query params:
-        days (int, optional) — look-back window, default 30, max 365
-
-    Returns delivered orders grouped by date (Dhaka local time):
-        {
-            "days":  30,
-            "count": 12,
-            "groups": [
-                {
-                    "date":           "2025-07-15",
-                    "label":          "Today",
-                    "order_count":    4,
-                    "total_earnings": 210.00,
-                    "orders": [
-                        {
-                            "order_id":        42,
-                            "completed_at":    "2025-07-15T13:32:00",
-                            "restaurant_name": "KFC Gulshan",
-                            "customer_name":   "Hassan Ali",
-                            "total_amount":    380.00,
-                            "delivery_charge": 40.00,
-                            "rider_tip":       20.00,
-                            "earnings":        30.00
-                        },
-                        ...
-                    ]
-                },
-                ...
-            ]
-        }
     """
     permission_classes = [IsAuthenticated]
 
@@ -316,7 +252,6 @@ class RiderHistoryView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        # Parse ?days param
         try:
             days = int(request.query_params.get('days', self.DEFAULT_DAYS))
             if days <= 0:
@@ -343,8 +278,6 @@ class RiderLocationUpdateView(APIView):
     PATCH /api/riders/location/
 
     Body: { "current_latitude": 23.78, "current_longitude": 90.40 }
-
-    Updates the rider's GPS coordinates in the database.
     """
     permission_classes = [IsAuthenticated]
 

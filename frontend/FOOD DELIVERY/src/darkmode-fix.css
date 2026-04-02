@@ -1,0 +1,619 @@
+/* ============================================================
+   darkmode-fix.css
+   Add this as the VERY LAST import in main.jsx:
+       import './darkmode-fix.css'
+
+   Why it exists:
+   Many CSS files hardcode the light-mode pink as raw hex/rgba
+   values e.g. rgba(219,39,119,...), rgba(215,15,100,...),
+   #d70f64, #c20d5f etc.  Those values never change in dark
+   mode, so accents stay the wrong shade of pink.
+   This file overrides every offending rule under
+   [data-theme="dark"] so the vivid pink (#ff2d78) stored in
+   --primary shows up correctly everywhere.
+   ============================================================ */
+
+
+/* ============================================================
+   1. LOGO & BRAND TEXT
+   ============================================================ */
+
+/* homepage.css uses gradient-clip on .logo-text — replace */
+[data-theme="dark"] .logo-text {
+  background: none !important;
+  -webkit-background-clip: unset !important;
+  -webkit-text-fill-color: var(--primary) !important;
+  background-clip: unset !important;
+  color: var(--primary) !important;
+}
+
+[data-theme="dark"] .logo-main,
+[data-theme="dark"] .bw-logo-main,
+[data-theme="dark"] .logo-panda,
+[data-theme="dark"] .rider-logo-main {
+  color: var(--primary) !important;
+}
+
+
+/* ============================================================
+   2. LOGO ICON BOX SHADOWS
+   ============================================================ */
+
+[data-theme="dark"] .logo-section .logo-icon {
+  background: var(--gradient-primary) !important;
+  box-shadow: 0 4px 12px var(--shadow-primary-color) !important;
+}
+
+[data-theme="dark"] .header .logo-icon {
+  background: linear-gradient(135deg, var(--primary) 0%, #ff1493 100%) !important;
+  box-shadow: 0 2px 8px var(--shadow-primary-color) !important;
+}
+[data-theme="dark"] .header .logo-icon:hover {
+  box-shadow: 0 4px 16px var(--shadow-primary-hover-color) !important;
+}
+
+[data-theme="dark"] .business-logo-section .logo-icon {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%) !important;
+  box-shadow: 0 2px 8px var(--shadow-primary-color) !important;
+}
+
+
+/* ============================================================
+   3. TOP BANNER SHADOW
+   ============================================================ */
+
+[data-theme="dark"] .top-banner {
+  box-shadow: 0 2px 8px var(--shadow-primary-color) !important;
+}
+
+
+/* ============================================================
+   4. SIGNUP BUTTON SHADOWS
+   ============================================================ */
+
+[data-theme="dark"] .signup-btn {
+  box-shadow: 0 4px 12px var(--shadow-primary-color) !important;
+}
+[data-theme="dark"] .signup-btn:hover {
+  box-shadow: 0 6px 20px var(--shadow-primary-hover-color) !important;
+}
+
+[data-theme="dark"] .header .signup-btn {
+  background: linear-gradient(135deg, var(--primary) 0%, #ff1493 100%) !important;
+  box-shadow: 0 2px 10px var(--shadow-primary-color) !important;
+}
+[data-theme="dark"] .header .signup-btn:hover {
+  background: linear-gradient(135deg, var(--primary) 0%, #ff1493 100%) !important;
+  box-shadow: 0 6px 20px var(--shadow-primary-hover-color) !important;
+}
+
+
+/* ============================================================
+   5. SEARCH / INPUT FOCUS RINGS
+   ============================================================ */
+
+[data-theme="dark"] .search-wrapper:focus-within {
+  box-shadow: 0 0 0 4px var(--shadow-primary-ring), 0 4px 16px rgba(0,0,0,0.1) !important;
+}
+
+[data-theme="dark"] .promo-banner::before {
+  background: radial-gradient(circle, var(--shadow-primary-ring) 0%, transparent 70%) !important;
+}
+
+[data-theme="dark"] .business-search-in-menu:focus-within {
+  box-shadow: 0 0 0 3px var(--shadow-primary-ring) !important;
+}
+
+[data-theme="dark"] .quantity-input:focus {
+  box-shadow: 0 0 0 3px var(--shadow-primary-ring) !important;
+}
+
+[data-theme="dark"] .form-input:focus,
+[data-theme="dark"] .form-textarea:focus {
+  box-shadow: 0 0 0 3px var(--shadow-primary-ring) !important;
+}
+
+[data-theme="dark"] .special-instructions-input:focus,
+[data-theme="dark"] .unavailable-select:focus {
+  box-shadow: 0 0 0 3px var(--shadow-primary-ring) !important;
+}
+
+[data-theme="dark"] .address-input:focus {
+  box-shadow: 0 0 0 3px var(--shadow-primary-ring) !important;
+}
+
+[data-theme="dark"] .form-group input:focus,
+[data-theme="dark"] .form-group.focused input,
+[data-theme="dark"] .rl-form-group input:focus,
+[data-theme="dark"] .rl-form-group.focused input {
+  box-shadow: 0 0 0 3px var(--shadow-primary-ring) !important;
+}
+
+[data-theme="dark"] .profile-input:focus {
+  box-shadow: 0 0 0 3px var(--shadow-primary-ring) !important;
+}
+
+
+/* ============================================================
+   6. PROMO / HOMEPAGE BUTTONS
+   ============================================================ */
+
+[data-theme="dark"] .promo-btn {
+  box-shadow: 0 4px 12px var(--shadow-primary-color) !important;
+}
+[data-theme="dark"] .promo-btn:hover {
+  box-shadow: 0 6px 20px var(--shadow-primary-hover-color) !important;
+}
+
+[data-theme="dark"] .retry-btn:hover {
+  box-shadow: 0 6px 20px var(--shadow-primary-hover-color) !important;
+}
+
+
+/* ============================================================
+   7. CUISINE CARDS & NAV BUTTONS
+   ============================================================ */
+
+[data-theme="dark"] .cuisine-card:hover {
+  box-shadow: 0 8px 24px var(--shadow-primary-color) !important;
+}
+
+[data-theme="dark"] .cuisine-nav-btn:hover:not(.disabled) {
+  box-shadow: 0 4px 12px var(--shadow-primary-color) !important;
+}
+
+[data-theme="dark"] .deal-discount {
+  box-shadow: 0 4px 12px var(--shadow-primary-color) !important;
+}
+
+
+/* ============================================================
+   8. CART / SIDEBAR ACTION BUTTONS
+   ============================================================ */
+
+[data-theme="dark"] .cart-checkout-btn {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%) !important;
+  box-shadow: var(--shadow-primary) !important;
+}
+[data-theme="dark"] .cart-checkout-btn:hover {
+  box-shadow: 0 6px 20px var(--shadow-primary-hover-color) !important;
+}
+
+[data-theme="dark"] .fav-go-btn {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%) !important;
+  box-shadow: var(--shadow-primary) !important;
+}
+[data-theme="dark"] .fav-go-btn:hover {
+  box-shadow: 0 6px 20px var(--shadow-primary-hover-color) !important;
+}
+
+[data-theme="dark"] .review-payment-btn {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%) !important;
+  box-shadow: var(--shadow-primary) !important;
+}
+[data-theme="dark"] .review-payment-btn:hover {
+  box-shadow: 0 7px 22px var(--shadow-primary-hover-color) !important;
+}
+
+[data-theme="dark"] .add-item-btn {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%) !important;
+  box-shadow: var(--shadow-primary) !important;
+}
+
+[data-theme="dark"] .add-to-cart-modal-btn {
+  background: var(--gradient-primary) !important;
+  box-shadow: 0 4px 12px var(--shadow-primary-color) !important;
+}
+[data-theme="dark"] .add-to-cart-modal-btn:hover:not(:disabled) {
+  box-shadow: 0 6px 20px var(--shadow-primary-hover-color) !important;
+}
+
+[data-theme="dark"] .quick-add-btn {
+  background: var(--primary) !important;
+  box-shadow: var(--shadow-primary) !important;
+}
+
+[data-theme="dark"] .place-order-btn {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%) !important;
+  box-shadow: var(--shadow-primary) !important;
+}
+[data-theme="dark"] .place-order-btn:hover {
+  box-shadow: 0 8px 24px var(--shadow-primary-hover-color) !important;
+}
+
+[data-theme="dark"] .vt-btn-apply:hover {
+  background: var(--primary) !important;
+  box-shadow: 0 4px 12px var(--shadow-primary-color) !important;
+}
+
+
+/* ============================================================
+   9. BUSINESS DASHBOARD BUTTONS & CARDS
+   ============================================================ */
+
+[data-theme="dark"] .business-item-edit-btn {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%) !important;
+}
+[data-theme="dark"] .business-item-edit-btn:hover {
+  box-shadow: var(--shadow-primary) !important;
+}
+
+[data-theme="dark"] .business-add-card,
+[data-theme="dark"] .business-add-item-card,
+[data-theme="dark"] .image-upload-area {
+  border-color: var(--primary) !important;
+}
+[data-theme="dark"] .business-add-card:hover,
+[data-theme="dark"] .business-add-item-card:hover {
+  border-color: var(--primary-dark) !important;
+  box-shadow: 0 6px 16px var(--shadow-primary-color) !important;
+}
+
+[data-theme="dark"] .modal-submit-btn {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%) !important;
+}
+[data-theme="dark"] .modal-submit-btn:hover:not(:disabled) {
+  box-shadow: 0 7px 20px var(--shadow-primary-hover-color) !important;
+}
+
+[data-theme="dark"] .business-back-button {
+  border-color: var(--primary) !important;
+  color: var(--primary) !important;
+}
+[data-theme="dark"] .business-back-button:hover {
+  background: var(--primary) !important;
+  color: var(--white) !important;
+  box-shadow: var(--shadow-primary) !important;
+}
+
+[data-theme="dark"] .business-address-button:hover,
+[data-theme="dark"] .business-header-btn:hover {
+  box-shadow: 0 0 0 3px var(--shadow-primary-ring) !important;
+}
+
+[data-theme="dark"] .add-card-icon,
+[data-theme="dark"] .add-item-icon,
+[data-theme="dark"] .add-card-text,
+[data-theme="dark"] .add-item-text,
+[data-theme="dark"] .upload-text {
+  color: var(--primary) !important;
+}
+
+
+/* ============================================================
+   10. ORDERS & ORDER HISTORY
+   ============================================================ */
+
+[data-theme="dark"] .orders-count-badge {
+  background: var(--primary) !important;
+}
+
+[data-theme="dark"] .order-time {
+  color: var(--primary) !important;
+  background: var(--primary-bg) !important;
+}
+
+[data-theme="dark"] .order-items-list {
+  background: var(--primary-bg) !important;
+  border-color: var(--primary-light) !important;
+}
+
+[data-theme="dark"] .item-quantity {
+  color: var(--primary) !important;
+}
+
+[data-theme="dark"] .mark-ready-btn {
+  background: var(--gradient-primary) !important;
+  box-shadow: var(--shadow-primary) !important;
+}
+
+[data-theme="dark"] .oh-toggle.active {
+  background: var(--primary) !important;
+  border-color: var(--primary) !important;
+}
+[data-theme="dark"] .oh-toggle:not(.active):hover {
+  border-color: var(--primary) !important;
+  color: var(--primary) !important;
+}
+
+[data-theme="dark"] .oh-date-tab.active {
+  background: var(--primary) !important;
+  border-color: var(--primary) !important;
+  box-shadow: var(--shadow-primary) !important;
+}
+[data-theme="dark"] .oh-date-tab:not(.active):hover {
+  border-color: var(--primary) !important;
+  color: var(--primary) !important;
+}
+
+[data-theme="dark"] .oh-top-rank,
+[data-theme="dark"] .oh-top-orders {
+  color: var(--primary) !important;
+}
+
+[data-theme="dark"] .oh-top-fill {
+  background: var(--gradient-primary) !important;
+}
+
+
+/* ============================================================
+   11. RESTAURANT DETAIL — MENU CATEGORY PILLS & SCROLL BTNS
+   ============================================================ */
+
+[data-theme="dark"] .menu-category-btn.active {
+  background: var(--primary) !important;
+  border-color: var(--primary) !important;
+  box-shadow: var(--shadow-primary) !important;
+}
+[data-theme="dark"] .menu-category-btn:hover {
+  border-color: var(--primary) !important;
+  color: var(--primary) !important;
+  background: var(--primary-bg) !important;
+}
+
+[data-theme="dark"] .category-scroll-btn:hover {
+  background: var(--primary) !important;
+  border-color: var(--primary) !important;
+  box-shadow: var(--shadow-primary) !important;
+}
+
+[data-theme="dark"] .menu-item-card:hover {
+  border-color: var(--primary) !important;
+}
+
+
+/* ============================================================
+   12. BUSINESS CATEGORY PILLS
+   ============================================================ */
+
+[data-theme="dark"] .business-category-btn.active {
+  background: var(--primary) !important;
+  border-color: var(--primary) !important;
+  box-shadow: var(--shadow-primary) !important;
+}
+[data-theme="dark"] .business-category-btn:hover {
+  border-color: var(--primary) !important;
+  color: var(--primary) !important;
+  background: var(--primary-bg) !important;
+}
+
+
+/* ============================================================
+   13. NEAR ME PAGE
+   ============================================================ */
+
+[data-theme="dark"] .nmp-stat-num,
+[data-theme="dark"] .nmp-card-dist {
+  color: var(--primary) !important;
+}
+
+[data-theme="dark"] .nmp-open-btn:hover {
+  background: var(--primary) !important;
+  border-color: var(--primary) !important;
+}
+
+[data-theme="dark"] .nmp-radius-pill.active {
+  background: var(--primary) !important;
+  border-color: var(--primary) !important;
+}
+[data-theme="dark"] .nmp-radius-pill:hover {
+  border-color: var(--primary) !important;
+  color: var(--primary) !important;
+}
+
+[data-theme="dark"] .nmp-filter-btn:hover,
+[data-theme="dark"] .nmp-filter-btn.active {
+  background: var(--primary) !important;
+  border-color: var(--primary) !important;
+}
+
+[data-theme="dark"] .nmp-card.selected {
+  background: var(--primary-bg) !important;
+  border-left-color: var(--primary) !important;
+}
+
+[data-theme="dark"] .nmp-chip--selected {
+  background: var(--primary) !important;
+}
+
+[data-theme="dark"] .nmp-back-btn:hover {
+  background: var(--primary-bg) !important;
+  border-color: var(--primary) !important;
+  color: var(--primary) !important;
+}
+
+
+/* ============================================================
+   14. NAV TABS — all pages
+   ============================================================ */
+
+[data-theme="dark"] .nav-tab.active,
+[data-theme="dark"] .business-nav-tab.active {
+  color: var(--primary) !important;
+  border-bottom-color: var(--primary) !important;
+}
+
+[data-theme="dark"] .nav-tab:hover,
+[data-theme="dark"] .business-nav-tab:hover {
+  color: var(--primary) !important;
+}
+
+[data-theme="dark"] .mode-tab.active {
+  border-bottom-color: var(--primary) !important;
+  background: var(--primary-bg) !important;
+}
+
+[data-theme="dark"] .rider-mode-btn.active,
+[data-theme="dark"] .mode-toggle-btn.active {
+  background: var(--primary) !important;
+  color: var(--white) !important;
+}
+
+
+/* ============================================================
+   15. AVATARS & PROFILE DROPDOWN
+   ============================================================ */
+
+[data-theme="dark"] .profile-avatar,
+[data-theme="dark"] .bh-profile-avatar,
+[data-theme="dark"] .customer-avatar,
+[data-theme="dark"] .oh-row-avatar {
+  box-shadow: var(--shadow-primary) !important;
+}
+
+[data-theme="dark"] .bh-profile-btn:hover {
+  box-shadow: 0 0 0 3px var(--shadow-primary-ring) !important;
+}
+
+
+/* ============================================================
+   16. ITEM MODAL — RADIO & CHECKBOX
+   ============================================================ */
+
+[data-theme="dark"] .variation-option input[type="radio"]:checked ~ .radio-custom {
+  border-color: var(--primary) !important;
+  background: var(--primary) !important;
+}
+
+[data-theme="dark"] .extra-item input[type="checkbox"]:checked ~ .checkbox-custom {
+  border-color: var(--primary) !important;
+  background: var(--primary) !important;
+}
+
+
+/* ============================================================
+   17. TOGGLE SWITCHES
+   ============================================================ */
+
+[data-theme="dark"] .toggle-switch input:checked + .toggle-slider {
+  background-color: var(--primary) !important;
+}
+
+[data-theme="dark"] .availability-switch input:checked + .availability-slider {
+  /* keep success green for availability — intentional */
+  /* if you want pink instead: background-color: var(--primary) !important; */
+}
+
+
+/* ============================================================
+   18. BADGES & PILLS
+   ============================================================ */
+
+[data-theme="dark"] .cart-badge {
+  background: var(--primary) !important;
+}
+
+[data-theme="dark"] .bh-nav-badge {
+  background: var(--primary) !important;
+}
+
+[data-theme="dark"] .required-badge {
+  background: var(--primary) !important;
+}
+
+
+/* ============================================================
+   19. PRICE / MONEY COLORS
+   ============================================================ */
+
+[data-theme="dark"] .current-price,
+[data-theme="dark"] .popular-item-price,
+[data-theme="dark"] .total-price,
+[data-theme="dark"] .total-amount-checkout,
+[data-theme="dark"] .item-qty,
+[data-theme="dark"] .vt-saving-text {
+  color: var(--primary) !important;
+}
+
+
+/* ============================================================
+   20. RIDER ONBOARDING
+   ============================================================ */
+
+[data-theme="dark"] .form-submit-btn {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%) !important;
+}
+[data-theme="dark"] .form-submit-btn:hover {
+  box-shadow: 0 4px 12px var(--shadow-primary-color) !important;
+}
+
+[data-theme="dark"] .popup-ok-btn {
+  background: var(--primary) !important;
+}
+[data-theme="dark"] .popup-ok-btn:hover {
+  background: var(--primary-dark) !important;
+  box-shadow: 0 4px 12px var(--shadow-primary-color) !important;
+}
+
+[data-theme="dark"] .upload-btn {
+  background: var(--primary) !important;
+}
+[data-theme="dark"] .upload-btn:hover {
+  background: var(--primary-dark) !important;
+}
+
+[data-theme="dark"] .upload-area {
+  border-color: var(--primary) !important;
+  background: var(--primary-bg) !important;
+}
+
+[data-theme="dark"] .upload-arrow {
+  color: var(--primary) !important;
+}
+
+
+/* ============================================================
+   21. LOGIN BUTTONS
+   ============================================================ */
+
+[data-theme="dark"] .login-btn,
+[data-theme="dark"] .rl-login-btn {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%) !important;
+  box-shadow: var(--shadow-primary) !important;
+}
+
+
+/* ============================================================
+   22. PROFILE PAGE BUTTONS
+   ============================================================ */
+
+[data-theme="dark"] .btn-primary {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%) !important;
+  box-shadow: var(--shadow-primary) !important;
+}
+[data-theme="dark"] .btn-primary:hover {
+  box-shadow: 0 6px 18px var(--shadow-primary-hover-color) !important;
+}
+
+
+/* ============================================================
+   23. SCROLLBAR THUMBS
+   ============================================================ */
+
+[data-theme="dark"] .all-carts-content::-webkit-scrollbar-thumb,
+[data-theme="dark"] .fav-content::-webkit-scrollbar-thumb,
+[data-theme="dark"] .order-summary-content::-webkit-scrollbar-thumb,
+[data-theme="dark"] .menu-items-scroll-container::-webkit-scrollbar-thumb,
+[data-theme="dark"] .modal-content-scroll::-webkit-scrollbar-thumb,
+[data-theme="dark"] .inline-form::-webkit-scrollbar-thumb,
+[data-theme="dark"] .popup-box::-webkit-scrollbar-thumb {
+  background: var(--primary) !important;
+}
+
+
+/* ============================================================
+   24. BUSINESS WELCOME CTA
+   ============================================================ */
+
+[data-theme="dark"] .bw-cta-primary {
+  color: var(--primary) !important;
+}
+
+
+/* ============================================================
+   25. MISC LINKS & RATING
+   ============================================================ */
+
+[data-theme="dark"] .rating-link {
+  color: var(--primary) !important;
+}

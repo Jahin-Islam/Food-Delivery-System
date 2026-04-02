@@ -147,9 +147,9 @@ export default function CartDebugPanel({ cartItems = [], isLoggedIn }) {
   };
 
   const ls = {
-    accessToken: localStorage.getItem('accessToken'),
-    refreshToken: localStorage.getItem('refreshToken'),
-    user: localStorage.getItem('user'),
+    accessToken: sessionStorage.getItem('accessToken'),
+    refreshToken: sessionStorage.getItem('refreshToken'),
+    user: sessionStorage.getItem('user'),
     cart: localStorage.getItem('foodpanda_cart'),
   };
 

@@ -56,20 +56,41 @@ function loadLeaflet() {
   });
 }
 
-// ─── Teardrop SVG pin ─────────────────────────────────────────────────────────
-function makePin(L, emoji, bg, size = 36) {
+// ─── Professional icon-badge pin (matches Panda Rider / Glovo style) ─────────
+// Circle badge + downward triangular stem. Uses SVG icons — no emoji blurriness.
+function makePin(L, svgIcon, bg, size = 44, borderColor = 'rgba(255,255,255,0.95)') {
+  const stem  = Math.round(size * 0.30);
+  const total = size + stem;
   return L.divIcon({
     className:   '',
-    iconAnchor:  [size / 2, size],
-    popupAnchor: [0, -size],
-    html: `<div style="width:${size}px;height:${size}px;background:${bg};
-      border-radius:50% 50% 50% 0;transform:rotate(-45deg);
-      border:2.5px solid #fff;box-shadow:0 2px 10px rgba(0,0,0,.3);
-      display:flex;align-items:center;justify-content:center;">
-      <span style="transform:rotate(45deg);font-size:${Math.round(size*.44)}px;line-height:1">${emoji}</span>
+    iconAnchor:  [size / 2, total],
+    popupAnchor: [0, -(total + 4)],
+    html: `<div style="
+        width:${size}px;height:${size}px;
+        background:${bg};
+        border-radius:50%;
+        border:3px solid ${borderColor};
+        box-shadow:0 4px 14px rgba(0,0,0,0.30),0 1px 3px rgba(0,0,0,0.18);
+        display:flex;align-items:center;justify-content:center;
+        position:relative;">
+      ${svgIcon}
+      <div style="
+          position:absolute;bottom:-${stem}px;left:50%;
+          transform:translateX(-50%);
+          width:0;height:0;
+          border-left:${Math.round(size*0.22)}px solid transparent;
+          border-right:${Math.round(size*0.22)}px solid transparent;
+          border-top:${stem}px solid ${bg};"></div>
     </div>`,
   });
 }
+
+// SVG icons used in pins — white strokes, no fill
+const SVG = {
+  rider:      `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="18.5" cy="17.5" r="3.5"/><path d="M15 6a1 1 0 0 0 0-2h-1l-5 8H4"/><path d="m6 17 3.5-7 3 5 2-4h4.5"/></svg>`,
+  restaurant: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h1"/><path d="M18 22V15"/></svg>`,
+  customer:   `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>`,
+};
 
 // ─── OSRM route ───────────────────────────────────────────────────────────────
 async function fetchRoute(from, to, signal) {
@@ -191,7 +212,7 @@ export default function RiderMap({ orders = [], isOnline = false }) {
     // Rider pin
     const rp = riderPos ?? DHAKA;
     const riderM = L.marker([rp.lat, rp.lng], {
-      icon: makePin(L, '🛵', '#d70f64', 42),
+      icon: makePin(L, SVG.rider, '#d70f64', 46),
       zIndexOffset: 2000,
     }).addTo(map).bindPopup('<b>🛵 You</b>');
     layersRef.current.push(riderM);
@@ -208,7 +229,7 @@ export default function RiderMap({ orders = [], isOnline = false }) {
       const rLng = order.restaurant?.lng;
       if (!isPickedUp && rLat && rLng) {
         const m = L.marker([rLat, rLng], {
-          icon: makePin(L, '🍴', isPrimary ? '#f97316' : '#fdba74', isPrimary ? bigSz : smSz),
+          icon: makePin(L, SVG.restaurant, isPrimary ? '#f97316' : '#fdba74', isPrimary ? bigSz : smSz),
           zIndexOffset: isPrimary ? 1000 : 500,
         }).addTo(map).bindPopup(
           `<b>🍴 ${order.restaurant.name || 'Restaurant'}</b><br/><small>${order.id}</small>`
@@ -222,7 +243,7 @@ export default function RiderMap({ orders = [], isOnline = false }) {
       const dLng = order.delivery?.lng;
       if (dLat && dLng) {
         const m = L.marker([dLat, dLng], {
-          icon: makePin(L, '🏠', isPrimary ? '#10b981' : '#6ee7b7', isPrimary ? bigSz : smSz),
+          icon: makePin(L, SVG.customer, isPrimary ? '#10b981' : '#6ee7b7', isPrimary ? bigSz : smSz),
           zIndexOffset: isPrimary ? 900 : 400,
         }).addTo(map).bindPopup(
           `<b>🏠 ${order.customer?.name || 'Customer'}</b><br/>` +

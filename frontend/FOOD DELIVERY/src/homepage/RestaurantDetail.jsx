@@ -403,8 +403,14 @@ const RestaurantDetail = ({
 
   const handleQuickAdd = (item, e) => {
     e.stopPropagation();
+    const itemId = `${item.food_id}-${displayRestaurant.id}`;
+    const existing = cartItems.find(ci => ci.id === itemId);
+    if (existing) {
+      if (onUpdateQuantity) onUpdateQuantity(itemId, existing.quantity + 1);
+      return;
+    }
     if (onAddToCart) onAddToCart({
-      id: `${item.food_id}-${displayRestaurant.id}`,
+      id: itemId,
       foodId: item.food_id,
       name: item.name,
       price: item.price,
@@ -591,8 +597,23 @@ const RestaurantDetail = ({
                               <Utensils size={32} color="var(--primary)" />
                             </div>
                           </div>
-                          <button className="add-item-btn" onClick={(e) => handleQuickAdd(item, e)}
-                            disabled={!item.is_available}>+</button>
+                          {(() => {
+                            const itemId = `${item.food_id}-${displayRestaurant.id}`;
+                            const inCart = cartItems.find(ci => ci.id === itemId);
+                            return inCart ? (
+                              <div className="add-item-btn" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 8px', fontSize: 18, fontWeight: 700, gap: 4 }}
+                                onClick={e => e.stopPropagation()}>
+                                <button style={{ background: 'none', border: 'none', color: 'white', fontSize: 22, cursor: 'pointer', lineHeight: 1 }}
+                                  onClick={(e) => { e.stopPropagation(); onUpdateQuantity && onUpdateQuantity(itemId, inCart.quantity - 1); }}>−</button>
+                                <span style={{ minWidth: 18, textAlign: 'center' }}>{inCart.quantity}</span>
+                                <button style={{ background: 'none', border: 'none', color: 'white', fontSize: 22, cursor: 'pointer', lineHeight: 1 }}
+                                  onClick={(e) => handleQuickAdd(item, e)}>+</button>
+                              </div>
+                            ) : (
+                              <button className="add-item-btn" onClick={(e) => handleQuickAdd(item, e)}
+                                disabled={!item.is_available}>+</button>
+                            );
+                          })()}
                         </div>
                       </div>
                     ))}

@@ -210,8 +210,11 @@
   border: 2px solid var(--gray-200);
   border-radius: 8px;
   font-size: 14px;
-  margin-bottom: 12px;
   font-family: inherit;
+  color: var(--gray-900);
+  background: var(--white);
+  margin-bottom: 12px;
+  transition: border-color 0.18s, background 0.18s;
 }
 
 .form-field:focus {
@@ -240,6 +243,7 @@
   background: var(--white);
   color: var(--gray-700);
   cursor: pointer;
+  transition: border-color 0.18s, background 0.18s, color 0.18s;
 }
 
 .gender-btn:hover {
@@ -274,6 +278,8 @@
   background: var(--white);
   color: var(--gray-700);
   cursor: pointer;
+  font-weight: 500;
+  transition: border-color 0.18s, background 0.18s, color 0.18s;
 }
 
 .option-btn:hover {

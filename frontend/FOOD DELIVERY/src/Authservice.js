@@ -22,19 +22,28 @@ class AuthService {
   // TOKEN MANAGEMENT
   // ============================================
 
+  // ─── Storage strategy ─────────────────────────────────────────────────────
+  // Auth tokens use sessionStorage so each browser tab is independent.
+  // This lets you test Customer / Restaurant / Rider simultaneously in
+  // three separate tabs without them overwriting each other's sessions.
+  // sessionStorage is cleared automatically when the tab is closed.
+  // Cart data (foodpanda_cart) intentionally stays in localStorage so
+  // a guest cart survives a page refresh within the same tab.
+  // ──────────────────────────────────────────────────────────────────────────
+
   setTokens(accessToken, refreshToken) {
-    localStorage.setItem('accessToken', accessToken);
-    localStorage.setItem('refreshToken', refreshToken);
+    sessionStorage.setItem('accessToken', accessToken);
+    sessionStorage.setItem('refreshToken', refreshToken);
   }
 
-  getAccessToken()  { return localStorage.getItem('accessToken');  }
-  getRefreshToken() { return localStorage.getItem('refreshToken'); }
+  getAccessToken()  { return sessionStorage.getItem('accessToken');  }
+  getRefreshToken() { return sessionStorage.getItem('refreshToken'); }
 
   clearTokens() {
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
-    localStorage.removeItem('user');
-    localStorage.removeItem('restaurantData');
+    sessionStorage.removeItem('accessToken');
+    sessionStorage.removeItem('refreshToken');
+    sessionStorage.removeItem('user');
+    sessionStorage.removeItem('restaurantData');
   }
 
   isAuthenticated() { return !!this.getAccessToken(); }
@@ -43,17 +52,17 @@ class AuthService {
   // USER DATA MANAGEMENT
   // ============================================
 
-  setUser(user)  { localStorage.setItem('user', JSON.stringify(user)); }
-  getUser()      { const s = localStorage.getItem('user'); return s ? JSON.parse(s) : null; }
-  clearUser()    { localStorage.removeItem('user'); }
+  setUser(user)  { sessionStorage.setItem('user', JSON.stringify(user)); }
+  getUser()      { const s = sessionStorage.getItem('user'); return s ? JSON.parse(s) : null; }
+  clearUser()    { sessionStorage.removeItem('user'); }
 
   // ============================================
   // RESTAURANT DATA MANAGEMENT
   // ============================================
 
-  setRestaurantData(data) { localStorage.setItem('restaurantData', JSON.stringify(data)); }
-  getRestaurantData()     { const s = localStorage.getItem('restaurantData'); return s ? JSON.parse(s) : null; }
-  clearRestaurantData()   { localStorage.removeItem('restaurantData'); }
+  setRestaurantData(data) { sessionStorage.setItem('restaurantData', JSON.stringify(data)); }
+  getRestaurantData()     { const s = sessionStorage.getItem('restaurantData'); return s ? JSON.parse(s) : null; }
+  clearRestaurantData()   { sessionStorage.removeItem('restaurantData'); }
 
   isRestaurantOwner() {
     const user = this.getUser();

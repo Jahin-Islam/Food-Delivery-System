@@ -1184,3 +1184,63 @@ input:checked + .availability-slider:before {
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.28);
   animation: modalSlideIn 0.25s cubic-bezier(0.22, 1, 0.36, 1);
 }
+/* ============================================================
+   RESTAURANT LOGO UPLOAD — banner overlay & update button
+   ============================================================ */
+
+/* Make the banner image wrapper a positioned container */
+.bd-logo-wrap {
+  position: relative;
+  cursor: pointer;
+}
+
+/* Dark overlay with camera icon — shows on hover */
+.bd-logo-upload-btn {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.48);
+  border: none;
+  border-radius: var(--radius);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: white;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: var(--font);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.18s;
+  letter-spacing: 0.1px;
+}
+
+.bd-logo-wrap:hover .bd-logo-upload-btn {
+  opacity: 1;
+}
+
+/* Persistent "Add/Update Photo" button below the info */
+.bd-update-photo-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 14px;
+  padding: 9px 18px;
+  border-radius: 999px;
+  border: 2px solid var(--c-primary-alt);
+  background: var(--c-primary-bg);
+  color: var(--c-primary-alt);
+  font-size: 13px;
+  font-weight: 700;
+  font-family: var(--font);
+  cursor: pointer;
+  transition: all 0.18s;
+}
+
+.bd-update-photo-btn:hover {
+  background: var(--c-primary-alt);
+  color: white;
+  box-shadow: var(--shadow-primary);
+  transform: translateY(-1px);
+}

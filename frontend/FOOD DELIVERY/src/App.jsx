@@ -22,6 +22,7 @@ import cartService from './Cartservice.js';
 import cartApiService from './Cartapiservice.js';
 import OrderStatus, { LS_KEY as ORDER_LS_KEY } from './homepage/OrderStatus.jsx';
 import FavouritesSidebar from './homepage/FavouritesSideBar.jsx';
+import AllCarts from './homepage/Allcarts.jsx';
 
 const SK_PAGE           = 'fp_current_page';
 const SK_ROLE           = 'fp_user_role';
@@ -51,6 +52,7 @@ function App() {
   const [riderData,            setRiderData]            = useState(null);
   const [restaurants,          setRestaurants]          = useState([]);
   const [showFavourites,       setShowFavourites]       = useState(false);
+  const [showAllCarts,         setShowAllCarts]         = useState(false);
   const [riderSignupData,      setRiderSignupData]      = useState(null);
   const [activeTab,            setActiveTab]            = useState(() => {
     try { return localStorage.getItem(SK_ACTIVE_TAB) || 'delivery'; } catch { return 'delivery'; }
@@ -228,9 +230,15 @@ function App() {
 
         const detailed = await Promise.all(data.map(async (r) => {
           try {
-            if (isLoggedIn) return await authService.authenticatedFetch(`http://127.0.0.1:8000/api/v1/restaurants/${r.id}/`);
+            // Always fetch detail via public endpoint so rating/total_rated are accurate
+            // (authenticatedFetch throws on errors, causing silent fallback to stale list data)
             const dr = await fetch(`http://127.0.0.1:8000/api/v1/restaurants/${r.id}/`);
-            return dr.ok ? await dr.json() : r;
+            if (dr.ok) {
+              const detail = await dr.json();
+              // Merge: detail wins for rating fields, list item fills in any gaps
+              return { ...r, ...detail };
+            }
+            return r;
           } catch { return r; }
         }));
 
@@ -239,13 +247,8 @@ function App() {
           const alreadyInList = detailed.some(r => r.id === ownRestaurant.id);
           if (!alreadyInList) {
             try {
-              let ownDetail;
-              if (isLoggedIn) {
-                ownDetail = await authService.authenticatedFetch(`http://127.0.0.1:8000/api/v1/restaurants/${ownRestaurant.id}/`);
-              } else {
-                const dr = await fetch(`http://127.0.0.1:8000/api/v1/restaurants/${ownRestaurant.id}/`);
-                ownDetail = dr.ok ? await dr.json() : ownRestaurant;
-              }
+              const dr = await fetch(`http://127.0.0.1:8000/api/v1/restaurants/${ownRestaurant.id}/`);
+              const ownDetail = dr.ok ? await dr.json() : ownRestaurant;
               detailed.push(ownDetail ?? ownRestaurant);
             } catch { detailed.push(ownRestaurant); }
           }
@@ -751,14 +754,30 @@ function App() {
       )}
 
       {currentPage === 'order-status' && (
-        <OrderStatus
-          {...H}
-          cartItems={cartItems}
-          onCartClick={() => {}}
-          activeTab="orders"
-          currentAddress={deliveryAddress}
-          onAddressChange={handleAddressChange}
-        />
+        <>
+          <OrderStatus
+            {...H}
+            cartItems={cartItems}
+            onCartClick={() => setShowAllCarts(true)}
+            activeTab="orders"
+            currentAddress={deliveryAddress}
+            onAddressChange={handleAddressChange}
+          />
+          <AllCarts
+            isOpen={showAllCarts}
+            onClose={() => setShowAllCarts(false)}
+            cartItems={cartItems}
+            onCheckout={(restaurantId) => {
+              setShowAllCarts(false);
+              goToCheckout(restaurantId);
+            }}
+            onNavigateToRestaurant={(restaurantId) => {
+              setShowAllCarts(false);
+              const r = restaurants.find(rest => String(rest.id) === String(restaurantId));
+              if (r) goToRestaurant(r);
+            }}
+          />
+        </>
       )}
 
       {/* Global favourites sidebar */}
