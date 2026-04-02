@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   AlertTriangle, Utensils, ChevronLeft, ChevronRight, Search,
-  X, Star, ThumbsUp, ChevronRight as Arrow,
+  X, Star, Loader2,
 } from 'lucide-react';
 import './RestaurantDetail.css';
 import { COLORS } from '../constants.js';
@@ -13,109 +13,138 @@ import ItemDetailModal from './ItemDetailModal.jsx';
 import AllCarts from './AllCarts.jsx';
 import StaticMap from './StaticMap.jsx';
 
-// ─── MOCK REVIEWS (replace with API call when ready) ─────────────────────────
-const MOCK_REVIEWS = [
-  {
-    id: 1, name: 'Arif', badge: 'Top Reviewer', rating: 4,
-    date: '3 months ago', text: 'The cake keeps getting thinner :)',
-    helpful: 3,
-    likedDishes: [
-      { name: 'Cappuccino',         price: 290, image: null },
-      { name: 'Ultimate Chocolate Cake', price: 480, image: null },
-    ],
-  },
-  {
-    id: 2, name: 'Musharrat', badge: 'Top Reviewer', rating: 5,
-    date: 'Yesterday', text: 'Yummmm',
-    helpful: 1,
-    likedDishes: [
-      { name: 'Classic Chicken Sandwich', price: 410, image: null },
-      { name: 'Banana Bread with Chocolate Chips', price: 165, image: null },
-    ],
-  },
-  {
-    id: 3, name: 'Musharrat', badge: 'Top Reviewer', rating: 4,
-    date: '4 days ago', text: 'Great atmosphere and quality drinks!',
-    helpful: 0,
-    likedDishes: [],
-  },
-  {
-    id: 4, name: 'Tanvir', badge: null, rating: 5,
-    date: '1 week ago', text: 'Best coffee in Gulshan. Will be back!',
-    helpful: 5,
-    likedDishes: [{ name: 'Caffe Latte', price: 300, image: null }],
-  },
-];
+const BASE_URL = 'http://127.0.0.1:8000';
 
-const RATING_BARS = [
-  { stars: 5, pct: 78 },
-  { stars: 4, pct: 12 },
-  { stars: 3, pct: 5  },
-  { stars: 2, pct: 3  },
-  { stars: 1, pct: 2  },
-];
+const SORT_TABS = ['Newest', 'Highest rating', 'Lowest rating'];
 
-const SORT_TABS = ['Top reviews', 'Newest', 'Highest rating', 'Lowest rating'];
+// ─── Fetch reviews for a restaurant (public endpoint, no auth needed) ─────────
+async function fetchRestaurantReviews(restaurantId, limit = 50, offset = 0) {
+  try {
+    const res = await fetch(
+      `${BASE_URL}/api/reviews/restaurant/${restaurantId}/?limit=${limit}&offset=${offset}`
+    );
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data.results) ? data.results : [];
+  } catch {
+    return [];
+  }
+}
+
+// ─── Calculate rating distribution bars from real review data ────────────────
+function calcRatingBars(reviews) {
+  const counts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+  reviews.forEach(r => {
+    const rounded = Math.round(parseFloat(r.rating));
+    if (counts[rounded] !== undefined) counts[rounded]++;
+  });
+  const total = reviews.length || 1;
+  return [5, 4, 3, 2, 1].map(stars => ({
+    stars,
+    pct: Math.round((counts[stars] / total) * 100),
+  }));
+}
 
 // ─── REVIEWS MODAL ────────────────────────────────────────────────────────────
 const ReviewsModal = ({ isOpen, onClose, restaurant }) => {
-  const [sortTab,    setSortTab]    = useState('Top reviews');
-  const [dishPage,   setDishPage]   = useState({});   // reviewId → page index
+  const [sortTab, setSortTab]   = useState('Newest');
+  const [reviews, setReviews]   = useState([]);
+  const [loading, setLoading]   = useState(false);
 
-  const sorted = [...MOCK_REVIEWS].sort((a, b) => {
-    if (sortTab === 'Newest')         return 0;
-    if (sortTab === 'Highest rating') return b.rating - a.rating;
-    if (sortTab === 'Lowest rating')  return a.rating - b.rating;
-    return b.helpful - a.helpful;   // Top reviews
+  // Fetch when modal opens
+  useEffect(() => {
+    if (!isOpen || !restaurant?.id) return;
+    setLoading(true);
+    fetchRestaurantReviews(restaurant.id).then(data => {
+      setReviews(data);
+      setLoading(false);
+    });
+  }, [isOpen, restaurant?.id]);
+
+  const sorted = [...reviews].sort((a, b) => {
+    if (sortTab === 'Highest rating') return parseFloat(b.rating) - parseFloat(a.rating);
+    if (sortTab === 'Lowest rating')  return parseFloat(a.rating) - parseFloat(b.rating);
+    // Newest: descending by review_id (higher id = more recent insert)
+    return b.review_id - a.review_id;
   });
 
-  const name  = restaurant?.name || 'Restaurant';
-  const rating = parseFloat(restaurant?.rating || 5).toFixed(1);
-  const count  = restaurant?.total_rated || '5000+';
+  const ratingBars = calcRatingBars(reviews);
+  const name       = restaurant?.name || 'Restaurant';
+  const rating     = parseFloat(restaurant?.rating || 0).toFixed(1);
+  const count      = restaurant?.total_rated || reviews.length;
 
   return (
     <AnimatePresence>
       {isOpen && (
         <motion.div
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
-          onClick={onClose}>
-
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)',
+            zIndex: 3000, display: 'flex', alignItems: 'center',
+            justifyContent: 'center', padding: 16,
+          }}
+          onClick={onClose}
+        >
           <motion.div
             initial={{ opacity: 0, y: 24, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 24, scale: 0.97 }}
             transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
             onClick={e => e.stopPropagation()}
-            style={{ background: 'var(--c-white)', borderRadius: 16, width: '100%', maxWidth: 480, maxHeight: '88vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.2)', overflow: 'hidden' }}>
-
-            {/* Header */}
-            <div style={{ padding: '18px 20px 14px', borderBottom: '1.5px solid var(--c-gray-100)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexShrink: 0 }}>
+            style={{
+              background: 'var(--c-white)', borderRadius: 16,
+              width: '100%', maxWidth: 480, maxHeight: '88vh',
+              display: 'flex', flexDirection: 'column',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.2)', overflow: 'hidden',
+            }}
+          >
+            {/* ── Modal Header ── */}
+            <div style={{
+              padding: '18px 20px 14px', borderBottom: '1.5px solid var(--c-gray-100)',
+              display: 'flex', justifyContent: 'space-between',
+              alignItems: 'flex-start', flexShrink: 0,
+            }}>
               <div>
-                <h2 style={{ fontSize: 18, fontWeight: 800, color: 'var(--c-gray-900)', margin: 0, letterSpacing: -0.3 }}>Reviews</h2>
+                <h2 style={{ fontSize: 18, fontWeight: 800, color: 'var(--c-gray-900)', margin: 0, letterSpacing: -0.3 }}>
+                  Reviews
+                </h2>
                 <p style={{ fontSize: 13, color: 'var(--c-gray-500)', margin: '2px 0 0' }}>{name}</p>
               </div>
-              <button onClick={onClose} style={{ background: 'var(--c-gray-100)', border: 'none', borderRadius: '50%', width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--c-gray-500)' }}>
+              <button
+                onClick={onClose}
+                style={{
+                  background: 'var(--c-gray-100)', border: 'none', borderRadius: '50%',
+                  width: 32, height: 32, display: 'flex', alignItems: 'center',
+                  justifyContent: 'center', cursor: 'pointer', color: 'var(--c-gray-500)',
+                }}
+              >
                 <X size={16} />
               </button>
             </div>
 
-            {/* Scrollable content */}
+            {/* ── Scrollable Content ── */}
             <div style={{ overflowY: 'auto', flex: 1 }}>
 
-              {/* Rating summary */}
+              {/* Rating Summary */}
               <div style={{ padding: '16px 20px', display: 'flex', gap: 20, alignItems: 'center' }}>
                 <div style={{ flexShrink: 0 }}>
-                  <div style={{ fontSize: 48, fontWeight: 900, color: 'var(--c-gray-900)', lineHeight: 1 }}>{rating}</div>
+                  <div style={{ fontSize: 48, fontWeight: 900, color: 'var(--c-gray-900)', lineHeight: 1 }}>
+                    {rating}
+                  </div>
                   <div style={{ display: 'flex', gap: 2, margin: '4px 0 2px' }}>
-                    {[1,2,3,4,5].map(s => (
-                      <Star key={s} size={14} fill={s <= Math.round(rating) ? '#f59e0b' : 'none'} color={s <= Math.round(rating) ? '#f59e0b' : 'var(--c-gray-300)'} />
+                    {[1, 2, 3, 4, 5].map(s => (
+                      <Star key={s} size={14}
+                        fill={s <= Math.round(parseFloat(rating)) ? '#f59e0b' : 'none'}
+                        color={s <= Math.round(parseFloat(rating)) ? '#f59e0b' : 'var(--c-gray-300)'}
+                      />
                     ))}
                   </div>
-                  <p style={{ fontSize: 11, color: 'var(--c-gray-400)', margin: 0 }}>All Ratings ({count})</p>
+                  <p style={{ fontSize: 11, color: 'var(--c-gray-400)', margin: 0 }}>
+                    All Ratings ({count})
+                  </p>
                 </div>
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  {RATING_BARS.map(({ stars, pct }) => (
+                  {ratingBars.map(({ stars, pct }) => (
                     <div key={stars} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <Star size={11} fill="#f59e0b" color="#f59e0b" />
                       <span style={{ fontSize: 11, color: 'var(--c-gray-500)', width: 10 }}>{stars}</span>
@@ -127,100 +156,100 @@ const ReviewsModal = ({ isOpen, onClose, restaurant }) => {
                 </div>
               </div>
 
-              {/* Sort tabs */}
+              {/* Sort Tabs */}
               <div style={{ display: 'flex', gap: 6, padding: '0 20px 14px', flexWrap: 'wrap' }}>
                 {SORT_TABS.map(t => (
-                  <button key={t} onClick={() => setSortTab(t)}
-                    style={{ padding: '6px 14px', borderRadius: 999, border: `1.5px solid ${sortTab === t ? 'var(--c-primary)' : 'var(--c-gray-200)'}`, background: sortTab === t ? 'var(--c-primary)' : 'var(--c-white)', color: sortTab === t ? 'white' : 'var(--c-gray-600)', fontSize: 13, fontWeight: sortTab === t ? 700 : 500, cursor: 'pointer', fontFamily: 'var(--font)', transition: 'all 0.15s' }}>
+                  <button key={t} onClick={() => setSortTab(t)} style={{
+                    padding: '6px 14px', borderRadius: 999,
+                    border: `1.5px solid ${sortTab === t ? 'var(--c-primary)' : 'var(--c-gray-200)'}`,
+                    background: sortTab === t ? 'var(--c-primary)' : 'var(--c-white)',
+                    color: sortTab === t ? 'white' : 'var(--c-gray-600)',
+                    fontSize: 13, fontWeight: sortTab === t ? 700 : 500,
+                    cursor: 'pointer', fontFamily: 'var(--font)', transition: 'all 0.15s',
+                  }}>
                     {t}
                   </button>
                 ))}
               </div>
 
-              {/* Review cards */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-                {sorted.map((review, idx) => {
-                  const page = dishPage[review.id] || 0;
-                  const DISHES_PER_PAGE = 2;
-                  const totalPages = Math.ceil(review.likedDishes.length / DISHES_PER_PAGE);
-                  const visibleDishes = review.likedDishes.slice(page * DISHES_PER_PAGE, (page + 1) * DISHES_PER_PAGE);
+              {/* Loading state */}
+              {loading && (
+                <div style={{
+                  display: 'flex', justifyContent: 'center', alignItems: 'center',
+                  padding: '40px 0', gap: 10, color: 'var(--c-gray-400)',
+                }}>
+                  <Loader2 size={22} style={{ animation: 'spin 1s linear infinite' }} />
+                  <span style={{ fontSize: 14 }}>Loading reviews…</span>
+                </div>
+              )}
 
-                  return (
-                    <div key={review.id} style={{ padding: '16px 20px', borderTop: idx === 0 ? '1.5px solid var(--c-gray-100)' : '1.5px solid var(--c-gray-100)' }}>
-                      {/* Reviewer header */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                        <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--c-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 800, fontSize: 14, flexShrink: 0 }}>
-                          {review.name[0]}
-                        </div>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--c-gray-900)' }}>{review.name}</span>
-                            {review.badge && (
-                              <span style={{ fontSize: 10, fontWeight: 700, background: 'var(--c-primary-light)', color: 'var(--c-primary)', padding: '1px 8px', borderRadius: 999 }}>{review.badge}</span>
-                            )}
+              {/* Empty state */}
+              {!loading && sorted.length === 0 && (
+                <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+                  <Star size={40} color="var(--c-gray-300)" strokeWidth={1.5} style={{ marginBottom: 10 }} />
+                  <p style={{ fontSize: 14, color: 'var(--c-gray-400)', margin: 0 }}>
+                    No reviews yet. Be the first to review!
+                  </p>
+                </div>
+              )}
+
+              {/* Review Cards */}
+              {!loading && sorted.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                  {sorted.map((review, idx) => {
+                    const ratingNum = parseFloat(review.rating);
+                    // Use review_id as a proxy for a unique customer initial
+                    const initial = String(review.customer_id ?? review.review_id ?? '?')[0].toUpperCase();
+
+                    return (
+                      <div key={review.review_id} style={{
+                        padding: '16px 20px',
+                        borderTop: '1.5px solid var(--c-gray-100)',
+                      }}>
+                        {/* Reviewer header */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                          <div style={{
+                            width: 36, height: 36, borderRadius: '50%',
+                            background: 'var(--c-primary)', display: 'flex',
+                            alignItems: 'center', justifyContent: 'center',
+                            color: 'white', fontWeight: 800, fontSize: 14, flexShrink: 0,
+                          }}>
+                            {initial}
                           </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
-                            <div style={{ display: 'flex', gap: 1 }}>
-                              {[1,2,3,4,5].map(s => (
-                                <Star key={s} size={11} fill={s <= review.rating ? '#f59e0b' : 'none'} color={s <= review.rating ? '#f59e0b' : 'var(--c-gray-300)'} />
-                              ))}
+                          <div style={{ flex: 1 }}>
+                            <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--c-gray-900)' }}>
+                              Customer #{review.customer_id ?? review.review_id}
+                            </span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                              <div style={{ display: 'flex', gap: 1 }}>
+                                {[1, 2, 3, 4, 5].map(s => (
+                                  <Star key={s} size={11}
+                                    fill={s <= Math.round(ratingNum) ? '#f59e0b' : 'none'}
+                                    color={s <= Math.round(ratingNum) ? '#f59e0b' : 'var(--c-gray-300)'}
+                                  />
+                                ))}
+                              </div>
+                              <span style={{ fontSize: 12, color: 'var(--c-gray-500)', fontWeight: 600 }}>
+                                {ratingNum.toFixed(1)}
+                              </span>
                             </div>
-                            <span style={{ fontSize: 11, color: 'var(--c-gray-400)' }}>{review.date}</span>
                           </div>
                         </div>
+
+                        {/* Comment */}
+                        {review.comment && (
+                          <p style={{
+                            fontSize: 14, color: 'var(--c-gray-700)',
+                            margin: 0, lineHeight: 1.55,
+                          }}>
+                            {review.comment}
+                          </p>
+                        )}
                       </div>
-
-                      {/* Review text */}
-                      {review.text && (
-                        <p style={{ fontSize: 14, color: 'var(--c-gray-700)', margin: '0 0 10px', lineHeight: 1.5 }}>{review.text}</p>
-                      )}
-
-                      {/* Liked dishes */}
-                      {review.likedDishes.length > 0 && (
-                        <div style={{ marginBottom: 10 }}>
-                          <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--c-gray-500)', margin: '0 0 8px' }}>Liked {review.likedDishes.length} dish{review.likedDishes.length > 1 ? 'es' : ''}</p>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            {totalPages > 1 && (
-                              <button onClick={() => setDishPage(p => ({ ...p, [review.id]: Math.max(0, page - 1) }))}
-                                disabled={page === 0}
-                                style={{ width: 28, height: 28, borderRadius: '50%', border: '1.5px solid var(--c-gray-200)', background: 'var(--c-white)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: page === 0 ? 'not-allowed' : 'pointer', opacity: page === 0 ? 0.4 : 1, flexShrink: 0 }}>
-                                <ChevronLeft size={14} />
-                              </button>
-                            )}
-                            <div style={{ display: 'flex', gap: 8, flex: 1, overflow: 'hidden' }}>
-                              {visibleDishes.map((dish, di) => (
-                                <div key={di} style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, border: '1.5px solid var(--c-gray-200)', borderRadius: 10, padding: '8px 10px', background: 'var(--c-gray-50)', minWidth: 0 }}>
-                                  <div style={{ width: 48, height: 48, borderRadius: 8, background: 'var(--c-primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                    <Utensils size={18} color="var(--c-primary)" />
-                                  </div>
-                                  <div style={{ flex: 1, minWidth: 0 }}>
-                                    <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--c-gray-900)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dish.name}</p>
-                                    <p style={{ fontSize: 12, color: 'var(--c-gray-500)', margin: '2px 0 0' }}>৳{dish.price}</p>
-                                  </div>
-                                  <button style={{ width: 26, height: 26, borderRadius: '50%', border: '1.5px solid var(--c-gray-300)', background: 'var(--c-white)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 16, color: 'var(--c-gray-700)', flexShrink: 0 }}>+</button>
-                                </div>
-                              ))}
-                            </div>
-                            {totalPages > 1 && (
-                              <button onClick={() => setDishPage(p => ({ ...p, [review.id]: Math.min(totalPages - 1, page + 1) }))}
-                                disabled={page >= totalPages - 1}
-                                style={{ width: 28, height: 28, borderRadius: '50%', border: '1.5px solid var(--c-gray-200)', background: 'var(--c-white)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: page >= totalPages - 1 ? 'not-allowed' : 'pointer', opacity: page >= totalPages - 1 ? 0.4 : 1, flexShrink: 0 }}>
-                                <Arrow size={14} />
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Helpful */}
-                      <button style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--c-gray-500)', fontSize: 13, padding: 0, fontFamily: 'var(--font)' }}>
-                        <ThumbsUp size={14} />
-                        Helpful{review.helpful > 0 ? ` ${review.helpful}` : ''}
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </motion.div>
         </motion.div>
@@ -230,7 +259,6 @@ const ReviewsModal = ({ isOpen, onClose, restaurant }) => {
 };
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
-
 const RestaurantDetail = ({
   restaurant,
   onBack,
@@ -248,7 +276,6 @@ const RestaurantDetail = ({
   onProfileClick,
   onOrdersClick,
   onNavigateToRestaurant,
-  // Task 10: navigation props for Header nav tabs
   onNearMeClick,
   onDeliveryClick,
   onPickupClick,
@@ -278,15 +305,14 @@ const RestaurantDetail = ({
         let data;
         if (isLoggedIn) {
           data = await authService.authenticatedFetch(
-            `http://127.0.0.1:8000/api/v1/restaurants/${restaurant.id}/`
+            `${BASE_URL}/api/v1/restaurants/${restaurant.id}/`
           );
         } else {
-          const response = await fetch(`http://127.0.0.1:8000/api/v1/restaurants/${restaurant.id}/`);
+          const response = await fetch(`${BASE_URL}/api/v1/restaurants/${restaurant.id}/`);
           if (!response.ok) throw new Error('Failed to fetch restaurant details');
           data = await response.json();
         }
         setRestaurantDetails(data);
-        console.log('[RestaurantDetail] fetched data.discounts:', data.discounts);
         if (data.items && data.items.length > 0) {
           setCategories(['All', ...new Set(data.items.map(item => item.category_name))]);
           setMenuItems(data.items);
@@ -309,7 +335,6 @@ const RestaurantDetail = ({
     onCartClick: () => setShowCart(!showCart),
     onLogout, onLogoClick, onProfileClick, onOrdersClick,
     showBanner: false,
-    // Task 10: pass nav props so header tabs work from restaurant page
     onNearMeClick,
     onDeliveryClick: onDeliveryClick ?? onLogoClick,
     onPickupClick,
@@ -328,7 +353,9 @@ const RestaurantDetail = ({
     <div className="restaurant-detail-container">
       <Header {...commonHeaderProps} />
       <div style={{ padding: '40px', textAlign: 'center' }}>
-        <div className="loading-spinner"><img className="load-icon" src="/images/accessories/load.gif" alt="Loading..." /></div>
+        <div className="loading-spinner">
+          <img className="load-icon" src="/images/accessories/load.gif" alt="Loading..." />
+        </div>
         <p>Loading restaurant details...</p>
       </div>
     </div>
@@ -348,8 +375,9 @@ const RestaurantDetail = ({
   const displayRestaurant = restaurantDetails || restaurant;
 
   const filteredItems = menuItems.filter(item => {
-    const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          item.description?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch =
+      item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.description?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = selectedCategory === 'All' || item.category_name === selectedCategory;
     return matchesSearch && matchesCategory;
   });
@@ -364,7 +392,12 @@ const RestaurantDetail = ({
   const restaurantCartItems = cartItems.filter(item => item.restaurantId === displayRestaurant.id);
 
   const handleItemClick = (item) => {
-    setSelectedItem({ ...item, restaurant: displayRestaurant.name, restaurantId: displayRestaurant.id, restaurantImage: displayRestaurant.image_url });
+    setSelectedItem({
+      ...item,
+      restaurant: displayRestaurant.name,
+      restaurantId: displayRestaurant.id,
+      restaurantImage: displayRestaurant.image_url,
+    });
     setShowItemModal(true);
   };
 
@@ -456,14 +489,18 @@ const RestaurantDetail = ({
             </div>
           </div>
           <div className="restaurant-rating-info">
-            <span><img className="star-icon" src="/images/accessories/star.png" alt="Rating" /> {displayRestaurant.rating} ({displayRestaurant.total_rated || 0})</span>
-            <button className="see-reviews-btn" onClick={() => setShowReviews(true)}>See reviews</button>
-            <button className="more-info-btn">More info</button>
+            <span>
+              <img className="star-icon" src="/images/accessories/star.png" alt="Rating" />
+              {displayRestaurant.rating} ({displayRestaurant.total_rated || 0})
+            </span>
+            <button className="see-reviews-btn" onClick={() => setShowReviews(true)}>
+              See reviews
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Available Deals — prefer freshly fetched data, fall back to prop while loading */}
+      {/* ── Available Deals ── */}
       {(() => {
         const deals = (restaurantDetails?.discounts ?? restaurant?.discounts ?? []).filter(
           d => d.is_active === true || d.is_active === 1 || d.is_active === '1'
@@ -490,7 +527,7 @@ const RestaurantDetail = ({
         );
       })()}
 
-      {/* Menu + Order Summary */}
+      {/* ── Menu + Order Summary ── */}
       <div className="menu-with-summary-container">
         <div className="menu-section">
           <h2 className="section-title-detail">Menu</h2>
@@ -580,7 +617,7 @@ const RestaurantDetail = ({
         />
       </div>
 
-      {/* Footer */}
+      {/* ── Footer ── */}
       <div className="restaurant-footer-info">
         <div className="footer-info-section">
           <h3>About</h3>
@@ -617,7 +654,7 @@ const RestaurantDetail = ({
         </div>
       </div>
 
-      {/* Reviews Modal */}
+      {/* ── Reviews Modal ── */}
       <ReviewsModal
         isOpen={showReviews}
         onClose={() => setShowReviews(false)}
