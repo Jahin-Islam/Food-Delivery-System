@@ -10,7 +10,7 @@
 
 /* ── Restaurant Banner ── */
 .restaurant-banner {
-  background: #0e1019;
+  background: var(--gray-100);
   padding: 28px 40px;
   margin-bottom: 18px;
   display: flex;
@@ -171,7 +171,7 @@
 .menu-section {
   flex: 1;
   min-width: 0;
-  background: #0e1019;
+  background: var(--gray-100);
   padding: 28px;
   border-radius: var(--radius);
   display: flex;
