@@ -473,7 +473,15 @@ body {
 }
 
 .filter-option:hover {
-  background-color: var(--primary-light);
+  background-color: #fce7f3;   /* pink tint — matches brand in light mode */
+  color: var(--primary);
+}
+
+/* checked label highlight */
+.filter-option:has(input:checked) {
+  background-color: #fce7f3;
+  color: var(--primary);
+  font-weight: 600;
 }
 
 .filter-option input[type="checkbox"],
@@ -507,6 +515,7 @@ body {
 .filter-search-input:focus {
   outline: none;
   border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(215, 15, 100, 0.10);  /* pink focus ring */
 }
 
 .show-more-btn {
@@ -523,7 +532,8 @@ body {
 }
 
 .show-more-btn:hover {
-  background-color: var(--primary-light);
+  background-color: #fce7f3;   /* pink tint — matches brand in light mode */
+  border-color: var(--primary);
 }
 
 /* =====================
