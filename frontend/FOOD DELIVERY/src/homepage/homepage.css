@@ -866,7 +866,7 @@ body {
   width: 140px;
   height: 110px;
   border-radius: 16px 16px 0 0;
-  background: linear-gradient(135deg, #fff5f7, #6367e9);
+  background: linear-gradient(136deg, #b8bcd1, #010204fa);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -885,7 +885,7 @@ body {
 
 .cuisine-card:hover .cuisine-icon {
   transform: scale(1.05);
-  background: linear-gradient(135deg, var(--primary-light), #fef3c7);
+  background: linear-gradient(135deg, var(--primary-light), #0b0f16);
 }
 
 .cuisine-card:hover .cuisine-image {
