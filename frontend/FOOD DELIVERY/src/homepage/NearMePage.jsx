@@ -534,10 +534,18 @@ export default function NearMePage({
         currentAddress={currentAddress}
         onAddressChange={(addr, lat, lng) => {
           onAddressChange?.(addr, lat, lng);
-          const resolvedLat = lat ?? parseFloat(localStorage.getItem('fp_delivery_lat'));
-          const resolvedLng = lng ?? parseFloat(localStorage.getItem('fp_delivery_lng'));
-          if (!isNaN(resolvedLat) && !isNaN(resolvedLng) && resolvedLat !== 0 && resolvedLng !== 0) {
-            setAddressPos({ lat: resolvedLat, lng: resolvedLng });
+          // Use coords passed directly from Header — they are already saved to
+          // localStorage by Header before this callback fires, but we prefer the
+          // direct args so the map updates in the same React render cycle.
+          if (lat && lng && !isNaN(lat) && !isNaN(lng)) {
+            setAddressPos({ lat, lng });
+          } else {
+            // Fallback: read localStorage (e.g. manual text entry without picking a suggestion)
+            const resolvedLat = parseFloat(localStorage.getItem('fp_delivery_lat'));
+            const resolvedLng = parseFloat(localStorage.getItem('fp_delivery_lng'));
+            if (!isNaN(resolvedLat) && !isNaN(resolvedLng) && resolvedLat !== 0 && resolvedLng !== 0) {
+              setAddressPos({ lat: resolvedLat, lng: resolvedLng });
+            }
           }
         }}
       />

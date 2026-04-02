@@ -95,11 +95,12 @@ const Header = ({
     setInputVal(val);
     setSuggestions([]);
     setShowPanel(false);
-    onAddressChange?.(val);
-    // Save lat/lng to localStorage so NearMePage uses the exact picked location
+    // Save lat/lng to localStorage BEFORE calling onAddressChange so NearMePage
+    // can read them synchronously if needed, and also pass them directly as args
     if (lat && lng) {
       try { localStorage.setItem('fp_delivery_lat', String(lat)); localStorage.setItem('fp_delivery_lng', String(lng)); } catch {}
     }
+    onAddressChange?.(val, lat, lng);  // pass coords directly — NearMePage uses these immediately
     await saveToBackend(val, lat, lng);
   };
 
