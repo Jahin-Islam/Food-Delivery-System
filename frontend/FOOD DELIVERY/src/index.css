@@ -157,7 +157,7 @@ body.modal-open { overflow: hidden; }
   /* Neutrals flipped dark — clean like rider dashboard */
   --white:    #131620;   /* surface */
   --gray-50:  #0b0d14;   /* page bg */
-  --gray-100: #1a1e2e;   /* elevated surface */
+  --gray-100: #0d0e15;   /* elevated surface */
   --gray-200: #222840;   /* borders */
   --gray-300: #2e3450;   /* stronger borders */
   --gray-400: #6b7280;   /* muted icons */
