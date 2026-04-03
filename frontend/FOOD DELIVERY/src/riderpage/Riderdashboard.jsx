@@ -7,6 +7,7 @@ import {
   Phone, Mail, Lock, CreditCard, FileText,
   Edit2, Sun, Moon, HelpCircle, Navigation, RefreshCw,
   Zap, TrendingUp, Star, DollarSign, Activity,
+  Flame, XCircle, WifiOff,
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import { COLORS, BRAND } from '../constants.js';
@@ -139,7 +140,6 @@ const RiderDashboard = ({ rider = {}, onLogout }) => {
   }, []);
 
   useEffect(() => { loadMyOrders(); loadStats(); }, [loadMyOrders, loadStats]);
-  // Poll every 8s — catches new orders immediately without manual refresh
   useEffect(() => { const id = setInterval(loadMyOrders, 8_000); return () => clearInterval(id); }, [loadMyOrders]);
   useEffect(() => { const id = setInterval(loadStats, 30_000); return () => clearInterval(id); }, [loadStats]);
 
@@ -159,8 +159,15 @@ const RiderDashboard = ({ rider = {}, onLogout }) => {
   const handleToggleOnline = () => {
     const next = !isOnline;
     setIsOnline(next);
-    if (next) { pushLocation(); toast.success("You're online! Ready for orders 🏍️"); loadNearbyOrders(); }
-    else toast("You're now offline", { icon: '🔴' });
+    if (next) {
+      pushLocation();
+      toast.success("You're online! Ready for orders");
+      loadNearbyOrders();
+    } else {
+      toast("You're now offline", {
+        icon: <XCircle size={16} color="#ef4444" />,
+      });
+    }
   };
 
   const handleAcceptOrder = async (orderId, backendId) => {
@@ -169,7 +176,7 @@ const RiderDashboard = ({ rider = {}, onLogout }) => {
       await loadMyOrders();
       setNearbyOrders(prev => prev.filter(o => o.id !== orderId));
       setOrderTab('ongoing');
-      toast.success('Order accepted! Head to the restaurant 🍴');
+      toast.success('Order accepted! Head to the restaurant');
     } catch (e) {
       const msg = e.message || '';
       if (msg.includes('PENDING')) toast.error("Restaurant hasn't accepted yet — try again shortly.");
@@ -183,7 +190,7 @@ const RiderDashboard = ({ rider = {}, onLogout }) => {
     try {
       await updateOrderStatusApi(backendId, 'PICKED_UP');
       setMyOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: 'picked_up', backendStatus: 'PICKED_UP' } : o));
-      toast.success('Picked up! Now deliver to the customer 🚴');
+      toast.success('Picked up! Now deliver to the customer');
     } catch (e) { toast.error(e.message || 'Failed to update status'); }
   };
 
@@ -193,7 +200,7 @@ const RiderDashboard = ({ rider = {}, onLogout }) => {
       const order = myOrders.find(o => o.id === orderId);
       setMyOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: 'completed', backendStatus: 'DELIVERED' } : o));
       setOrderTab('completed');
-      if (order) { toast.success(`✅ Delivered! ৳${order.amount} earned`); loadStats(); }
+      if (order) { toast.success(`Delivered! ৳${order.amount} earned`); loadStats(); }
     } catch (e) { toast.error(e.message || 'Failed to update status'); }
   };
 
@@ -212,7 +219,7 @@ const RiderDashboard = ({ rider = {}, onLogout }) => {
     <div className="rdb-wrap">
       <Toaster position="top-center" toastOptions={{
         style: { borderRadius: '12px', fontFamily: 'var(--rdb-font)', fontSize: '14px', fontWeight: 600 },
-        success: { iconTheme: { primary: '#ff2d78', secondary: '#fff' } },
+        success: { iconTheme: { primary: 'var(--primary)', secondary: '#fff' } },
       }} />
 
       {/* Profile dropdown */}
@@ -234,9 +241,9 @@ const RiderDashboard = ({ rider = {}, onLogout }) => {
               </div>
               <div className="rdb-dropdown-sep" />
               {[
-                { Icon: User,       label: 'Profile',     fn: () => { setActiveTab('profile'); setShowProfile(false); } },
+                { Icon: User,       label: 'Profile',      fn: () => { setActiveTab('profile'); setShowProfile(false); } },
                 { Icon: MapPin,     label: riderData.city, fn: null },
-                { Icon: HelpCircle, label: 'Help Center', fn: () => { window.open('https://www.foodpanda.com.bd/contents/help-center', '_blank'); setShowProfile(false); } },
+                { Icon: HelpCircle, label: 'Help Center',  fn: () => { window.open('https://www.youtube.com/watch?v=Aq5WXmQQooo', '_blank'); setShowProfile(false); } },
               ].map(({ Icon, label, fn }, i) => (
                 <button key={i} className="rdb-dropdown-row" onClick={fn || undefined} style={{ cursor: fn ? 'pointer' : 'default' }}>
                   <Icon size={15} /><span>{label}</span>
@@ -323,7 +330,9 @@ const RiderDashboard = ({ rider = {}, onLogout }) => {
           <Activity size={14} className={`rdb-stat-ico ${isOnline ? 'green' : ''}`} />
           <div>
             <div className="rdb-stat-lbl">Status</div>
-            <div className={`rdb-stat-val ${isOnline ? 'green' : 'muted'}`}>{isOnline ? '🟢 Online' : '🔴 Offline'}</div>
+            <div className={`rdb-stat-val ${isOnline ? 'green' : 'muted'}`}>
+              {isOnline ? 'Online' : 'Offline'}
+            </div>
           </div>
         </div>
       </div>
@@ -356,7 +365,7 @@ const StatusTab = ({ isOnline, ongoingOrders, onToggle }) => (
       <div className="rdb-toggle-left">
         <div className={`rdb-toggle-glow ${isOnline ? 'on' : ''}`}><Zap size={20} /></div>
         <div>
-          <p className="rdb-toggle-title">{isOnline ? '🟢 You are Online' : '🔴 You are Offline'}</p>
+          <p className="rdb-toggle-title">{isOnline ? 'You are Online' : 'You are Offline'}</p>
           <p className="rdb-toggle-sub">{isOnline ? 'Visible · receiving orders' : 'Toggle to start receiving orders'}</p>
         </div>
       </div>
@@ -371,7 +380,7 @@ const StatusTab = ({ isOnline, ongoingOrders, onToggle }) => (
           <div key={o.id} className={`rdb-active-chip ${o.status === 'picked_up' ? 'delivering' : 'pickup'}`}>
             <div className="rdb-chip-icon">{o.status === 'picked_up' ? <Bike size={16} /> : <Package size={16} />}</div>
             <div className="rdb-chip-info">
-              <span className="rdb-chip-status">{o.status === 'picked_up' ? '🚴 Delivering' : '📦 Pickup'}</span>
+              <span className="rdb-chip-status">{o.status === 'picked_up' ? 'Delivering' : 'Pickup'}</span>
               <span className="rdb-chip-id">{o.id} — {o.customer?.name}</span>
               <span className="rdb-chip-addr">{o.status === 'picked_up' ? o.delivery?.address : o.restaurant?.address}</span>
             </div>
@@ -469,7 +478,9 @@ const NearbyCard = ({ order, onAccept }) => {
         </div>
         <div style={{ textAlign: 'right' }}>
           <p className="rdb-nc-amount">৳{order.amount}</p>
-          <span className={`rdb-nc-timer ${urgent ? 'urgent' : ''}`}>{urgent ? '🔥' : '⏱'} {mm}:{ss}</span>
+          <span className={`rdb-nc-timer ${urgent ? 'urgent' : ''}`}>
+            {urgent ? <Flame size={11} /> : <Clock size={11} />} {mm}:{ss}
+          </span>
         </div>
       </div>
 
@@ -499,7 +510,10 @@ const NearbyCard = ({ order, onAccept }) => {
 // ─── PICKUP CARD (ongoing — restaurant has accepted) ──────────────────────────
 const PickupCard = ({ order, onPickedUp }) => (
   <motion.div className="rdb-action-card pickup" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
-    <div className="rdb-ac-row"><span className="rdb-ac-badge pickup">📦 Pickup Order</span><span className="rdb-ac-id">{order.id}</span></div>
+    <div className="rdb-ac-row">
+      <span className="rdb-ac-badge pickup"><Package size={11} /> Pickup Order</span>
+      <span className="rdb-ac-id">{order.id}</span>
+    </div>
     <p className="rdb-ac-main">{order.restaurant?.name}</p>
     {order.restaurant?.address && <p className="rdb-ac-addr"><MapPin size={11} /> {order.restaurant.address}</p>}
     <div className="rdb-ac-meta"><User size={12} /><span>{order.customer?.name}</span>{order.customer?.phone && <><Phone size={11} /><span>{order.customer.phone}</span></>}</div>
@@ -513,10 +527,13 @@ const PickupCard = ({ order, onPickedUp }) => (
 // ─── DELIVER CARD (picked_up) ─────────────────────────────────────────────────
 const DeliverCard = ({ order, onDelivered }) => (
   <motion.div className="rdb-action-card deliver" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
-    <div className="rdb-ac-row"><span className="rdb-ac-badge deliver">🚴 Delivering</span><span className="rdb-ac-id">{order.id}</span></div>
+    <div className="rdb-ac-row">
+      <span className="rdb-ac-badge deliver"><Bike size={11} /> Delivering</span>
+      <span className="rdb-ac-id">{order.id}</span>
+    </div>
     <p className="rdb-ac-main">{order.customer?.name}</p>
     {order.delivery?.address && <p className="rdb-ac-addr"><MapPin size={11} /> {order.delivery.address}</p>}
-    <div className="rdb-ac-meta"><Star size={12} style={{ color: '#f59e0b' }} /><span style={{ fontSize: 12, opacity: 0.7 }}>From {order.restaurant?.name}</span></div>
+    <div className="rdb-ac-meta"><Star size={12} style={{ color: 'var(--warning)' }} /><span style={{ fontSize: 12, opacity: 0.7 }}>From {order.restaurant?.name}</span></div>
     <motion.button className="rdb-action-btn deliver" onClick={onDelivered} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.96 }}>
       <CheckCircle size={15} /> Drop Off — Order Complete
     </motion.button>
@@ -650,7 +667,7 @@ const ProfileTab = ({ rider }) => {
                 <Upload size={20} style={{ opacity: 0.6 }} />
                 <span className="rdb-upload-label">Upload document</span>
                 <span className="rdb-upload-hint">png, pdf, jpg</span>
-                {bankDocs[doc.key] && <span style={{ color: '#10b981', fontSize: 12, fontWeight: 700 }}>✓ {bankDocs[doc.key].name}</span>}
+                {bankDocs[doc.key] && <span style={{ color: 'var(--success)', fontSize: 12, fontWeight: 700 }}><Check size={12} /> {bankDocs[doc.key].name}</span>}
                 <input type="file" accept=".png,.pdf,.jpg,.jpeg" style={{ display: 'none' }} onChange={e => setBankDocs(p => ({ ...p, [doc.key]: e.target.files[0] }))} />
               </label>
             </div>

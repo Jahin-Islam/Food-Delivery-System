@@ -62,7 +62,7 @@ const ProfileDropdown = ({
                   icon:    <HelpCircle size={18} />,
                   label:   'Help Center',
                   action:  () => {
-                    window.open('https://www.foodpanda.com.bd/contents/help-center', '_blank');
+                    window.open('https://www.youtube.com/watch?v=Aq5WXmQQooo', '_blank');
                     onClose();
                   },
                   danger:  false,
