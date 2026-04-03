@@ -56,31 +56,62 @@ function loadLeaflet() {
   });
 }
 
-// ─── Professional icon-badge pin (matches Panda Rider / Glovo style) ─────────
-// Circle badge + downward triangular stem. Uses SVG icons — no emoji blurriness.
-function makePin(L, svgIcon, bg, size = 44, borderColor = 'rgba(255,255,255,0.95)') {
+// ─── Glowing animated icon-badge pin ─────────────────────────────────────────
+// Adds a CSS pulse ring behind the badge for the primary/rider pin.
+function makePin(L, svgIcon, bg, size = 44, borderColor = 'rgba(255,255,255,0.95)', glow = false) {
   const stem  = Math.round(size * 0.30);
   const total = size + stem;
+
+  // Glow shadow colour derived from bg (just reuse bg with opacity)
+  const glowStyle = glow
+    ? `box-shadow:0 0 0 4px ${bg}33, 0 0 18px 6px ${bg}55, 0 4px 14px rgba(0,0,0,0.30);`
+    : `box-shadow:0 4px 14px rgba(0,0,0,0.30),0 1px 3px rgba(0,0,0,0.18);`;
+
+  const pulseRing = glow ? `
+    <div style="
+      position:absolute;top:50%;left:50%;
+      transform:translate(-50%,-50%);
+      width:${size + 16}px;height:${size + 16}px;
+      border-radius:50%;
+      border:2.5px solid ${bg};
+      opacity:0;
+      animation:rmapPulse 1.8s ease-out infinite;
+      pointer-events:none;
+    "></div>
+    <div style="
+      position:absolute;top:50%;left:50%;
+      transform:translate(-50%,-50%);
+      width:${size + 28}px;height:${size + 28}px;
+      border-radius:50%;
+      border:1.5px solid ${bg};
+      opacity:0;
+      animation:rmapPulse 1.8s ease-out 0.6s infinite;
+      pointer-events:none;
+    "></div>` : '';
+
   return L.divIcon({
     className:   '',
     iconAnchor:  [size / 2, total],
     popupAnchor: [0, -(total + 4)],
-    html: `<div style="
-        width:${size}px;height:${size}px;
-        background:${bg};
-        border-radius:50%;
-        border:3px solid ${borderColor};
-        box-shadow:0 4px 14px rgba(0,0,0,0.30),0 1px 3px rgba(0,0,0,0.18);
-        display:flex;align-items:center;justify-content:center;
-        position:relative;">
-      ${svgIcon}
+    html: `<div style="position:relative;width:${size}px;height:${total}px;">
+      ${pulseRing}
       <div style="
-          position:absolute;bottom:-${stem}px;left:50%;
-          transform:translateX(-50%);
-          width:0;height:0;
-          border-left:${Math.round(size*0.22)}px solid transparent;
-          border-right:${Math.round(size*0.22)}px solid transparent;
-          border-top:${stem}px solid ${bg};"></div>
+          width:${size}px;height:${size}px;
+          background:${bg};
+          border-radius:50%;
+          border:3px solid ${borderColor};
+          ${glowStyle}
+          display:flex;align-items:center;justify-content:center;
+          position:relative;">
+        ${svgIcon}
+        <div style="
+            position:absolute;bottom:-${stem}px;left:50%;
+            transform:translateX(-50%);
+            width:0;height:0;
+            border-left:${Math.round(size*0.22)}px solid transparent;
+            border-right:${Math.round(size*0.22)}px solid transparent;
+            border-top:${stem}px solid ${bg};"></div>
+      </div>
     </div>`,
   });
 }
@@ -115,11 +146,13 @@ async function fetchRoute(from, to, signal) {
 export default function RiderMap({ orders = [], isOnline = false }) {
   const { position: riderPos, loading: gpsLoading, error: gpsError, usingFallback } = useRiderLocation();
 
-  const containerRef = useRef(null);
-  const mapRef       = useRef(null);
-  const layersRef    = useRef([]);
-  const routeRef     = useRef(null);
-  const abortRef     = useRef(null);
+  const containerRef  = useRef(null);
+  const mapRef        = useRef(null);
+  const layersRef     = useRef([]);
+  const routeRef      = useRef(null);
+  const abortRef      = useRef(null);
+  const userZoomedRef = useRef(false);   // true once rider manually zooms/pans
+  const prevOrderIds  = useRef('');      // track order list changes for re-fit
 
   const [leafletReady, setLeafletReady] = useState(!!window.L);
   const [routeInfo,    setRouteInfo]    = useState(null);
@@ -180,6 +213,11 @@ export default function RiderMap({ orders = [], isOnline = false }) {
     const ro = new ResizeObserver(() => map.invalidateSize());
     ro.observe(container);
 
+    // Track manual zoom/pan — stop auto-fitting once rider interacts
+    const onUserInteract = () => { userZoomedRef.current = true; };
+    map.on('zoomstart', onUserInteract);
+    map.on('dragstart', onUserInteract);
+
     return () => {
       ro.disconnect();
       map.remove();
@@ -212,7 +250,7 @@ export default function RiderMap({ orders = [], isOnline = false }) {
     // Rider pin
     const rp = riderPos ?? DHAKA;
     const riderM = L.marker([rp.lat, rp.lng], {
-      icon: makePin(L, SVG.rider, '#d70f64', 46),
+      icon: makePin(L, SVG.rider, '#d70f64', 46, 'rgba(255,255,255,0.95)', true),
       zIndexOffset: 2000,
     }).addTo(map).bindPopup('<b>🛵 You</b>');
     layersRef.current.push(riderM);
@@ -229,7 +267,7 @@ export default function RiderMap({ orders = [], isOnline = false }) {
       const rLng = order.restaurant?.lng;
       if (!isPickedUp && rLat && rLng) {
         const m = L.marker([rLat, rLng], {
-          icon: makePin(L, SVG.restaurant, isPrimary ? '#f97316' : '#fdba74', isPrimary ? bigSz : smSz),
+          icon: makePin(L, SVG.restaurant, isPrimary ? '#f97316' : '#fdba74', isPrimary ? bigSz : smSz, 'rgba(255,255,255,0.95)', isPrimary),
           zIndexOffset: isPrimary ? 1000 : 500,
         }).addTo(map).bindPopup(
           `<b>🍴 ${order.restaurant.name || 'Restaurant'}</b><br/><small>${order.id}</small>`
@@ -243,7 +281,7 @@ export default function RiderMap({ orders = [], isOnline = false }) {
       const dLng = order.delivery?.lng;
       if (dLat && dLng) {
         const m = L.marker([dLat, dLng], {
-          icon: makePin(L, SVG.customer, isPrimary ? '#10b981' : '#6ee7b7', isPrimary ? bigSz : smSz),
+          icon: makePin(L, SVG.customer, isPrimary ? '#10b981' : '#6ee7b7', isPrimary ? bigSz : smSz, 'rgba(255,255,255,0.95)', isPrimary),
           zIndexOffset: isPrimary ? 900 : 400,
         }).addTo(map).bindPopup(
           `<b>🏠 ${order.customer?.name || 'Customer'}</b><br/>` +
@@ -254,11 +292,17 @@ export default function RiderMap({ orders = [], isOnline = false }) {
       }
     });
 
-    // Fit all pins in view
-    if (bounds.length > 1) {
+    // Fit all pins in view — but ONLY when the order list actually changes,
+    // not on every GPS position tick. Once the rider manually zooms/pans,
+    // never auto-fit again so their zoom level is preserved.
+    const orderKey = allActive.map(o => o.id).join(',');
+    const orderListChanged = orderKey !== prevOrderIds.current;
+    if (orderListChanged) prevOrderIds.current = orderKey;
+
+    if (!userZoomedRef.current && orderListChanged && bounds.length > 1) {
       try { map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 }); }
       catch (_) {}
-    } else {
+    } else if (!userZoomedRef.current && bounds.length <= 1) {
       map.setView([rp.lat, rp.lng], 14);
     }
 
@@ -281,20 +325,45 @@ export default function RiderMap({ orders = [], isOnline = false }) {
       if (ctrl.signal.aborted || !mapRef.current) return;
 
       if (routeRef.current) {
-        try { mapRef.current.removeLayer(routeRef.current); } catch (_) {}
+        try {
+          routeRef.current.forEach(l => mapRef.current.removeLayer(l));
+        } catch (_) {}
       }
       if (!info) return;
 
-      const line = L.polyline(info.coords, {
-        color:     isPickedUp ? '#10b981' : '#d70f64',
-        weight:    5,
-        opacity:   0.85,
-        dashArray: isPickedUp ? null : '12,7',
-        lineJoin:  'round',
+      const color = isPickedUp ? '#10b981' : '#d70f64';
+
+      // Layer 1: thick blurred glow base
+      const glowLine = L.polyline(info.coords, {
+        color,
+        weight:  12,
+        opacity: 0.18,
+        lineJoin: 'round',
+        lineCap:  'round',
       }).addTo(mapRef.current);
 
-      routeRef.current = line;
-      layersRef.current.push(line);
+      // Layer 2: medium soft halo
+      const haloLine = L.polyline(info.coords, {
+        color,
+        weight:  7,
+        opacity: 0.35,
+        lineJoin: 'round',
+        lineCap:  'round',
+      }).addTo(mapRef.current);
+
+      // Layer 3: crisp animated dashed line on top
+      const dashLine = L.polyline(info.coords, {
+        color,
+        weight:    4,
+        opacity:   0.95,
+        dashArray: '14,9',
+        lineJoin:  'round',
+        lineCap:   'round',
+        className: isPickedUp ? 'rmap-route-anim-green' : 'rmap-route-anim-pink',
+      }).addTo(mapRef.current);
+
+      routeRef.current = [glowLine, haloLine, dashLine];
+      layersRef.current.push(glowLine, haloLine, dashLine);
       setRouteInfo({ distKm: info.distKm, durMin: info.durMin });
     });
 

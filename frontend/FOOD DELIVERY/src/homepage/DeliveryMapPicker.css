@@ -4,42 +4,173 @@
 
 .dmp-wrapper {
   border-radius: var(--radius);
-  overflow: hidden;
+  overflow: visible;          /* allow suggestions dropdown to overflow */
   border: 1.5px solid var(--c-gray-200);
   box-shadow: var(--shadow-sm);
   display: flex;
   flex-direction: column;
+  position: relative;
 }
 
-.dmp-hint {
+/* Clip everything except the suggestions dropdown */
+.dmp-wrapper > *:not(.dmp-search-bar) {
+  overflow: hidden;
+}
+
+/* ── Search Bar ─────────────────────────────────────────────── */
+.dmp-search-bar {
+  position: relative;
+  padding: 10px 10px 0;
+  background: var(--c-white);
+  border-bottom: 1px solid var(--c-gray-200);
+  padding-bottom: 10px;
+  border-radius: var(--radius) var(--radius) 0 0;
+  z-index: 1100;              /* above Leaflet (z-index ~400) */
+}
+
+.dmp-search-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+
+.dmp-search-icon {
+  position: absolute;
+  left: 11px;
+  color: var(--c-gray-400);
+  pointer-events: none;
+  flex-shrink: 0;
+}
+
+.dmp-search-input {
+  flex: 1;
+  padding: 10px 68px 10px 34px;
+  border: 2px solid var(--c-gray-200);
+  border-radius: 10px;
+  font-size: 13px;
+  font-family: var(--font);
+  background: var(--c-gray-50);
+  color: var(--c-gray-900);
+  outline: none;
+  transition: border-color 0.18s, box-shadow 0.18s, background 0.18s;
+  width: 100%;
+}
+.dmp-search-input::placeholder { color: var(--c-gray-400); }
+.dmp-search-input:focus {
+  border-color: var(--c-primary);
+  background: var(--c-white);
+  box-shadow: 0 0 0 3px rgba(215, 15, 100, 0.08);
+}
+
+.dmp-search-clear {
+  position: absolute;
+  right: 40px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--c-gray-400);
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  border-radius: 50%;
+  transition: color 0.15s, background 0.15s;
+}
+.dmp-search-clear:hover {
+  color: var(--c-gray-700);
+  background: var(--c-gray-100);
+}
+
+.dmp-search-btn {
+  position: absolute;
+  right: 6px;
+  background: var(--c-primary);
+  border: none;
+  border-radius: 7px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.15s;
+}
+.dmp-search-btn:hover {
+  background: var(--c-primary-dark, #b50d55);
+  transform: scale(1.06);
+}
+
+/* ── Suggestions Dropdown ───────────────────────────────────── */
+.dmp-suggestions {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 10px;
+  right: 10px;
+  background: var(--c-white);
+  border: 1.5px solid var(--c-gray-200);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  z-index: 1200;              /* above map absolutely */
+}
+
+.dmp-suggest-loading {
   padding: 10px 14px;
   font-size: 13px;
+  color: var(--c-gray-400);
+  font-style: italic;
+}
+
+.dmp-suggest-item {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 10px 14px;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--c-gray-100);
+  cursor: pointer;
+  text-align: left;
+  font-size: 13px;
+  color: var(--c-gray-700);
+  font-family: var(--font);
+  line-height: 1.4;
+  transition: background 0.12s;
+}
+.dmp-suggest-item:last-child { border-bottom: none; }
+.dmp-suggest-item:hover { background: var(--c-primary-bg, #fff0f6); }
+
+.dmp-suggest-icon {
+  color: var(--c-primary);
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* ── Hint strip ─────────────────────────────────────────────── */
+.dmp-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  font-size: 12px;
   color: var(--c-gray-600);
-  background: var(--c-primary-bg);
+  background: var(--c-primary-bg, #fff0f6);
   border-bottom: 1px solid var(--c-gray-200);
 }
 
+/* ── Map canvas ─────────────────────────────────────────────── */
 .dmp-map {
   width: 100%;
-  height: 260px;
+  height: 240px;
 }
 
-/* Draggable pin emoji */
-.dmp-pin {
-  font-size: 32px;
-  line-height: 1;
-  filter: drop-shadow(0 2px 6px rgba(0,0,0,0.3));
-  cursor: grab;
-  user-select: none;
-}
-.dmp-pin:active { cursor: grabbing; }
-
-/* Bottom bar */
+/* ── Bottom bar ─────────────────────────────────────────────── */
 .dmp-bottom {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 14px;
+  padding: 10px 12px;
   background: var(--c-white);
   border-top: 1px solid var(--c-gray-100);
   min-height: 48px;
@@ -47,15 +178,19 @@
 
 .dmp-gps-btn {
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   padding: 7px 14px;
   border-radius: 999px;
   border: 2px solid var(--c-primary);
-  background: var(--c-primary-light);
+  background: var(--c-primary-light, #fff0f6);
   color: var(--c-primary);
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: var(--font);
   cursor: pointer;
-  transition: background var(--t), transform var(--t);
+  transition: background 0.15s, color 0.15s, transform 0.15s;
   white-space: nowrap;
 }
 .dmp-gps-btn:hover:not(:disabled) {
@@ -67,7 +202,7 @@
 
 .dmp-address {
   flex: 1;
-  font-size: 13px;
+  font-size: 12px;
   color: var(--c-gray-700);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -76,6 +211,7 @@
 .dmp-addr-loading { color: var(--c-gray-400); font-style: italic; }
 .dmp-addr-text    { font-weight: 500; }
 
+/* ── Error state ────────────────────────────────────────────── */
 .dmp-error {
   padding: 24px;
   text-align: center;
