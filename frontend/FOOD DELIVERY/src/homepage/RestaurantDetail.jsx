@@ -281,6 +281,7 @@ const RestaurantDetail = ({
   onPickupClick,
   currentAddress,
   onAddressChange,
+  onRefreshRestaurant,
 }) => {
   const [searchQuery,       setSearchQuery]       = useState('');
   const [selectedCategory,  setSelectedCategory]  = useState('All');
@@ -328,6 +329,16 @@ const RestaurantDetail = ({
     };
     fetchRestaurantDetails();
   }, [restaurant, isLoggedIn]);
+
+  // When leaving this page, refresh the restaurant's rating in the homepage list
+  // so the card immediately shows the correct stars instead of "New".
+  useEffect(() => {
+    return () => {
+      if (restaurant?.id && onRefreshRestaurant) {
+        onRefreshRestaurant(restaurant.id);
+      }
+    };
+  }, [restaurant?.id, onRefreshRestaurant]);
 
   const commonHeaderProps = {
     isLoggedIn, user, cartItems,
@@ -488,17 +499,31 @@ const RestaurantDetail = ({
         <div className="restaurant-info-banner">
           <h1 className="restaurant-name">{displayRestaurant.name}</h1>
           <p className="restaurant-subtitle">{displayRestaurant.description || 'Restaurant'}</p>
-          <div className="restaurant-meta">
-            <div className="meta-item">
-              <img className="delivery-icon" src="/images/accessories/cyclist.png" alt="Delivery" />
-              <span className="delivery-info">Delivery: {displayRestaurant.delivery_time || '20-30 min'}</span>
-            </div>
-          </div>
           <div className="restaurant-rating-info">
-            <span>
-              <img className="star-icon" src="/images/accessories/star.png" alt="Rating" />
-              {displayRestaurant.rating} ({displayRestaurant.total_rated || 0})
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+              {parseFloat(displayRestaurant.total_rated) > 0 ? (
+                <>
+                  {[1, 2, 3, 4, 5].map(s => {
+                    const filled = s <= Math.round(parseFloat(displayRestaurant.rating || 0));
+                    return (
+                      <Star key={s} size={15}
+                        fill={filled ? '#f59e0b' : 'none'}
+                        color={filled ? '#f59e0b' : '#d1d5db'}
+                        style={{ marginRight: 1, filter: filled ? 'drop-shadow(0 0 3px #f59e0b88)' : 'none' }}
+                      />
+                    );
+                  })}
+                  <span style={{ marginLeft: 5, fontWeight: 700, fontSize: 14, color: 'var(--c-gray-800)' }}>
+                    {parseFloat(displayRestaurant.rating || 0).toFixed(1)}
+                  </span>
+                  <span style={{ fontSize: 13, color: 'var(--c-gray-500)', marginLeft: 3 }}>
+                    ({displayRestaurant.total_rated})
+                  </span>
+                </>
+              ) : (
+                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-primary)', background: 'var(--c-primary-bg)', padding: '2px 10px', borderRadius: 999 }}>✨ New</span>
+              )}
+            </div>
             <button className="see-reviews-btn" onClick={() => setShowReviews(true)}>
               See reviews
             </button>

@@ -23,32 +23,109 @@ const OSRM_BASE = 'https://router.project-osrm.org/route/v1/driving';
 
 // ─── Custom SVG icons ─────────────────────────────────────────────────────────
 
-const makeIcon = (color, emoji, size = 36) => {
+// SVG icon bodies — white strokes, no fill, matching RiderMap
+const SVG_ICONS = {
+  restaurant: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h1"/><path d="M18 22V15"/></svg>`,
+  customer:   `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>`,
+  nearme:     `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h1"/><path d="M18 22V15"/></svg>`,
+};
+
+// Branded circle-badge pin with triangular stem — matches RiderMap's makePin exactly.
+// glow=true adds double pulse rings (used for primary/active pins).
+const makePin = (color, iconKey = 'restaurant', size = 38, glow = false) => {
   if (!L) return null;
-  const svg = `
-    <svg width="${size}" height="${size + 8}" viewBox="0 0 ${size} ${size + 8}" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="${size / 2}" cy="${size / 2}" r="${size / 2 - 2}" fill="${color}" stroke="white" stroke-width="3"/>
-      <text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle" font-size="${size * 0.42}px">${emoji}</text>
-      <polygon points="${size / 2 - 5},${size - 1} ${size / 2 + 5},${size - 1} ${size / 2},${size + 7}" fill="${color}"/>
-    </svg>`;
+  const stem  = Math.round(size * 0.30);
+  const total = size + stem;
+  const svgIcon = SVG_ICONS[iconKey] || SVG_ICONS.restaurant;
+
+  const glowStyle = glow
+    ? `box-shadow:0 0 0 4px ${color}33,0 0 18px 6px ${color}55,0 4px 14px rgba(0,0,0,0.28);`
+    : `box-shadow:0 4px 14px rgba(0,0,0,0.28),0 1px 3px rgba(0,0,0,0.16);`;
+
+  const pulseRings = glow ? `
+    <div style="
+      position:absolute;top:${size/2}px;left:${size/2}px;
+      transform:translate(-50%,-50%);
+      width:${size+16}px;height:${size+16}px;
+      border-radius:50%;border:2.5px solid ${color};opacity:0;
+      animation:mcPulse 1.8s ease-out infinite;pointer-events:none;"></div>
+    <div style="
+      position:absolute;top:${size/2}px;left:${size/2}px;
+      transform:translate(-50%,-50%);
+      width:${size+28}px;height:${size+28}px;
+      border-radius:50%;border:1.5px solid ${color};opacity:0;
+      animation:mcPulse 1.8s ease-out 0.6s infinite;pointer-events:none;"></div>` : '';
+
   return L.divIcon({
-    html: svg,
-    className: '',
-    iconSize:   [size, size + 8],
-    iconAnchor: [size / 2, size + 8],
-    popupAnchor:[0, -(size + 8)],
+    className:   '',
+    iconAnchor:  [size / 2, total],
+    popupAnchor: [0, -(total + 4)],
+    html: `<div style="position:relative;width:${size}px;height:${total}px;">
+      ${pulseRings}
+      <div style="
+          width:${size}px;height:${size}px;
+          background:${color};
+          border-radius:50%;
+          border:3px solid rgba(255,255,255,0.95);
+          ${glowStyle}
+          display:flex;align-items:center;justify-content:center;
+          position:absolute;top:0;left:0;">
+        ${svgIcon}
+        <div style="
+            position:absolute;bottom:-${stem}px;left:50%;
+            transform:translateX(-50%);
+            width:0;height:0;
+            border-left:${Math.round(size*0.22)}px solid transparent;
+            border-right:${Math.round(size*0.22)}px solid transparent;
+            border-top:${stem}px solid ${color};"></div>
+      </div>
+    </div>`,
   });
 };
 
-const makePulseIcon = (color) => {
+// Rider dot — upgraded to branded pink pin with pulse glow
+const makeRiderPin = (size = 44) => {
   if (!L) return null;
+  const riderSvg = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="18.5" cy="17.5" r="3.5"/><path d="M15 6a1 1 0 0 0 0-2h-1l-5 8H4"/><path d="m6 17 3.5-7 3 5 2-4h4.5"/></svg>`;
+  const stem  = Math.round(size * 0.30);
+  const total = size + stem;
+  const color = '#d70f64';
+
   return L.divIcon({
-    html: `<div class="map-pulse-outer" style="--pulse-color:${color}">
-             <div class="map-pulse-inner" style="background:${color}"></div>
-           </div>`,
-    className: '',
-    iconSize:   [24, 24],
-    iconAnchor: [12, 12],
+    className:   '',
+    iconAnchor:  [size / 2, total],
+    popupAnchor: [0, -(total + 4)],
+    html: `<div style="position:relative;width:${size}px;height:${total}px;">
+      <div style="
+        position:absolute;top:${size/2}px;left:${size/2}px;
+        transform:translate(-50%,-50%);
+        width:${size+16}px;height:${size+16}px;
+        border-radius:50%;border:2.5px solid ${color};opacity:0;
+        animation:mcPulse 1.8s ease-out infinite;pointer-events:none;"></div>
+      <div style="
+        position:absolute;top:${size/2}px;left:${size/2}px;
+        transform:translate(-50%,-50%);
+        width:${size+28}px;height:${size+28}px;
+        border-radius:50%;border:1.5px solid ${color};opacity:0;
+        animation:mcPulse 1.8s ease-out 0.6s infinite;pointer-events:none;"></div>
+      <div style="
+          width:${size}px;height:${size}px;
+          background:${color};
+          border-radius:50%;
+          border:3px solid rgba(255,255,255,0.95);
+          box-shadow:0 0 0 4px ${color}33,0 0 18px 6px ${color}55,0 4px 14px rgba(0,0,0,0.28);
+          display:flex;align-items:center;justify-content:center;
+          position:absolute;top:0;left:0;">
+        ${riderSvg}
+        <div style="
+            position:absolute;bottom:-${stem}px;left:50%;
+            transform:translateX(-50%);
+            width:0;height:0;
+            border-left:${Math.round(size*0.22)}px solid transparent;
+            border-right:${Math.round(size*0.22)}px solid transparent;
+            border-top:${stem}px solid ${color};"></div>
+      </div>
+    </div>`,
   });
 };
 
@@ -132,6 +209,14 @@ export default function MapComponent({
           shadowUrl:     'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
         });
 
+        // Inject branded pin pulse keyframe once
+        if (!document.getElementById('mc-pulse-style')) {
+          const s = document.createElement('style');
+          s.id = 'mc-pulse-style';
+          s.textContent = `@keyframes mcPulse{0%{opacity:.7;transform:translate(-50%,-50%) scale(.85)}100%{opacity:0;transform:translate(-50%,-50%) scale(1.65)}}`;
+          document.head.appendChild(s);
+        }
+
         setMapReady(true);
       } catch (e) {
         console.error('Leaflet load error:', e);
@@ -193,37 +278,39 @@ export default function MapComponent({
     const map = mapRef.current;
     const M   = markersRef.current;
 
-    // ── Rider dot (pulsing blue) ──
+    // ── Rider dot (branded pink pin with pulse) ──
     if (riderPos) {
       if (M.rider) {
         M.rider.setLatLng([riderPos.lat, riderPos.lng]);
       } else {
         M.rider = L.marker([riderPos.lat, riderPos.lng], {
-          icon:      makePulseIcon('#4f46e5'),
-          zIndexOffset: 1000,
-        }).addTo(map).bindPopup('<b>📍 You (Rider)</b>');
+          icon:      makeRiderPin(44),
+          zIndexOffset: 2000,
+        }).addTo(map).bindPopup('<b>🛵 You (Rider)</b>');
       }
     }
 
-    // ── Restaurant pin ──
+    // ── Restaurant pin (orange, glowing) ──
     if (restaurantPos) {
       if (M.restaurant) {
         M.restaurant.setLatLng([restaurantPos.lat, restaurantPos.lng]);
       } else {
         M.restaurant = L.marker([restaurantPos.lat, restaurantPos.lng], {
-          icon: makeIcon('#f97316', '🍽️'),
-        }).addTo(map).bindPopup('<b>🍽️ Restaurant (Pickup)</b>');
+          icon: makePin('#f97316', 'restaurant', 38, true),
+          zIndexOffset: 1000,
+        }).addTo(map).bindPopup('<b>🍴 Restaurant (Pickup)</b>');
       }
     }
 
-    // ── Customer pin ──
+    // ── Customer / delivery pin (green, glowing) ──
     if (customerPos) {
       if (M.customer) {
         M.customer.setLatLng([customerPos.lat, customerPos.lng]);
       } else {
         M.customer = L.marker([customerPos.lat, customerPos.lng], {
-          icon: makeIcon('#10b981', '🏠'),
-        }).addTo(map).bindPopup('<b>🏠 Customer (Drop-off)</b>');
+          icon: makePin('#10b981', 'customer', 38, true),
+          zIndexOffset: 900,
+        }).addTo(map).bindPopup('<b>📍 Customer (Drop-off)</b>');
       }
     }
 
@@ -236,7 +323,7 @@ export default function MapComponent({
       restaurants.forEach(r => {
         if (!r.lat || !r.lng) return;
         M[`r_${r.id}`] = L.marker([r.lat, r.lng], {
-          icon: makeIcon('#4f46e5', '🍴', 32),
+          icon: makePin('#f97316', 'nearme', 32, false),
         }).addTo(map).bindPopup(
           `<div style="min-width:130px">
             <b>${r.name}</b><br>

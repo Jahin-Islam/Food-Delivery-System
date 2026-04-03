@@ -56,13 +56,13 @@ const BusinessWelcome = ({
         <div className="bw-logo">
           <span className="bw-logo-icon">
             <img
-              src="/images/accessories/panda.png"
-              alt="panda"
+              src="/images/logo/khetechailogo.png"
+              alt="Khete Chai"
               onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.parentNode.textContent = '🐼'; }}
             />
           </span>
-          <span className="bw-logo-main">panda</span>
-          <span className="bw-logo-sub"> partner</span>
+          <span className="bw-logo-main">Khete</span>
+          <span className="bw-logo-sub"> Chai</span>
         </div>
 
         <div className="bw-header-right">
@@ -100,7 +100,7 @@ const BusinessWelcome = ({
         >
           <div className="bw-welcome-badge">
             <Star size={13} fill="rgba(255,255,255,0.9)" color="rgba(255,255,255,0.9)" />
-            Welcome to Panda Partner
+            Welcome to Khete Chai Partner!
           </div>
           <h1>Welcome back, {firstName}!</h1>
           <p>
@@ -181,7 +181,7 @@ const BusinessWelcome = ({
       </div>
 
       <div className="bw-footer">
-        &copy; {new Date().getFullYear()} foodpanda · All rights reserved
+        &copy; {new Date().getFullYear()} Khete Chai · All rights reserved
       </div>
     </div>
   );

@@ -1,15 +1,20 @@
 import { useState } from 'react';
-import { Truck, Tag, Percent } from 'lucide-react';
+import { Percent } from 'lucide-react';
 
-const OFFERS = [
-  { key: 'freeDelivery',     label: 'Free delivery',    Icon: Truck   },
-  { key: 'acceptsVouchers',  label: 'Accepts vouchers', Icon: Tag     },
-  { key: 'deals',            label: 'Deals',            Icon: Percent },
-];
-
+/**
+ * OfferOption
+ *
+ * Shows only the special offer toggles (Deals, etc.).
+ * Category filtering has been moved entirely to CuisineFilter
+ * which builds its list dynamically from real restaurant data.
+ *
+ * Props:
+ *  - selectedOffers  {object}   e.g. { deals: false }
+ *  - onOfferChange   {function} called with the updated selectedOffers object
+ */
 export default function OfferOption({ selectedOffers = {}, onOfferChange }) {
-  // Local state fallback when no props passed (standalone use)
-  const [localSelected, setLocalSelected] = useState({ freeDelivery: false, acceptsVouchers: false, deals: false });
+  // Local state fallback when used standalone without props
+  const [localSelected, setLocalSelected] = useState({ deals: false });
 
   const isControlled = typeof onOfferChange === 'function';
   const active = isControlled ? selectedOffers : localSelected;
@@ -21,6 +26,10 @@ export default function OfferOption({ selectedOffers = {}, onOfferChange }) {
       setLocalSelected(prev => ({ ...prev, [key]: !prev[key] }));
     }
   };
+
+  const OFFERS = [
+    { key: 'deals', label: 'Deals', Icon: Percent },
+  ];
 
   return (
     <div className="filter-section">
@@ -39,8 +48,19 @@ export default function OfferOption({ selectedOffers = {}, onOfferChange }) {
             onClick={e => e.stopPropagation()}
             style={{ accentColor: 'var(--c-primary)', cursor: 'pointer' }}
           />
-          <Icon size={13} style={{ color: active[key] ? 'var(--c-primary)' : 'var(--c-gray-400)', flexShrink: 0, transition: 'color 0.18s' }} />
-          <span style={{ fontWeight: active[key] ? 600 : 400, color: active[key] ? 'var(--c-primary)' : 'inherit', transition: 'color 0.18s, font-weight 0.18s' }}>
+          <Icon
+            size={13}
+            style={{
+              color: active[key] ? 'var(--c-primary)' : 'var(--c-gray-400)',
+              flexShrink: 0,
+              transition: 'color 0.18s',
+            }}
+          />
+          <span style={{
+            fontWeight: active[key] ? 600 : 400,
+            color: active[key] ? 'var(--c-primary)' : 'inherit',
+            transition: 'color 0.18s, font-weight 0.18s',
+          }}>
             {label}
           </span>
         </label>

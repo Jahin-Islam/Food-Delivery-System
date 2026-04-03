@@ -876,7 +876,7 @@ body {
   width: 140px;
   height: 110px;
   border-radius: 16px 16px 0 0;
-  background: linear-gradient(136deg, #b8bcd1, #010204fa);
+  background: var(--cuisine-card-bg);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -895,7 +895,7 @@ body {
 
 .cuisine-card:hover .cuisine-icon {
   transform: scale(1.05);
-  background: linear-gradient(135deg, var(--primary-light), #0b0f16);
+  background: var(--cuisine-card-bg-hover);
 }
 
 .cuisine-card:hover .cuisine-image {
@@ -1463,3 +1463,52 @@ body {
   align-items: center;
   justify-content: center;
 }.section-title-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 4px; }
+
+/* =====================
+   RESET FILTERS BUTTON
+===================== */
+.reset-filters-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: var(--white);
+  border: 1.5px solid var(--primary);
+  border-radius: var(--radius-full);
+  color: var(--primary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  animation: fadeInScale 0.2s ease;
+}
+
+.reset-filters-btn:hover {
+  background: var(--primary);
+  color: var(--white);
+  box-shadow: var(--shadow-primary);
+  transform: translateY(-1px);
+}
+
+.reset-filters-btn:active {
+  transform: translateY(0);
+}
+
+@keyframes fadeInScale {
+  from { opacity: 0; transform: scale(0.92); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* Active filter indicator dot on sidebar Filters title */
+.filters-active-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  background: var(--primary);
+  border-radius: 50%;
+  margin-left: 6px;
+  vertical-align: middle;
+  animation: pulse 1.8s ease-in-out infinite;
+}

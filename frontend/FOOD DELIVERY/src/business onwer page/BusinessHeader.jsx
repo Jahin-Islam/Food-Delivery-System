@@ -30,7 +30,7 @@ const BusinessProfileDropdown = ({
     {
       Icon: HelpCircle,
       label: 'Help Center',
-      action: () => { window.open('https://www.foodpanda.com.bd/contents/help-center', '_blank'); onClose(); },
+      action: () => { window.open('https://www.youtube.com/watch?v=Aq5WXmQQooo', '_blank'); onClose(); },
     },
   ];
 
@@ -160,7 +160,12 @@ const BusinessHeader = ({
           <div className="business-header-left">
             <div className="business-logo-section">
               <div className="bh-logo-icon">
-                <Utensils size={17} color={COLORS.primary} strokeWidth={2.5} />
+                <img
+                  src="/images/logo/khetechailogo.png"
+                  alt="Khete Chai"
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 10, display: 'block' }}
+                  onError={e => { e.currentTarget.style.display = 'none'; }}
+                />
               </div>
               <div className="business-logo-text">
                 <span className="logo-main">{BRAND.name}</span>

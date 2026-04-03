@@ -154,9 +154,14 @@ const Header = ({
           <div className="header-left">
             <div className="logo-section" onClick={onLogoClick} style={{ cursor: onLogoClick ? 'pointer' : 'default' }}>
               <button className="logo-icon" aria-label="home" onClick={onLogoClick}>
-                <Utensils size={20} strokeWidth={2.5} color="white" />
+                <img
+                  src="/images/logo/khetechailogo.png"
+                  alt="Khete Chai"
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 11, display: 'block' }}
+                  onError={e => { e.currentTarget.style.display = 'none'; e.currentTarget.parentNode.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2"/><path d="M18 2c0 4.4-3.6 8-8 8"/></svg>'; }}
+                />
               </button>
-              <span className="logo-text">foodpanda</span>
+              <span className="logo-text">Khete Chai</span>
             </div>
 
             {/* Address button + panel */}

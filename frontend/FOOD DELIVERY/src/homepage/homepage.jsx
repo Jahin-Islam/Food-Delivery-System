@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Gift, Loader2, UtensilsCrossed, Star, Search, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { Gift, Loader2, UtensilsCrossed, Star, Search, ChevronLeft, ChevronRight, X, RotateCcw } from "lucide-react";
 import "./homepage.css";
 import Header from "./Header.jsx";
 import CuisineFilter from "./cuisineOption.jsx";
@@ -7,6 +7,28 @@ import SortOption from "./sortbyOption.jsx";
 import OfferOption from "./offerOption.jsx";
 import PriceOption, { filterByPrice } from "./priceOption.jsx";
 import AllCarts from "./AllCarts.jsx";
+
+// ── Static cuisines with images — always shown first ─────────────────────────
+const STATIC_CUISINES = [
+  { id: 's1',  name: "Pizza",       image: "Pizza.png" },
+  { id: 's2',  name: "Biryani",     image: "Biryani.png" },
+  { id: 's3',  name: "Burgers",     image: "Burgers.png" },
+  { id: 's4',  name: "Cakes",       image: "Cakes.png" },
+  { id: 's5',  name: "Bangladeshi", image: "Bangladeshi.png" },
+  { id: 's6',  name: "Snacks",      image: "Snacks.png" },
+  { id: 's7',  name: "Cafe",        image: "Cafe.png" },
+  { id: 's8',  name: "Fast Food",   image: "Fast%20Food.png" },
+  { id: 's9',  name: "Breakfast",   image: "Breakfast.png" },
+  { id: 's10', name: "Chicken",     image: "Chicken.png" },
+  { id: 's11', name: "Kebab",       image: "Kebab.png" },
+  { id: 's12', name: "Pasta",       image: "pasta.png" },
+  { id: 's13', name: "Rice Dishes", image: "Rice%20Dishes.png" },
+  { id: 's14', name: "Soups",       image: "Soups.png" },
+  { id: 's15', name: "Tehari",      image: "Tehari.png" },
+];
+
+// Lowercase set for fast duplicate detection
+const STATIC_NAME_SET = new Set(STATIC_CUISINES.map(c => c.name.toLowerCase()));
 
 const Homepage = ({
   isLoggedIn, user, cartItems, setCartItems,
@@ -28,11 +50,8 @@ const Homepage = ({
   const [selectedCuisines, setSelectedCuisines] = useState([]);
   const [sortBy,           setSortBy]           = useState('relevance');
   const [userLocation,     setUserLocation]     = useState(null);
-  // currentAddress comes from App.jsx (persisted in localStorage) — do NOT use local state
-  // We keep a local copy only as fallback if prop is not passed
-  const [localAddress, setLocalAddress] = useState('');
+  const [localAddress,     setLocalAddress]     = useState('');
 
-  // Filter state
   const [selectedOffers, setSelectedOffers] = useState({ freeDelivery: false, acceptsVouchers: false, deals: false });
   const [minPrice,       setMinPrice]       = useState('');
   const [maxPrice,       setMaxPrice]       = useState('');
@@ -57,7 +76,11 @@ const Homepage = ({
     const c = document.querySelector('.cuisines-grid');
     if (c) { setShowLeftArrow(c.scrollLeft > 0); setShowRightArrow(c.scrollLeft < c.scrollWidth - c.clientWidth - 10); }
   };
-  useEffect(() => { updateArrows(); window.addEventListener('resize', updateArrows); return () => window.removeEventListener('resize', updateArrows); }, []);
+  useEffect(() => {
+    updateArrows();
+    window.addEventListener('resize', updateArrows);
+    return () => window.removeEventListener('resize', updateArrows);
+  }, []);
 
   useEffect(() => {
     if ((sortBy === 'distance' || sortBy === 'fast_delivery') && !userLocation) {
@@ -75,13 +98,35 @@ const Homepage = ({
     return R * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1-s));
   };
 
-  // ── Filter pipeline ──────────────────────────────────────────────────────
+  // ── Dynamic categories: real restaurant item categories, excluding any that
+  //    already exist in the static list (case-insensitive), sorted A→Z ─────────
+  const dynamicCuisines = useMemo(() => {
+    const seen = new Set();
+    const names = [];
+    for (const restaurant of restaurants) {
+      for (const item of restaurant?.items ?? []) {
+        const name = item?.category_name?.trim();
+        if (name && !STATIC_NAME_SET.has(name.toLowerCase()) && !seen.has(name.toLowerCase())) {
+          seen.add(name.toLowerCase());
+          names.push(name);
+        }
+      }
+    }
+    return names.sort((a, b) => a.localeCompare(b)).map((name, idx) => ({ id: `d${idx}`, name, image: null }));
+  }, [restaurants]);
+
+  // ── Final list: static (with images) first, then dynamic extras (icon only) ─
+  const allCuisines = useMemo(() => [...STATIC_CUISINES, ...dynamicCuisines], [dynamicCuisines]);
+
+  // ── Filter pipeline ──────────────────────────────────────────────────────────
   const step1 = restaurants.filter(r =>
     r.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     r.description?.toLowerCase().includes(searchQuery.toLowerCase())
   );
   const step2 = selectedCuisines.length === 0 ? step1 :
-    step1.filter(r => r.items?.some(item => selectedCuisines.some(s => item.category_name?.toLowerCase() === s.toLowerCase())));
+    step1.filter(r => r.items?.some(item =>
+      selectedCuisines.some(s => item.category_name?.toLowerCase() === s.toLowerCase())
+    ));
   const step3 = step2.filter(r => {
     if (selectedOffers.freeDelivery    && !r.free_delivery)    return false;
     if (selectedOffers.acceptsVouchers && !r.accepts_vouchers) return false;
@@ -104,23 +149,22 @@ const Homepage = ({
   const handleCuisineClick  = name => { setSelectedCuisines([name]); setSearchQuery(""); };
   const handleCuisineToggle = name => setSelectedCuisines(p => p.includes(name) ? p.filter(c => c !== name) : [...p, name]);
 
-  const cuisines = [
-    { id: 1,  name: "Pizza",       image: "Pizza.png" },
-    { id: 2,  name: "Biryani",     image: "Biryani.png" },
-    { id: 3,  name: "Burgers",     image: "Burgers.png" },
-    { id: 4,  name: "Cakes",       image: "Cakes.png" },
-    { id: 5,  name: "Bangladeshi", image: "Bangladeshi.png" },
-    { id: 6,  name: "Snacks",      image: "Snacks.png" },
-    { id: 7,  name: "Cafe",        image: "Cafe.png" },
-    { id: 8,  name: "Fast Food",   image: "Fast%20Food.png" },
-    { id: 9,  name: "Breakfast",   image: "Breakfast.png" },
-    { id: 10, name: "Chicken",     image: "Chicken.png" },
-    { id: 11, name: "Kebab",       image: "Kebab.png" },
-    { id: 12, name: "Pasta",       image: "pasta.png" },
-    { id: 13, name: "Rice Dishes", image: "Rice%20Dishes.png" },
-    { id: 14, name: "Soups",       image: "Soups.png" },
-    { id: 15, name: "Tehari",      image: "Tehari.png" },
-  ];
+  // ── Filter active state & reset ──────────────────────────────────────────────
+  const hasActiveFilters =
+    selectedCuisines.length > 0 ||
+    Object.values(selectedOffers).some(Boolean) ||
+    sortBy !== 'relevance' ||
+    minPrice !== '' ||
+    maxPrice !== '';
+
+  const handleResetFilters = () => {
+    setSelectedCuisines([]);
+    setSelectedOffers({ freeDelivery: false, acceptsVouchers: false, deals: false });
+    setSortBy('relevance');
+    setMinPrice('');
+    setMaxPrice('');
+    setSearchQuery('');
+  };
 
   return (
     <div className="homepage-container">
@@ -142,15 +186,29 @@ const Homepage = ({
         <div className="content-wrapper">
           <aside className={`sidebar ${showFilters ? "sidebar-visible" : "sidebar-hidden"}`}>
             <div className="sidebar-header">
-              <h3 className="sidebar-title">Filters</h3>
+              <h3 className="sidebar-title">
+                Filters
+                {hasActiveFilters && <span className="filters-active-dot" />}
+              </h3>
               <button className="close-filters-btn" onClick={() => setShowFilters(false)}>
                 <X size={16} />
               </button>
             </div>
             <SortOption sortBy={sortBy} onSortChange={setSortBy} />
             <OfferOption selectedOffers={selectedOffers} onOfferChange={setSelectedOffers} />
-            <CuisineFilter selectedCuisines={selectedCuisines} onCuisineToggle={handleCuisineToggle} />
+            {/* Pass restaurants so CuisineFilter can build its list dynamically */}
+            <CuisineFilter
+              selectedCuisines={selectedCuisines}
+              onCuisineToggle={handleCuisineToggle}
+              restaurants={restaurants}
+            />
             <PriceOption minPrice={minPrice} maxPrice={maxPrice} onPriceChange={handlePriceChange} />
+            {hasActiveFilters && (
+              <button className="reset-filters-btn" style={{ width: '100%', justifyContent: 'center', marginTop: 8 }} onClick={handleResetFilters}>
+                <RotateCcw size={14} />
+                Reset all filters
+              </button>
+            )}
           </aside>
 
           <div className={`main-area ${showFilters ? "" : "main-area-full"}`}>
@@ -188,21 +246,50 @@ const Homepage = ({
               </div>
             )}
 
-            {/* Cuisines */}
+            {/* ── Cuisines ─────────────────────────────────────────────────────
+                Static entries (with images) appear first.
+                Dynamic entries from real restaurant categories follow after,
+                shown with a generic icon since they have no image file.
+            ─────────────────────────────────────────────────────────────────── */}
             <section className="cuisines-section">
               <div className="cuisines-header">
                 <h2 className="section-title">Cuisines</h2>
                 <div className="cuisines-nav">
-                  <button className={`cuisine-nav-btn ${!showLeftArrow ? 'disabled' : ''}`} onClick={() => scrollCuisines('left')} disabled={!showLeftArrow}><ChevronLeft size={18} /></button>
-                  <button className={`cuisine-nav-btn ${!showRightArrow ? 'disabled' : ''}`} onClick={() => scrollCuisines('right')} disabled={!showRightArrow}><ChevronRight size={18} /></button>
+                  <button
+                    className={`cuisine-nav-btn ${!showLeftArrow ? 'disabled' : ''}`}
+                    onClick={() => scrollCuisines('left')}
+                    disabled={!showLeftArrow}
+                  >
+                    <ChevronLeft size={18} />
+                  </button>
+                  <button
+                    className={`cuisine-nav-btn ${!showRightArrow ? 'disabled' : ''}`}
+                    onClick={() => scrollCuisines('right')}
+                    disabled={!showRightArrow}
+                  >
+                    <ChevronRight size={18} />
+                  </button>
                 </div>
               </div>
               <div className="cuisines-grid-wrapper">
                 <div className="cuisines-grid" onScroll={updateArrows}>
-                  {cuisines.map(c => (
-                    <button key={c.id} className="cuisine-card" onClick={() => handleCuisineClick(c.name)}>
+                  {allCuisines.map(c => (
+                    <button
+                      key={c.id}
+                      className={`cuisine-card${selectedCuisines.includes(c.name) ? ' active' : ''}`}
+                      onClick={() => handleCuisineClick(c.name)}
+                    >
                       <div className="cuisine-icon">
-                        <img src={`/images/cusines/${c.image}`} alt={c.name} className="cuisine-image" />
+                        {c.image ? (
+                          <img
+                            src={`/images/cusines/${c.image}`}
+                            alt={c.name}
+                            className="cuisine-image"
+                          />
+                        ) : (
+                          // Dynamic category without a dedicated image file
+                          <UtensilsCrossed size={28} strokeWidth={1.5} />
+                        )}
                       </div>
                       <span className="cuisine-name">{c.name}</span>
                     </button>
@@ -224,6 +311,12 @@ const Homepage = ({
                     : activeTab === 'pickup' ? 'Restaurants for Pick-up'
                     : 'Featured Restaurants'}
                 </h2>
+                {hasActiveFilters && (
+                  <button className="reset-filters-btn" onClick={handleResetFilters}>
+                    <RotateCcw size={13} />
+                    Reset filters
+                  </button>
+                )}
               </div>
               <br />
 
@@ -241,7 +334,8 @@ const Homepage = ({
                       <div key={r.id} className="deal-card" onClick={() => onRestaurantClick?.(r)}>
                         <div className="deal-image">
                           {r.image_url
-                            ? <img src={r.image_url} alt={r.name} className="restaurant-img" onError={e => { e.target.style.display="none"; e.target.nextSibling.style.display="flex"; }} />
+                            ? <img src={r.image_url} alt={r.name} className="restaurant-img"
+                                onError={e => { e.target.style.display="none"; e.target.nextSibling.style.display="flex"; }} />
                             : null}
                           <div className="deal-emoji" style={{ display: r.image_url ? "none" : "flex" }}>
                             <UtensilsCrossed size={52} strokeWidth={1.5} />

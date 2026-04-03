@@ -3,12 +3,13 @@
    ============================================================ */
 
 .bh-logo-icon {
-  width: 36px; height: 36px;
+  width: 52px; height: 52px;
   background: var(--primary-bg);
-  border-radius: 9px;
+  border-radius: 13px;
   border: 1.5px solid var(--primary-light);
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
+  overflow: hidden;
 }
 
 /* ── DARK MODE BUTTON ────────────────────────────────────────── */
