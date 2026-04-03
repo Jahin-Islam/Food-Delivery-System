@@ -369,35 +369,16 @@ def update_order_status_by_restaurant(order_id, restaurant_id, new_status):
 
 
 def cancel_order(order_id, cancelled_by='restaurant'):
-    """
-    Cancel an order from any actor. Clears the rider assignment so no one
-    is left with a ghost delivery.
+    with connection.cursor() as cursor:
+        cursor.execute("""
+            CALL sp_cancel_order(%s, @success, @message)
+        """, [order_id])
+        cursor.execute("SELECT @success, @message")
+        row = cursor.fetchone()
 
-    Returns the updated order summary dict.
-    Raises ValueError if the order is already DELIVERED or CANCELLED.
-    """
-    with transaction.atomic():
-        with connection.cursor() as cursor:
-            cursor.execute("""
-                SELECT status FROM orders_order WHERE order_id = %s FOR UPDATE
-            """, [order_id])
-            row = cursor.fetchone()
-
-        if not row:
-            raise ValueError("Order not found.")
-
-        if row[0] in ('DELIVERED', 'CANCELLED'):
-            raise ValueError(
-                f"Cannot cancel an order that is already {row[0]}."
-            )
-
-        with connection.cursor() as cursor:
-            cursor.execute("""
-                UPDATE orders_order
-                SET status   = 'CANCELLED',
-                    rider_id = NULL
-                WHERE order_id = %s
-            """, [order_id])
+    success, message = row[0], row[1]
+    if not success:
+        raise ValueError(message)
 
     with connection.cursor() as cursor:
         cursor.execute(
@@ -650,12 +631,6 @@ def get_rider_orders(rider_id, status_filter=None):
 
 
 def update_order_status_by_rider(order_id, rider_id, new_status):
-    """
-    Validates that the rider owns the order and the transition is allowed.
-    PREPARING → PICKED_UP → DELIVERED only.
-    Stamps delivered_at when DELIVERED.
-    Raises NotFoundError / ValidationError.
-    """
     ALLOWED_TRANSITIONS = {
         'PREPARING': 'PICKED_UP',
         'PICKED_UP': 'DELIVERED',
@@ -682,18 +657,14 @@ def update_order_status_by_rider(order_id, rider_id, new_status):
             f"Expected next status: {expected_next}."
         )
 
-    if new_status == 'DELIVERED':
-        with connection.cursor() as cursor:
-            cursor.execute("""
-                UPDATE orders_order
-                SET status = %s, delivered_at = NOW()
-                WHERE order_id = %s
-            """, [new_status, order_id])
-    else:
-        with connection.cursor() as cursor:
-            cursor.execute("""
-                UPDATE orders_order SET status = %s WHERE order_id = %s
-            """, [new_status, order_id])
+    # Single UPDATE for all statuses — trg_set_delivered_at handles
+    # delivered_at = NOW() automatically when status = 'DELIVERED'
+    with connection.cursor() as cursor:
+        cursor.execute("""
+            UPDATE orders_order
+            SET status = %s
+            WHERE order_id = %s
+        """, [new_status, order_id])
 
 
 def get_restaurant_order_history(restaurant_id, status_filter=None, date_from=None, date_to=None, limit=50, offset=0):

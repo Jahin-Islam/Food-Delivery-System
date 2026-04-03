@@ -1,0 +1,51 @@
+TRIGGERS
+--------
+
+trg_update_rating_on_insert
+Fires automatically after a new review is inserted into reviews_review.
+It recalculates the average rating and total review count for the related restaurant
+and updates those values in resturants_restaurant.rating and total_rated.
+
+trg_update_rating_on_update
+Fires automatically after an existing review is edited in reviews_review.
+It does the same recalculation as the insert trigger, keeping the restaurant
+rating accurate whenever a customer changes their review.
+
+trg_nullify_order_address_on_delete
+Fires before a row is deleted from addresses_deliveryaddress.
+It sets address_id to NULL on any orders that referenced that address,
+preventing a foreign key constraint error from blocking the delete.
+
+trg_set_delivered_at
+Fires before any status update on orders_order.
+If the new status is DELIVERED and the old status was not, it automatically
+sets delivered_at to the current timestamp without any Python code doing it.
+
+
+FUNCTIONS
+---------
+
+fn_rider_today_earnings
+Takes a rider_id and returns the total earnings that rider made today.
+It sums 50% of (delivery_charge + rider_tip) for all orders delivered by
+that rider on the current date.
+
+fn_rider_today_order_count
+Takes a rider_id and returns how many orders that rider has delivered today.
+It counts all rows in orders_order where the rider delivered and
+the delivered_at date matches the current date.
+
+
+PROCEDURES
+----------
+
+sp_place_order
+Takes all order details as input parameters and inserts a new row into orders_order
+inside an atomic transaction. It returns the new order_id as an OUT parameter,
+and rolls back automatically if any error occurs during the insert.
+
+sp_cancel_order
+Takes an order_id and cancels the order atomically using SELECT FOR UPDATE to
+prevent race conditions. It checks that the order is not already DELIVERED or
+CANCELLED, then sets status to CANCELLED and rider_id to NULL in one transaction.
+Returns a success flag and message as OUT parameters.

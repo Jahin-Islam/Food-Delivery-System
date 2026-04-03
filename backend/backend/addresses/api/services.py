@@ -199,15 +199,8 @@ def delete_delivery_address(request, address_id):
         raise NotFoundError("Address Not Found")
 
     with connection.cursor() as cursor:
-        # Null out any orders referencing this address so the FK constraint
-        # does not block the delete. Order history is preserved — the address
-        # field just becomes NULL on those past orders.
-        cursor.execute("""
-            UPDATE orders_order
-            SET address_id = NULL
-            WHERE address_id = %s
-        """, [address_id])
-
+        # No manual UPDATE needed — trg_nullify_order_address_on_delete
+        # automatically sets orders_order.address_id = NULL before the delete
         cursor.execute("""
             DELETE FROM addresses_deliveryaddress
             WHERE id = %s AND customer_id = %s
