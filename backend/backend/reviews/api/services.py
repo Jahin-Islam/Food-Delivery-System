@@ -111,7 +111,7 @@ def create_review(order_id, rating, comment):
         """, [order_id, rating, comment])
         new_id = cursor.lastrowid
 
-    _update_restaurant_rating_for_order(order_id)
+    # _update_restaurant_rating_for_order(order_id)
     return get_review_by_id(new_id)
 
 
@@ -126,33 +126,33 @@ def update_review(review_id, rating, comment):
         """, [rating, comment, review_id])
 
     review = get_review_by_id(review_id)
-    if review:
-        _update_restaurant_rating_for_order(review["order_id"])
+    # if review:
+    #     _update_restaurant_rating_for_order(review["order_id"])
     return review
 
 
-def _update_restaurant_rating_for_order(order_id):
-    """
-    Recalculate and persist the average rating + total_rated
-    for the restaurant linked to this order.
-    Pure raw SQL, MySQL-compatible UPDATE … INNER JOIN.
-    """
-    with connection.cursor() as cursor:
-        cursor.execute("""
-            UPDATE resturants_restaurant res
-            INNER JOIN (
-                SELECT
-                    o.restaurant_id,
-                    AVG(r.rating)  AS avg_rating,
-                    COUNT(r.id)    AS total_rated
-                FROM reviews_review r
-                INNER JOIN orders_order o ON o.order_id = r.order_id
-                WHERE o.restaurant_id = (
-                    SELECT restaurant_id FROM orders_order WHERE order_id = %s
-                )
-                GROUP BY o.restaurant_id
-            ) agg ON agg.restaurant_id = res.id
-            SET res.rating      = ROUND(agg.avg_rating, 2),
-                res.total_rated = agg.total_rated
-            WHERE res.id = agg.restaurant_id
-        """, [order_id])
+# def _update_restaurant_rating_for_order(order_id):
+#     """
+#     Recalculate and persist the average rating + total_rated
+#     for the restaurant linked to this order.
+#     Pure raw SQL, MySQL-compatible UPDATE … INNER JOIN.
+#     """
+#     with connection.cursor() as cursor:
+#         cursor.execute("""
+#             UPDATE resturants_restaurant res
+#             INNER JOIN (
+#                 SELECT
+#                     o.restaurant_id,
+#                     AVG(r.rating)  AS avg_rating,
+#                     COUNT(r.id)    AS total_rated
+#                 FROM reviews_review r
+#                 INNER JOIN orders_order o ON o.order_id = r.order_id
+#                 WHERE o.restaurant_id = (
+#                     SELECT restaurant_id FROM orders_order WHERE order_id = %s
+#                 )
+#                 GROUP BY o.restaurant_id
+#             ) agg ON agg.restaurant_id = res.id
+#             SET res.rating      = ROUND(agg.avg_rating, 2),
+#                 res.total_rated = agg.total_rated
+#             WHERE res.id = agg.restaurant_id
+#         """, [order_id])

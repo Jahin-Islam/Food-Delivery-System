@@ -217,25 +217,24 @@ def create_order(request, customer_id):
     last_name    = data.get('last_name', '')
     phone_number = data.get('phone_number', '')
 
+    # Inside create_order(), replace the transaction.atomic() INSERT block:
     with transaction.atomic():
         with connection.cursor() as cursor:
+            # Call stored procedure to insert the order atomically
             cursor.execute("""
-                INSERT INTO orders_order
-                    (restaurant_id, customer_id, address_id, status,
-                     total_amount, discount_amount, delivery_charge,
-                     service_charge, rider_tip,
-                     email, first_name, last_name, phone_number, created_at)
-                VALUES (%s, %s, %s, 'PENDING',
-                        %s, %s, %s,
-                        %s, %s,
-                        %s, %s, %s, %s, NOW())
+                CALL sp_place_order(
+                    %s, %s, %s,
+                    %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s,
+                    @order_id
+                )
             """, [
                 restaurant_id, customer_id, address_id,
                 total_amount, discount_amount, delivery_charge,
                 service_charge, rider_tip,
                 email, first_name, last_name, phone_number,
             ])
-            cursor.execute("SELECT LAST_INSERT_ID()")
+            cursor.execute("SELECT @order_id")
             order_id = cursor.fetchone()[0]
 
         with connection.cursor() as cursor:

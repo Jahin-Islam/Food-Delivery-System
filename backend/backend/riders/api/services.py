@@ -405,30 +405,17 @@ def update_order_status_by_rider(order_id, rider_id, new_status):
 
 
 def get_rider_stats(rider_id):
-    """
-    Returns live stats for the rider header bar:
-      - today_earnings   : sum of earnings credited today (wallet credits from DELIVERED orders)
-      - orders_today     : count of orders delivered today
-      - wallet_balance   : current wallet balance from rider_additional_information
-    """
     with connection.cursor() as cursor:
-        # Today's delivered orders count + earnings (50% of delivery_charge + rider_tip)
+        # Use the DB functions instead of inline SQL aggregation
         cursor.execute("""
             SELECT
-                COUNT(*)                                                  AS orders_today,
-                COALESCE(SUM(
-                    (COALESCE(delivery_charge, 0) + COALESCE(rider_tip, 0)) * 0.50
-                ), 0)                                                     AS today_earnings
-            FROM orders_order
-            WHERE rider_id = %s
-              AND status   = 'DELIVERED'
-              AND DATE(delivered_at) = CURDATE()
-        """, [rider_id])
+                fn_rider_today_order_count(%s)  AS orders_today,
+                fn_rider_today_earnings(%s)      AS today_earnings
+        """, [rider_id, rider_id])
         row = cursor.fetchone()
         orders_today   = row[0] if row else 0
         today_earnings = float(row[1]) if row else 0.0
 
-        # Current wallet balance
         cursor.execute("""
             SELECT wallet_balace
             FROM riders_rider_additional_information
@@ -438,9 +425,9 @@ def get_rider_stats(rider_id):
         wallet_balance = float(wallet_row[0]) if wallet_row else 0.0
 
     return {
-        'orders_today':    orders_today,
-        'today_earnings':  round(today_earnings, 2),
-        'wallet_balance':  round(wallet_balance, 2),
+        'orders_today':   orders_today,
+        'today_earnings': round(today_earnings, 2),
+        'wallet_balance': round(wallet_balance, 2),
     }
 
 
