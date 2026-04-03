@@ -375,12 +375,13 @@ def update_order_status_by_rider(order_id, rider_id, new_status):
             # when autocommit is off (Django's default behaviour).
 
             # 1. Mark the order delivered
-            cursor.execute("""
-                UPDATE orders_order
-                SET status       = %s,
-                    delivered_at = NOW()
-                WHERE order_id   = %s
-            """, [new_status, order_id])
+            #Trigger should handle it
+            # cursor.execute("""
+            #     UPDATE orders_order
+            #     SET status       = %s,
+            #         delivered_at = NOW()
+            #     WHERE order_id   = %s
+            # """, [new_status, order_id])
 
             # 2. Credit the rider's wallet
             cursor.execute("""
@@ -489,15 +490,20 @@ def get_rider_history(rider_id, days=30):
 
     from datetime import datetime, timezone as dt_tz, timedelta
 
-    DHAKA_OFFSET = timedelta(hours=6)
+    DHAKA_OFFSET = timedelta(hours=0)
 
     def to_dhaka_date(dt_val):
         """Convert a datetime (naive or aware) to a Dhaka-local date."""
         if dt_val is None:
             return None
         if hasattr(dt_val, 'tzinfo') and dt_val.tzinfo is not None:
-            local = dt_val + DHAKA_OFFSET
+            # Step 1: normalise to UTC (handles any tzinfo, not just UTC)
+            # Step 2: strip tzinfo so arithmetic is plain timedelta
+            # Step 3: add Dhaka offset (+6h) to get wall-clock time
+            utc_naive = dt_val.astimezone(dt_tz.utc).replace(tzinfo=None)
+            local = utc_naive + DHAKA_OFFSET
         else:
+            # Naive datetime from MySQL (USE_TZ=False) — treat as UTC
             local = dt_val + DHAKA_OFFSET
         return local.date()
 
