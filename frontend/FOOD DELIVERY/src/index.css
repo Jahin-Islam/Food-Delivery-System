@@ -108,6 +108,10 @@
   --app-font:          var(--font);
   --app-radius:        var(--radius);
   --app-transition:    var(--t);
+
+  /* ── Cuisine card background ─────────────────────────────── */
+  --cuisine-card-bg:   linear-gradient(136deg, #f0f2ff, #dde1f5);  /* soft lavender-white for light mode */
+  --cuisine-card-bg-hover: linear-gradient(135deg, var(--primary-light), #c7cdf0);
 }
 
 /* ── Global resets ─────────────────────────── */
@@ -174,6 +178,10 @@ body.modal-open { overflow: hidden; }
   --warning-light: #2e1a00;
   --danger:        #f87171;
   --danger-light:  #2e0000;
+
+  /* ── Cuisine card background — dark mode ───────────────── */
+  --cuisine-card-bg:       linear-gradient(136deg, #b8bcd1, #010204fa);
+  --cuisine-card-bg-hover: linear-gradient(135deg, var(--primary-light), #0b0f16);
 }
 
 [data-theme="dark"] body,

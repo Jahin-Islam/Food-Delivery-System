@@ -65,12 +65,14 @@
 /* Brand */
 .rdb-brand { display: flex; align-items: center; gap: 7px; }
 .rdb-brand-icon {
-  width: 34px; height: 34px;
+  width: 52px; height: 52px;
   background: linear-gradient(135deg, #ff2d78, #ff6b6b);
-  border-radius: 10px;
+  border-radius: 13px;
   display: flex; align-items: center; justify-content: center;
   box-shadow: 0 3px 12px rgba(255,45,120,0.35);
   color: white;
+  overflow: hidden;
+  flex-shrink: 0;
 }
 .rdb-brand-name { font-size: 21px; font-weight: 900; letter-spacing: -0.8px; color: var(--rdb-pink); }
 .rdb-brand-tag  { font-size: 12px; font-weight: 600; color: var(--rdb-muted); margin-top: 5px; }

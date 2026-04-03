@@ -255,8 +255,15 @@ const RiderDashboard = ({ rider = {}, onLogout }) => {
       <header className="rdb-header">
         <div className="rdb-header-inner">
           <div className="rdb-brand">
-            <div className="rdb-brand-icon"><Bike size={17} strokeWidth={2.5} /></div>
-            <span className="rdb-brand-name">panda</span>
+            <div className="rdb-brand-icon">
+              <img
+                src="/images/logo/khetechailogo.png"
+                alt="Khete Chai"
+                style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 10, display: 'block' }}
+                onError={e => { e.currentTarget.style.display = 'none'; }}
+              />
+            </div>
+            <span className="rdb-brand-name">Khete Chai</span>
             <span className="rdb-brand-tag">rider</span>
           </div>
           <div className="rdb-header-right">

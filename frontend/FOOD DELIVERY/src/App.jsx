@@ -24,15 +24,41 @@ import OrderStatus, { LS_KEY as ORDER_LS_KEY } from './homepage/OrderStatus.jsx'
 import FavouritesSidebar from './homepage/FavouritesSideBar.jsx';
 import AllCarts from './homepage/Allcarts.jsx';
 
-const SK_PAGE           = 'fp_current_page';
-const SK_ROLE           = 'fp_user_role';
-const SK_RESTAURANT     = 'fp_restaurant';
-const SK_RIDER          = 'fp_rider';
-const SK_ADDRESS        = 'fp_delivery_address';
-const SK_ADDRESS_LAT    = 'fp_delivery_lat';
-const SK_ADDRESS_LNG    = 'fp_delivery_lng';
-const SK_ACTIVE_TAB     = 'fp_active_tab';
-const SK_CHECKOUT_RID   = 'fp_checkout_restaurant_id';
+// ─── Storage strategy ──────────────────────────────────────────────────────────
+// SESSION keys → sessionStorage (tab-isolated).
+//   Fixes cross-tab bleed: Customer / Restaurant / Rider in separate tabs no
+//   longer overwrite each other's page/role/restaurant state on refresh.
+//
+// PREFERENCE keys → localStorage (shared across tabs — intentional).
+//   Delivery address and active tab are harmless user preferences.
+// ──────────────────────────────────────────────────────────────────────────────
+
+// sessionStorage keys (tab-specific session state)
+const SK_PAGE         = 'fp_current_page';
+const SK_ROLE         = 'fp_user_role';
+const SK_RESTAURANT   = 'fp_restaurant';
+const SK_RIDER        = 'fp_rider';
+const SK_CHECKOUT_RID = 'fp_checkout_restaurant_id';
+
+// localStorage keys (cross-tab preferences)
+const SK_ADDRESS     = 'fp_delivery_address';
+const SK_ADDRESS_LAT = 'fp_delivery_lat';
+const SK_ADDRESS_LNG = 'fp_delivery_lng';
+const SK_ACTIVE_TAB  = 'fp_active_tab';
+
+// Convenience wrappers — keeps every read/write one-liner and easy to audit
+const ss = {
+  get:     (k)    => { try { return sessionStorage.getItem(k); }                       catch { return null; } },
+  set:     (k, v) => { try { sessionStorage.setItem(k, v); }                           catch {} },
+  remove:  (k)    => { try { sessionStorage.removeItem(k); }                           catch {} },
+  getJson: (k)    => { try { return JSON.parse(sessionStorage.getItem(k) || 'null'); } catch { return null; } },
+  setJson: (k, v) => { try { sessionStorage.setItem(k, JSON.stringify(v)); }           catch {} },
+};
+const ls = {
+  get:    (k)    => { try { return localStorage.getItem(k); }  catch { return null; } },
+  set:    (k, v) => { try { localStorage.setItem(k, v); }      catch {} },
+  remove: (k)    => { try { localStorage.removeItem(k); }      catch {} },
+};
 
 const BUSINESS_PAGES  = new Set(['business-welcome', 'business-dashboard', 'orders', 'order-history', 'business-profile']);
 const RIDER_PAGES     = new Set(['rider-dashboard']);
@@ -54,48 +80,40 @@ function App() {
   const [showFavourites,       setShowFavourites]       = useState(false);
   const [showAllCarts,         setShowAllCarts]         = useState(false);
   const [riderSignupData,      setRiderSignupData]      = useState(null);
-  const [activeTab,            setActiveTab]            = useState(() => {
-    try { return localStorage.getItem(SK_ACTIVE_TAB) || 'delivery'; } catch { return 'delivery'; }
-  });
-  const [deliveryAddress, setDeliveryAddress] = useState(() => {
-    try { return localStorage.getItem(SK_ADDRESS) || ''; } catch { return ''; }
-  });
 
+  // Preferences — read from localStorage (fine to share across tabs)
+  const [activeTab,       setActiveTab]       = useState(() => ls.get(SK_ACTIVE_TAB) || 'delivery');
+  const [deliveryAddress, setDeliveryAddress] = useState(() => ls.get(SK_ADDRESS)    || '');
+
+  // ─── Navigation helper ───────────────────────────────────────────────────────
   const push = useCallback((page, extra = {}) => {
     window.history.pushState({ page, ...extra }, '', '#' + page);
     setCurrentPage(page);
-    if (!TRANSIENT_PAGES.has(page)) {
-      try { localStorage.setItem(SK_PAGE, page); } catch {}
+    if (!TRANSIENT_PAGES.has(page)) ss.set(SK_PAGE, page);
+  }, []);
+
+  // ─── Address (stays in localStorage — user preference) ───────────────────────
+  const handleAddressChange = useCallback((address, lat, lng) => {
+    setDeliveryAddress(address);
+    ls.set(SK_ADDRESS, address);
+    if (lat && lng) {
+      ls.set(SK_ADDRESS_LAT, String(lat));
+      ls.set(SK_ADDRESS_LNG, String(lng));
     }
   }, []);
 
-  const handleAddressChange = useCallback((address, lat, lng) => {
-    setDeliveryAddress(address);
-    try {
-      localStorage.setItem(SK_ADDRESS, address);
-      if (lat && lng) {
-        localStorage.setItem(SK_ADDRESS_LAT, String(lat));
-        localStorage.setItem(SK_ADDRESS_LNG, String(lng));
-      }
-    } catch {}
-  }, []);
-
+  // ─── Browser back / forward ──────────────────────────────────────────────────
   useEffect(() => {
     const onPop = (e) => {
       const dest = e.state?.page ?? 'home';
 
       if (BUSINESS_PAGES.has(currentPage) && !BUSINESS_PAGES.has(dest)) {
-        window.history.pushState(
-          { page: 'business-welcome' }, '', '#business-welcome'
-        );
+        window.history.pushState({ page: 'business-welcome' }, '', '#business-welcome');
         setCurrentPage('business-welcome');
         return;
       }
-
       if (RIDER_PAGES.has(currentPage) && !RIDER_PAGES.has(dest)) {
-        window.history.pushState(
-          { page: 'rider-dashboard' }, '', '#rider-dashboard'
-        );
+        window.history.pushState({ page: 'rider-dashboard' }, '', '#rider-dashboard');
         setCurrentPage('rider-dashboard');
         return;
       }
@@ -109,6 +127,7 @@ function App() {
     return () => window.removeEventListener('popstate', onPop);
   }, [currentPage]);
 
+  // ─── Initialise on mount ─────────────────────────────────────────────────────
   useEffect(() => {
     const init = async () => {
       try {
@@ -119,20 +138,21 @@ function App() {
         if (authState.isAuthenticated) {
           setCartItems(await cartApiService.getAllCarts());
 
-          const u    = authState.user;
-          const role = (u?.role || u?.user_type || '').toString().toUpperCase();
+          const u        = authState.user;
+          const role     = (u?.role || u?.user_type || '').toString().toUpperCase();
           const isVendor = role === 'RESTAURANT' || role === 'VENDOR' || !!authState.restaurant;
           const isRider  = role === 'RIDER';
 
-          const savedPage = localStorage.getItem(SK_PAGE);
+          // Role goes into sessionStorage — tab-isolated
+          if (isVendor)     ss.set(SK_ROLE, 'restaurant');
+          else if (isRider) ss.set(SK_ROLE, 'rider');
+          else              ss.set(SK_ROLE, 'customer');
 
-          if (isVendor) localStorage.setItem(SK_ROLE, 'restaurant');
-          else if (isRider) localStorage.setItem(SK_ROLE, 'rider');
-          else localStorage.setItem(SK_ROLE, 'customer');
+          const savedPage = ss.get(SK_PAGE);   // read from sessionStorage
 
           const pickRestaurant = () => {
             const fromAuth    = authState.restaurant;
-            const fromStorage = (() => { try { return JSON.parse(localStorage.getItem(SK_RESTAURANT) || 'null'); } catch { return null; } })();
+            const fromStorage = ss.getJson(SK_RESTAURANT);   // sessionStorage
             if (fromAuth?.id && fromAuth.id !== 1) return fromAuth;
             if (fromStorage?.id && fromStorage.id !== 1) return fromStorage;
             return fromAuth ?? fromStorage ?? null;
@@ -141,35 +161,32 @@ function App() {
           if (savedPage && !TRANSIENT_PAGES.has(savedPage)) {
             if (BUSINESS_PAGES.has(savedPage)) {
               const r = pickRestaurant();
-              if (r) { setSelectedRestaurant(r); localStorage.setItem(SK_RESTAURANT, JSON.stringify(r)); }
+              if (r) { setSelectedRestaurant(r); ss.setJson(SK_RESTAURANT, r); }
             }
             if (RIDER_PAGES.has(savedPage)) {
-              try { const rd = JSON.parse(localStorage.getItem(SK_RIDER) || 'null'); if (rd) setRiderData(rd); } catch {}
+              const rd = ss.getJson(SK_RIDER);
+              if (rd) setRiderData(rd);
             }
             if (savedPage === 'checkout') {
-              const savedRid = localStorage.getItem(SK_CHECKOUT_RID);
+              const savedRid = ss.get(SK_CHECKOUT_RID);
               const rid = savedRid ? parseInt(savedRid, 10) : null;
               if (rid) {
                 setCheckoutRestaurantId(rid);
-                const savedRestaurant = (() => { try { return JSON.parse(localStorage.getItem(SK_RESTAURANT) || 'null'); } catch { return null; } })();
+                const savedRestaurant = ss.getJson(SK_RESTAURANT);
                 if (savedRestaurant) setSelectedRestaurant(savedRestaurant);
               } else {
-                localStorage.setItem(SK_PAGE, 'home');
+                ss.set(SK_PAGE, 'home');
                 setCurrentPage('home');
                 window.history.replaceState({ page: 'home' }, '', '#home');
               }
             }
 
-            // FIX 1: Restore selectedRestaurant when refreshing on the restaurant page
             if (savedPage === 'restaurant') {
-              const savedRestaurant = (() => {
-                try { return JSON.parse(localStorage.getItem(SK_RESTAURANT) || 'null'); } catch { return null; }
-              })();
+              const savedRestaurant = ss.getJson(SK_RESTAURANT);
               if (savedRestaurant) {
                 setSelectedRestaurant(savedRestaurant);
               } else {
-                // Can't restore restaurant state — redirect home
-                localStorage.setItem(SK_PAGE, 'home');
+                ss.set(SK_PAGE, 'home');
                 setCurrentPage('home');
                 window.history.replaceState({ page: 'home' }, '', '#home');
               }
@@ -177,8 +194,8 @@ function App() {
 
             if (isVendor && !BUSINESS_PAGES.has(savedPage)) {
               const r = pickRestaurant();
-              if (r) { setSelectedRestaurant(r); localStorage.setItem(SK_RESTAURANT, JSON.stringify(r)); }
-              localStorage.setItem(SK_PAGE, 'business-welcome');
+              if (r) { setSelectedRestaurant(r); ss.setJson(SK_RESTAURANT, r); }
+              ss.set(SK_PAGE, 'business-welcome');
               setCurrentPage('business-welcome');
               window.history.replaceState({ page: 'business-welcome' }, '', '#business-welcome');
             } else if (isRider && !RIDER_PAGES.has(savedPage)) {
@@ -190,8 +207,8 @@ function App() {
             }
           } else if (isVendor) {
             const r = pickRestaurant();
-            if (r) { setSelectedRestaurant(r); localStorage.setItem(SK_RESTAURANT, JSON.stringify(r)); }
-            localStorage.setItem(SK_PAGE, 'business-welcome');
+            if (r) { setSelectedRestaurant(r); ss.setJson(SK_RESTAURANT, r); }
+            ss.set(SK_PAGE, 'business-welcome');
             setCurrentPage('business-welcome');
             window.history.replaceState({ page: 'business-welcome' }, '', '#business-welcome');
           } else {
@@ -199,10 +216,11 @@ function App() {
           }
         } else {
           setCartItems(cartService.loadCart());
-          localStorage.removeItem(SK_PAGE);
-          localStorage.removeItem(SK_ROLE);
-          localStorage.removeItem(SK_RESTAURANT);
-          localStorage.removeItem(SK_RIDER);
+          // Clear session keys only — do NOT touch address / active-tab prefs
+          ss.remove(SK_PAGE);
+          ss.remove(SK_ROLE);
+          ss.remove(SK_RESTAURANT);
+          ss.remove(SK_RIDER);
           window.history.replaceState({ page: 'home' }, '', '#home');
         }
       } catch (err) {
@@ -216,6 +234,7 @@ function App() {
     init();
   }, []);
 
+  // ─── Fetch restaurant list ───────────────────────────────────────────────────
   useEffect(() => {
     const fetchRestaurants = async () => {
       try {
@@ -230,12 +249,9 @@ function App() {
 
         const detailed = await Promise.all(data.map(async (r) => {
           try {
-            // Always fetch detail via public endpoint so rating/total_rated are accurate
-            // (authenticatedFetch throws on errors, causing silent fallback to stale list data)
             const dr = await fetch(`http://127.0.0.1:8000/api/v1/restaurants/${r.id}/`);
             if (dr.ok) {
               const detail = await dr.json();
-              // Merge: detail wins for rating fields, list item fills in any gaps
               return { ...r, ...detail };
             }
             return r;
@@ -260,10 +276,26 @@ function App() {
     fetchRestaurants();
   }, [isLoggedIn]);
 
+  // ─── Persist guest cart ──────────────────────────────────────────────────────
   useEffect(() => {
     if (!isInitializing && !isLoggedIn) cartService.saveCart(cartItems);
   }, [cartItems, isInitializing, isLoggedIn]);
 
+  // ─── Refresh a single restaurant's rating after leaving its detail page ──────
+  const refreshRestaurant = useCallback(async (restaurantId) => {
+    try {
+      const res = await fetch(`http://127.0.0.1:8000/api/v1/restaurants/${restaurantId}/`);
+      if (!res.ok) return;
+      const updated = await res.json();
+      setRestaurants(prev =>
+        prev.map(r => String(r.id) === String(restaurantId) ? { ...r, ...updated } : r)
+      );
+    } catch (err) {
+      console.error('refreshRestaurant error:', err);
+    }
+  }, []);
+
+  // ─── Cart operations ─────────────────────────────────────────────────────────
   const reloadBackendCart = async () => {
     try { setCartItems(await cartApiService.getAllCarts()); } catch (e) { console.error(e); }
   };
@@ -308,39 +340,37 @@ function App() {
     setCartItems(prev => prev.filter(i => i.id !== itemId));
   };
 
+  // ─── Navigation ──────────────────────────────────────────────────────────────
   const goHome = useCallback(() => {
-    setSelectedRestaurant(null); setCheckoutRestaurantId(null);
-    localStorage.setItem(SK_PAGE, 'home');
-    try { localStorage.removeItem(SK_CHECKOUT_RID); } catch {}
+    setSelectedRestaurant(null);
+    setCheckoutRestaurantId(null);
+    ss.set(SK_PAGE, 'home');
+    ss.remove(SK_CHECKOUT_RID);
     window.history.pushState({ page: 'home' }, '', '#home');
     setCurrentPage('home');
   }, []);
 
   const goToNearMe = useCallback(() => { push('near-me'); }, [push]);
 
-  // FIX 1 (part 2): Also persist restaurant to localStorage so it can be
-  // restored when the user refreshes on the restaurant detail page.
   const goToRestaurant = useCallback((restaurant) => {
     setSelectedRestaurant(restaurant);
-    localStorage.setItem(SK_PAGE, 'restaurant');
-    localStorage.setItem(SK_RESTAURANT, JSON.stringify(restaurant));
+    ss.set(SK_PAGE, 'restaurant');
+    ss.setJson(SK_RESTAURANT, restaurant);
     window.history.pushState({ page: 'restaurant', restaurant }, '', '#restaurant');
     setCurrentPage('restaurant');
   }, []);
 
   const goToCheckout = useCallback((restaurantId) => {
     setCheckoutRestaurantId(restaurantId);
-    try { localStorage.setItem(SK_CHECKOUT_RID, String(restaurantId)); } catch {}
+    ss.set(SK_CHECKOUT_RID, String(restaurantId));
     push('checkout');
   }, [push]);
 
   const goToRiderDashboard = useCallback((rider) => {
     setRiderData(rider);
-    try {
-      localStorage.setItem(SK_PAGE, 'rider-dashboard');
-      localStorage.setItem(SK_ROLE, 'rider');
-      localStorage.setItem(SK_RIDER, JSON.stringify(rider));
-    } catch {}
+    ss.set(SK_PAGE, 'rider-dashboard');
+    ss.set(SK_ROLE, 'rider');
+    ss.setJson(SK_RIDER, rider);
     window.history.pushState({ page: 'rider-dashboard' }, '', '#rider-dashboard');
     setCurrentPage('rider-dashboard');
   }, []);
@@ -348,16 +378,15 @@ function App() {
   const goToBusinessPage = useCallback((page, restaurant) => {
     if (restaurant) {
       setSelectedRestaurant(restaurant);
-      try { localStorage.setItem(SK_RESTAURANT, JSON.stringify(restaurant)); } catch {}
+      ss.setJson(SK_RESTAURANT, restaurant);
     }
-    try {
-      localStorage.setItem(SK_PAGE, page);
-      localStorage.setItem(SK_ROLE, 'restaurant');
-    } catch {}
+    ss.set(SK_PAGE, page);
+    ss.set(SK_ROLE, 'restaurant');
     window.history.pushState({ page, restaurant }, '', '#' + page);
     setCurrentPage(page);
   }, []);
 
+  // ─── Auth handlers ───────────────────────────────────────────────────────────
   const handleLoginSuccess = async () => {
     setIsLoggedIn(true);
     const u = authService.getUser();
@@ -380,8 +409,8 @@ function App() {
 
     try { await cartApiService.syncCartAfterLogin(); } catch {}
     await reloadBackendCart();
-    localStorage.setItem(SK_PAGE, 'home');
-    localStorage.setItem(SK_ROLE, 'customer');
+    ss.set(SK_PAGE, 'home');
+    ss.set(SK_ROLE, 'customer');
     goHome();
   };
 
@@ -407,8 +436,8 @@ function App() {
 
     try { await cartApiService.syncCartAfterLogin(); } catch {}
     await reloadBackendCart();
-    localStorage.setItem(SK_PAGE, 'home');
-    localStorage.setItem(SK_ROLE, 'customer');
+    ss.set(SK_PAGE, 'home');
+    ss.set(SK_ROLE, 'customer');
     goHome();
   };
 
@@ -471,14 +500,12 @@ function App() {
     setRiderSignupData(null);
     setCartItems([]);
     setActiveTab('delivery');
-    localStorage.removeItem(SK_PAGE);
-    localStorage.removeItem(SK_ROLE);
-    localStorage.removeItem(SK_RESTAURANT);
-    localStorage.removeItem(SK_RIDER);
-    localStorage.removeItem(SK_ADDRESS);
-    localStorage.removeItem(SK_ADDRESS_LAT);
-    localStorage.removeItem(SK_ADDRESS_LNG);
-    localStorage.removeItem(SK_ACTIVE_TAB);
+    // Clear tab-specific session state only — leave address/tab prefs alone
+    ss.remove(SK_PAGE);
+    ss.remove(SK_ROLE);
+    ss.remove(SK_RESTAURANT);
+    ss.remove(SK_RIDER);
+    ss.remove(SK_CHECKOUT_RID);
     goHome();
   };
 
@@ -523,16 +550,17 @@ function App() {
 
   const handleDeliveryClick = useCallback(() => {
     setActiveTab('delivery');
-    localStorage.setItem(SK_ACTIVE_TAB, 'delivery');
+    ls.set(SK_ACTIVE_TAB, 'delivery');
     goHome();
   }, [goHome]);
 
   const handlePickupClick = useCallback(() => {
     setActiveTab('pickup');
-    localStorage.setItem(SK_ACTIVE_TAB, 'pickup');
+    ls.set(SK_ACTIVE_TAB, 'pickup');
     goHome();
   }, [goHome]);
 
+  // ─── Loading screen ──────────────────────────────────────────────────────────
   if (isInitializing) return (
     <div style={{
       display: 'flex', justifyContent: 'center', alignItems: 'center',
@@ -628,6 +656,7 @@ function App() {
           onNavigateToRestaurant={goToRestaurant}
           currentAddress={deliveryAddress}
           onAddressChange={handleAddressChange}
+          onRefreshRestaurant={refreshRestaurant}
         />
       )}
 
@@ -649,10 +678,10 @@ function App() {
         <BusinessDashboard
           {...H}
           restaurant={selectedRestaurant}
-          onBack={()                  => goToBusinessPage('business-welcome', selectedRestaurant)}
-          onNavigateToOrders={()      => goToBusinessPage('orders',           selectedRestaurant)}
-          onNavigateToHistory={()     => goToBusinessPage('order-history',    selectedRestaurant)}
-          onNavigateToProfile={()     => goToBusinessPage('business-profile', selectedRestaurant)}
+          onBack={()               => goToBusinessPage('business-welcome', selectedRestaurant)}
+          onNavigateToOrders={()   => goToBusinessPage('orders',           selectedRestaurant)}
+          onNavigateToHistory={()  => goToBusinessPage('order-history',    selectedRestaurant)}
+          onNavigateToProfile={()  => goToBusinessPage('business-profile', selectedRestaurant)}
         />
       )}
 
@@ -660,9 +689,9 @@ function App() {
         <Orders
           {...H}
           restaurant={selectedRestaurant}
-          onNavigateToMenu={()        => goToBusinessPage('business-dashboard', selectedRestaurant)}
-          onNavigateToHistory={()     => goToBusinessPage('order-history',      selectedRestaurant)}
-          onNavigateToProfile={()     => goToBusinessPage('business-profile',   selectedRestaurant)}
+          onNavigateToMenu={()     => goToBusinessPage('business-dashboard', selectedRestaurant)}
+          onNavigateToHistory={()  => goToBusinessPage('order-history',      selectedRestaurant)}
+          onNavigateToProfile={()  => goToBusinessPage('business-profile',   selectedRestaurant)}
         />
       )}
 
@@ -692,9 +721,6 @@ function App() {
       {currentPage === 'checkout' && checkoutRestaurantId && (
         <Checkout
           {...H}
-          // FIX 3: Prefer selectedRestaurant, then fall back to the full restaurant
-          // from the already-fetched restaurants list (which includes discounts),
-          // then fall back to a minimal object built from cart data.
           restaurant={
             selectedRestaurant ??
             restaurants.find(r => String(r.id) === String(checkoutRestaurantId)) ??

@@ -18,6 +18,13 @@ export const COLORS = {
   dangerLight:  '#fee2e2',
   white:        '#ffffff',
 
+  // Cuisine card icon background
+  // Light mode: soft lavender-white. Dark mode override is in index.css via --cuisine-card-bg.
+  cuisineCardBg:      'linear-gradient(136deg, #f0f2ff, #dde1f5)',
+  cuisineCardBgHover: 'linear-gradient(135deg, #e0e7ff, #c7cdf0)',
+  cuisineCardBgDark:      'linear-gradient(136deg, #b8bcd1, #010204)',
+  cuisineCardBgDarkHover: 'linear-gradient(135deg, rgba(255,45,120,0.14), #0b0f16)',
+
   get gradientPrimary() {
     return `linear-gradient(135deg, ${this.primary} 0%, ${this.primaryDark} 100%)`;
   },
@@ -36,8 +43,8 @@ export const SHADOWS = {
 };
 
 export const BRAND = {
-  name:    'foodpanda',
-  tagline: 'Delivering happiness',
+  name:    'Khete Chai',
+  tagline: 'Delivering happiness with care',
 };
 
 export const MOTION = {

@@ -472,7 +472,9 @@ const BusinessDashboard = ({
     setLogoUploading(true);
     try {
       const formData = new FormData();
-      formData.append('image', file);
+      // KEY FIX: use 'restaurant_image' — matches what BusinessProfile sends
+      // and what the Django backend expects on /api/vendor/profile/
+      formData.append('restaurant_image', file);
 
       // Use raw fetch — NOT authenticatedFetch — so the browser sets the
       // correct multipart/form-data Content-Type with boundary automatically.
@@ -498,7 +500,7 @@ const BusinessDashboard = ({
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.detail || errData.image?.[0] || `Upload failed (${res.status})`);
+        throw new Error(errData.detail || errData.restaurant_image?.[0] || errData.image?.[0] || `Upload failed (${res.status})`);
       }
 
       // Show the new logo immediately without a full refetch
@@ -564,16 +566,25 @@ const BusinessDashboard = ({
           <div className="business-restaurant-info">
             <h1 className="business-restaurant-name">{displayRestaurant?.name}</h1>
             <p className="business-restaurant-subtitle">Restaurant</p>
-            <div className="business-restaurant-meta">
-              <p className="meta-item">
-                <Bike size={16} style={{ marginRight: 4, verticalAlign: 'middle', color: 'var(--primary)' }} />
-                Delivery: 20–30 min
-              </p>
-            </div>
             <div className="business-restaurant-rating">
-              <Star size={16} fill="#f59e0b" color="#f59e0b" style={{ marginRight: 4, verticalAlign: 'middle' }} />
-              <span className="rating-number">{displayRestaurant?.rating || '4.8'}</span>
-              <span className="rating-count">({displayRestaurant?.total_reviews || '0'})</span>
+              {parseFloat(displayRestaurant?.total_rated) > 0 ? (
+                <>
+                  {[1, 2, 3, 4, 5].map(s => {
+                    const filled = s <= Math.round(parseFloat(displayRestaurant?.rating || 0));
+                    return (
+                      <Star key={s} size={15}
+                        fill={filled ? '#f59e0b' : 'none'}
+                        color={filled ? '#f59e0b' : '#d1d5db'}
+                        style={{ marginRight: 2, filter: filled ? 'drop-shadow(0 0 3px #f59e0b88)' : 'none' }}
+                      />
+                    );
+                  })}
+                  <span className="rating-number" style={{ marginLeft: 5 }}>{parseFloat(displayRestaurant?.rating || 0).toFixed(1)}</span>
+                  <span className="rating-count">({displayRestaurant?.total_rated})</span>
+                </>
+              ) : (
+                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--primary)', background: 'var(--primary-bg)', padding: '2px 10px', borderRadius: 999 }}>✨ New</span>
+              )}
             </div>
 
             {/* Quick update photo button (alternate location for visibility) */}
@@ -790,18 +801,6 @@ const BusinessDashboard = ({
                 <label className="form-label">Price (৳) *</label>
                 <input type="number" name="price" value={newItemData.price} onChange={handleItemInput}
                   placeholder="0.00" className="form-input" min="0" step="0.01" />
-              </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label className="form-label">Discount (%)</label>
-                  <input type="number" name="discount_ammount" value={newItemData.discount_ammount}
-                    onChange={handleItemInput} placeholder="0" className="form-input" min="0" max="100" />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Discount Description</label>
-                  <input type="text" name="discount_description" value={newItemData.discount_description}
-                    onChange={handleItemInput} placeholder="e.g., Weekend Special" className="form-input" />
-                </div>
               </div>
               <div className="form-group">
                 <label className="form-label">Availability</label>
