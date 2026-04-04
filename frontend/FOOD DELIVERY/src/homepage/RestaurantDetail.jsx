@@ -309,8 +309,11 @@ const RestaurantDetail = ({
         }
         setRestaurantDetails(data);
         if (data.items && data.items.length > 0) {
-          setCategories(['All', ...new Set(data.items.map(item => item.category_name))]);
-          setMenuItems(data.items);
+          const availableItems = data.items.filter(
+            item => item.is_available && item.is_available !== 0 && item.is_available !== '0'
+          );
+          setCategories(['All', ...new Set(availableItems.map(item => item.category_name))]);
+          setMenuItems(availableItems);
         } else {
           setCategories(['All']); setMenuItems([]);
         }
@@ -380,6 +383,7 @@ const RestaurantDetail = ({
   const displayRestaurant = restaurantDetails || restaurant;
 
   const filteredItems = menuItems.filter(item => {
+    if (!item.is_available || item.is_available === 0 || item.is_available === '0') return false;
     const matchesSearch =
       item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.description?.toLowerCase().includes(searchQuery.toLowerCase());
@@ -428,7 +432,6 @@ const RestaurantDetail = ({
       variation: null,
       extras: [],
       specialInstructions: '',
-      unavailableAction: 'Remove it from my order',
     });
   };
 
@@ -629,8 +632,7 @@ const RestaurantDetail = ({
                                   onClick={(e) => handleQuickAdd(item, e)}>+</button>
                               </div>
                             ) : (
-                              <button className="add-item-btn" onClick={(e) => handleQuickAdd(item, e)}
-                                disabled={!item.is_available}>+</button>
+                              <button className="add-item-btn" onClick={(e) => handleQuickAdd(item, e)}>+</button>
                             );
                           })()}
                         </div>

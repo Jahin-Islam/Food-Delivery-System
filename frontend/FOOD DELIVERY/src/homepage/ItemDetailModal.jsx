@@ -12,7 +12,6 @@ const ItemDetailModal = ({
   const [quantity, setQuantity] = useState(1);
   const [selectedVariation, setSelectedVariation] = useState(null);
   const [specialInstructions, setSpecialInstructions] = useState('');
-  const [unavailableAction, setUnavailableAction] = useState('Remove it from my order');
   const [selectedExtras, setSelectedExtras] = useState([]);
   const [showAllExtras, setShowAllExtras] = useState(false);
   const variations = item?.variations && item.variations.length > 0 
@@ -24,7 +23,6 @@ const ItemDetailModal = ({
       setQuantity(1);
       setSelectedExtras([]);
       setSpecialInstructions('');
-      setUnavailableAction('Remove it from my order');
       setShowAllExtras(false);
     
       if (variations.length > 0) {
@@ -57,7 +55,6 @@ const ItemDetailModal = ({
   };
 
   const handleAddToCart = () => {
-    // For items without variations, use the base item price
     const basePrice = selectedVariation ? selectedVariation.price : (item?.price || 0);
 
     const cartItem = {
@@ -77,7 +74,6 @@ const ItemDetailModal = ({
       variation: selectedVariation || null,
       extras: [],
       specialInstructions: specialInstructions,
-      unavailableAction: unavailableAction,
     };
 
     onAddToCart(cartItem);
@@ -98,7 +94,6 @@ const ItemDetailModal = ({
         variation: null,
         extras: [],
         specialInstructions: '',
-        unavailableAction: 'Remove it from my order',
       });
     });
 
@@ -108,7 +103,6 @@ const ItemDetailModal = ({
   const displayedExtras = showAllExtras ? frequentlyBoughtItems : frequentlyBoughtItems.slice(0, 3);
   const hasMoreExtras = frequentlyBoughtItems.length > 3;
 
-  // Calculate total price
   const basePrice = selectedVariation ? selectedVariation.price : (item?.price || 0);
   const extrasTotal = selectedExtras.reduce((sum, e) => sum + e.price, 0);
   const totalPrice = (basePrice + extrasTotal) * quantity;
@@ -232,20 +226,6 @@ const ItemDetailModal = ({
               onChange={(e) => setSpecialInstructions(e.target.value)}
               rows={3}
             />
-          </div>
-
-          {/* If Item Not Available */}
-          <div className="modal-section">
-            <h3 className="section-title">If this item is not available</h3>
-            <select
-              className="unavailable-select"
-              value={unavailableAction}
-              onChange={(e) => setUnavailableAction(e.target.value)}
-            >
-              <option value="Remove it from my order">Remove it from my order</option>
-              <option value="Call me">Call me</option>
-              <option value="Refund (if bought)">Refund (if bought)</option>
-            </select>
           </div>
         </div>
 
