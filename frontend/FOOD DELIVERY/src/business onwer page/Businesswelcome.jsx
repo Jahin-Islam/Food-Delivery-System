@@ -1,5 +1,4 @@
 import { motion } from 'framer-motion';
-import { motion } from 'framer-motion';
 import {
   BarChart2, Megaphone, Settings, ShoppingBag, ArrowRight,
   TrendingUp, Users, Star, ChevronRight, LogOut, Utensils,

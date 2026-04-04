@@ -141,29 +141,38 @@
   width: 100%;
 }
 
+/* Single shared inner wrapper — both the top bar and nav use this
+   so logo-left-edge and first-tab-left-edge are always pixel-aligned */
+.business-header-content,
+.business-nav-tabs-content {
+  width: 100%;
+  box-sizing: border-box;
+  padding-left: 28px;
+  padding-right: 28px;
+}
+
 .business-header-content {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 48px;        /* 14px gives 52px icon + 28px pad = 80px — balanced */
-  min-height: 80px;
-  width: 100%;
-  box-sizing: border-box;
+  min-height: 72px;
+  padding-top: 12px;
+  padding-bottom: 12px;
 }
 
 /* ── LEFT ───────────────────────────────────────────────────── */
-.business-header-left  { display: flex; align-items: center; }
+.business-header-left { display: flex; align-items: center; }
 
 .business-logo-section {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .business-logo-text {
   display: flex;
   flex-direction: column;
-  justify-content: center;  /* keeps text block vertically centred next to icon */
+  justify-content: center;
   gap: 2px;
   line-height: 1;
 }
@@ -191,9 +200,10 @@
   align-items: center;
   gap: 10px;
   flex-shrink: 0;
+  margin-left: auto;   /* pushes right group hard to the right edge */
 }
 
-/* ── NAV TABS — left edge aligns with header content ─────────── */
+/* ── NAV TABS ────────────────────────────────────────────────── */
 .business-nav-tabs {
   border-top: 1.5px solid var(--gray-200);
   background: var(--white);
@@ -203,10 +213,11 @@
 .business-nav-tabs-content {
   display: flex;
   align-items: center;
-  padding: 0 40px;           /* 8px inset so first tab icon aligns with logo text */
   gap: 0;
   overflow-x: auto;
   scrollbar-width: none;
+  padding-top: 0;
+  padding-bottom: 0;
 }
 .business-nav-tabs-content::-webkit-scrollbar { display: none; }
 
@@ -214,11 +225,11 @@
   display: flex;
   align-items: center;
   gap: 7px;
-  padding: 13px 20px;
+  padding: 13px 22px;
   background: none;
   border: none;
   border-bottom: 2.5px solid transparent;
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--gray-500);
   cursor: pointer;
@@ -227,6 +238,10 @@
   white-space: nowrap;
   flex-shrink: 0;
 }
+
+/* First tab flush with logo — no extra left indent needed
+   because the wrapper already has the shared 28px padding */
+.business-nav-tab:first-child { padding-left: 0; }
 
 .business-nav-tab:hover {
   color: var(--primary);
@@ -240,9 +255,11 @@
 
 /* ── RESPONSIVE ─────────────────────────────────────────────── */
 @media (max-width: 768px) {
-  .business-header-content   { padding: 12px 20px; min-height: 72px; }
-  .business-nav-tabs-content { padding: 0 8px; }
-  .business-nav-tab          { padding: 12px 12px; font-size: 12.5px; }
+  .business-header-content,
+  .business-nav-tabs-content { padding-left: 16px; padding-right: 16px; }
+  .business-header-content   { min-height: 64px; }
+  .business-nav-tab          { padding: 12px 14px; font-size: 12.5px; }
+  .business-nav-tab:first-child { padding-left: 0; }
 }
 @media (max-width: 480px) {
   .logo-main        { font-size: 16px; }
