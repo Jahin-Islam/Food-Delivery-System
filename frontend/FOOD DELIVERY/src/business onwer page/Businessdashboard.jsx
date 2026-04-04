@@ -211,6 +211,8 @@ const BusinessDashboard = ({
   onNavigateToOrders,
   onNavigateToHistory,
   onNavigateToProfile,
+  isDark = false,
+  onToggleTheme,
 }) => {
   const [activeTab, setActiveTab] = useState('menu');
   const [searchQuery, setSearchQuery] = useState('');
@@ -540,6 +542,8 @@ const BusinessDashboard = ({
         onNavigateToOrders={onNavigateToOrders ?? (() => {})}
         onNavigateToHistory={onNavigateToHistory ?? (() => {})}
         onNavigateToProfile={onNavigateToProfile ?? (() => {})}
+        isDark={isDark}
+        onToggleTheme={onToggleTheme}
       />
 
       {/* ── Restaurant Banner ── */}

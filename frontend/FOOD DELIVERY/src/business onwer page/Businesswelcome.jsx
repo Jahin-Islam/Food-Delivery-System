@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   BarChart2, Megaphone, Settings, ShoppingBag, ArrowRight,
@@ -29,17 +28,11 @@ const BusinessWelcome = ({
   onGoToOrderHistory,
   onGoToProfile,
   onLogout,
+  isDark = false,
+  onToggleTheme,
 }) => {
   const firstName     = user?.first_name || user?.firstName || 'Partner';
   const restaurantName = restaurant?.name || 'Your Restaurant';
-
-  // FIX #1: dark mode toggle — reads theme from localStorage and applies immediately
-  const [isDark, setIsDark] = useState(() => localStorage.getItem('theme') === 'dark');
-
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
-    localStorage.setItem('theme', isDark ? 'dark' : 'light');
-  }, [isDark]);
 
   // FIX #2: all quick actions are wired to the correct handlers
   const QUICK_ACTIONS = [
@@ -68,7 +61,7 @@ const BusinessWelcome = ({
         <div className="bw-header-right">
           {/* FIX #1: dark mode toggle button */}
           <motion.button
-            onClick={() => setIsDark(p => !p)}
+            onClick={() => onToggleTheme?.()}
             whileHover={{ scale: 1.08 }}
             whileTap={{ scale: 0.92 }}
             title={isDark ? 'Light mode' : 'Dark mode'}

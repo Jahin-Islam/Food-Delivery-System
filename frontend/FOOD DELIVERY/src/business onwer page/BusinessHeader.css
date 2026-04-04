@@ -127,3 +127,141 @@
 .bh-dd-logout .bh-dd-item-text { color: #dc2626; font-weight: 600; }
 .bh-dd-logout .bh-dd-item-icon { color: #dc2626; }
 .bh-dd-logout:hover { background: #fef2f2 !important; }
+/* ============================================================
+   HEADER SHELL & LAYOUT — keeps logo hard-left, controls hard-right
+   ============================================================ */
+
+.business-header {
+  background: var(--white);
+  border-bottom: 1.5px solid var(--gray-200);
+  position: sticky;
+  top: 0;
+  z-index: 200;
+  box-shadow: var(--shadow-sm);
+  width: 100%;
+}
+
+/* Single shared inner wrapper — both the top bar and nav use this
+   so logo-left-edge and first-tab-left-edge are always pixel-aligned */
+.business-header-content,
+.business-nav-tabs-content {
+  width: 100%;
+  box-sizing: border-box;
+  padding-left: 28px;
+  padding-right: 28px;
+}
+
+.business-header-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 72px;
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+
+/* ── LEFT ───────────────────────────────────────────────────── */
+.business-header-left { display: flex; align-items: center; }
+
+.business-logo-section {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.business-logo-text {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  line-height: 1;
+}
+
+.logo-main {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--primary);
+  letter-spacing: -0.3px;
+  line-height: 1.2;
+}
+
+.logo-sub {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--gray-400);
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  line-height: 1.2;
+}
+
+/* ── RIGHT ──────────────────────────────────────────────────── */
+.business-header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  margin-left: auto;   /* pushes right group hard to the right edge */
+}
+
+/* ── NAV TABS ────────────────────────────────────────────────── */
+.business-nav-tabs {
+  border-top: 1.5px solid var(--gray-200);
+  background: var(--white);
+  width: 100%;
+}
+
+.business-nav-tabs-content {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+.business-nav-tabs-content::-webkit-scrollbar { display: none; }
+
+.business-nav-tab {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 13px 22px;
+  background: none;
+  border: none;
+  border-bottom: 2.5px solid transparent;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gray-500);
+  cursor: pointer;
+  font-family: var(--font);
+  transition: color var(--t), border-color var(--t), background var(--t);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* First tab flush with logo — no extra left indent needed
+   because the wrapper already has the shared 28px padding */
+.business-nav-tab:first-child { padding-left: 0; }
+
+.business-nav-tab:hover {
+  color: var(--primary);
+  background: var(--primary-bg);
+}
+
+.business-nav-tab.active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+}
+
+/* ── RESPONSIVE ─────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .business-header-content,
+  .business-nav-tabs-content { padding-left: 16px; padding-right: 16px; }
+  .business-header-content   { min-height: 64px; }
+  .business-nav-tab          { padding: 12px 14px; font-size: 12.5px; }
+  .business-nav-tab:first-child { padding-left: 0; }
+}
+@media (max-width: 480px) {
+  .logo-main        { font-size: 16px; }
+  .business-nav-tab { padding: 11px 10px; font-size: 12px; gap: 5px; }
+}

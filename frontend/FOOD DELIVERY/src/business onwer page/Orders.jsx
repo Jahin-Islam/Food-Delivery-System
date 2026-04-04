@@ -247,6 +247,8 @@ const Orders = ({
   onNavigateToMenu,
   onNavigateToHistory,
   onNavigateToProfile,
+  isDark = false,
+  onToggleTheme,
 }) => {
   const [pendingOrders,   setPendingOrders]   = useState([]);
   const [preparingOrders, setPreparingOrders] = useState([]);
@@ -344,6 +346,8 @@ const Orders = ({
         onNavigateToHistory={onNavigateToHistory}
         onNavigateToProfile={onNavigateToProfile}
         newOrderCount={pendingOrders.length}
+        isDark={isDark}
+        onToggleTheme={onToggleTheme}
       />
 
       {/* ── Page Hero Bar ── */}
