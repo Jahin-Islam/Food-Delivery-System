@@ -271,7 +271,7 @@ const OrderHistory = ({
   const [error,      setError]      = useState(null);
 
   // Filters
-  const [statusFilter, setStatusFilter] = useState('');   // '' | 'DELIVERED' | 'CANCELLED'
+  const [statusFilter, setStatusFilter] = useState(''); 
   const [dateFrom,     setDateFrom]     = useState('');
   const [dateTo,       setDateTo]       = useState('');
   const [searchQuery,  setSearchQuery]  = useState('');

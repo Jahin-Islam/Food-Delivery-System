@@ -12,7 +12,6 @@ export const LS_KEY = 'fp_current_orders';
 
 const BASE_URL = 'http://127.0.0.1:8000';
 
-// ─── Step definitions ────────────────────────────────────────────────────────
 const STEPS = [
   { key: 'PENDING',   label: 'Order Confirmation', desc: 'Waiting for the restaurant to accept', Icon: ClipboardList },
   { key: 'PREPARING', label: 'Preparing',           desc: 'Restaurant is preparing your food',   Icon: ChefHat },
@@ -123,7 +122,6 @@ function mapBackendOrder(backendOrder, detailData) {
   };
 }
 
-// ─── Star Rating Widget ───────────────────────────────────────────────────────
 const StarRating = ({ value, onChange, readonly = false, size = 28 }) => {
   const [hovered, setHovered] = useState(0);
   return (

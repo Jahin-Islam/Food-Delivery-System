@@ -1,11 +1,4 @@
-// NearMePage.jsx — Standalone "Restaurants Near Me" page
-// FIXES applied on top of the original working code:
-//   1. Locate Me no longer freezes — uses a one-shot getCurrentPosition with a
-//      proper timeout + 12s safety-net timer, clears loading in BOTH success and error.
-//   2. Restaurant fetching pipeline is 100% identical to the original working version
-//      (adapted → geocoded → withCoords → allMappable → nearbyList). Nothing skipped.
-//   3. A Navigation (locate) button sits beside the search box for manual triggering.
-//   4. Map pans to new userPos whenever Locate Me succeeds.
+
 
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import {
@@ -74,8 +67,6 @@ async function geocodeAddress(address) {
 }
 
 const RADIUS_OPTIONS = [1, 2, 5, 10];
-
-// ── Leaflet Map with radius circle ────────────────────────────────────────
 function NearMeLeafletMap({ userPos, restaurants, selectedId, radius, onMarkerClick }) {
   const mapRef        = useRef(null);
   const leafRef       = useRef(null);
@@ -84,7 +75,6 @@ function NearMeLeafletMap({ userPos, restaurants, selectedId, radius, onMarkerCl
   const circleRef     = useRef(null);
   const userMarkerRef = useRef(null);
 
-  // Load Leaflet from CDN then init map
   useEffect(() => {
     if (mapInst.current) return;
 
@@ -291,10 +281,7 @@ export default function NearMePage({
   currentAddress,
   onAddressChange,
 }) {
-  // NearMePage does NOT use useRiderLocation (which starts watchPosition immediately
-  // and competes with / blocks the manual getCurrentPosition call on many browsers).
-  // Instead we manage location state locally: everything is driven by the
-  // "Locate Me" button (one-shot getCurrentPosition) or the saved localStorage coords.
+
   const [locError, setLocError] = useState(null);
   const { toasts, toast, removeToast } = useToast();
 
@@ -305,14 +292,12 @@ export default function NearMePage({
   const [filterOpen,     setFilterOpen]     = useState(false);
   const [showCart,       setShowCart]       = useState(false);
   const [addressPos,     setAddressPos]     = useState(null);
-  // FIX: dedicated loading flag for the manual Locate Me button so it never freezes
   const [manualLocating, setManualLocating] = useState(false);
 
   const geocodingRef  = useRef(false);
   const shownLocToast = useRef(false);
 
-  // Restore saved position on mount — runs once only so navigation never resets it.
-  // Priority: raw lat/lng keys -> geocode saved address text.
+
   useEffect(() => {
     const savedLat = parseFloat(localStorage.getItem('fp_delivery_lat'));
     const savedLng = parseFloat(localStorage.getItem('fp_delivery_lng'));
@@ -358,7 +343,6 @@ export default function NearMePage({
     if (locError && !addressPos) toast('Could not get your location. Showing all restaurants on map.', 'warning', 5000);
   }, [locError, addressPos]);
 
-  // ── Original restaurant pipeline (unchanged — this is why it was fetching correctly) ──
   const adapted = useMemo(() =>
     restaurants.map(r => ({ ...r, ...extractCoords(r) })),
     [restaurants]
@@ -416,11 +400,6 @@ export default function NearMePage({
 
   const geocodingCount = Object.values(geocoded).filter(v => v === 'pending').length;
 
-  // ── Locate Me — one-shot getCurrentPosition ───────────────────────────────
-  // We deliberately avoid watchPosition here. watchPosition with
-  // enableHighAccuracy:true fires a browser permission prompt that can block
-  // any subsequent getCurrentPosition call on the same page, making the button
-  // appear to hang forever. One-shot getCurrentPosition is all we need.
   const handleLocateMe = useCallback(() => {
     if (!navigator.geolocation) {
       toast('Geolocation is not supported by this browser.', 'error');
@@ -441,17 +420,13 @@ export default function NearMePage({
       async ({ coords: { latitude: lat, longitude: lng } }) => {
         clearTimeout(safetyTimer);
 
-        // 1. Update map immediately — don't wait for reverse-geocode
         setAddressPos({ lat, lng });
 
-        // 2. Persist raw coords right away
         try {
           localStorage.setItem('fp_delivery_lat', String(lat));
           localStorage.setItem('fp_delivery_lng', String(lng));
         } catch {}
 
-        // 3. Reverse-geocode with a strict 5 s abort so the spinner
-        //    never hangs on a slow Nominatim response
         let addr = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
         try {
           const controller = new AbortController();
@@ -465,8 +440,6 @@ export default function NearMePage({
           if (data.display_name) addr = data.display_name;
         } catch { /* timeout or network — coordinate string fallback is fine */ }
 
-        // 4. Persist address and notify App (address, lat, lng) so App saves
-        //    both the text and raw coords to localStorage
         try { localStorage.setItem('fp_delivery_address', addr); } catch {}
         onAddressChange?.(addr, lat, lng);
 
@@ -534,13 +507,9 @@ export default function NearMePage({
         currentAddress={currentAddress}
         onAddressChange={(addr, lat, lng) => {
           onAddressChange?.(addr, lat, lng);
-          // Use coords passed directly from Header — they are already saved to
-          // localStorage by Header before this callback fires, but we prefer the
-          // direct args so the map updates in the same React render cycle.
           if (lat && lng && !isNaN(lat) && !isNaN(lng)) {
             setAddressPos({ lat, lng });
           } else {
-            // Fallback: read localStorage (e.g. manual text entry without picking a suggestion)
             const resolvedLat = parseFloat(localStorage.getItem('fp_delivery_lat'));
             const resolvedLng = parseFloat(localStorage.getItem('fp_delivery_lng'));
             if (!isNaN(resolvedLat) && !isNaN(resolvedLng) && resolvedLat !== 0 && resolvedLng !== 0) {

@@ -1,15 +1,10 @@
-/* ============================================================
-   CONSTANTS.JS — JS mirror of index.css theme
-   ✅ Keep these values in sync with index.css --primary values
-   ============================================================ */
 
-// 🎨 CHANGE THESE to match index.css
 export const COLORS = {
-  primary:        '#4f46e5',   // matches --primary
-  primaryDark:    '#3730a3',   // matches --primary-dark
-  primaryDarkest: '#1e1b4b',   // matches --primary-darkest
-  primaryLight:   '#e0e7ff',   // matches --primary-light
-  primaryBg:      '#eef2ff',   // matches --primary-bg
+  primary:        '#4f46e5',   
+  primaryDark:    '#3730a3',  
+  primaryDarkest: '#1e1b4b',   
+  primaryLight:   '#e0e7ff',   
+  primaryBg:      '#eef2ff',   
 
   success:      '#10b981',
   successLight: '#d1fae5',
@@ -18,8 +13,6 @@ export const COLORS = {
   dangerLight:  '#fee2e2',
   white:        '#ffffff',
 
-  // Cuisine card icon background
-  // Light mode: soft lavender-white. Dark mode override is in index.css via --cuisine-card-bg.
   cuisineCardBg:      'linear-gradient(136deg, #f0f2ff, #dde1f5)',
   cuisineCardBgHover: 'linear-gradient(135deg, #e0e7ff, #c7cdf0)',
   cuisineCardBgDark:      'linear-gradient(136deg, #b8bcd1, #010204)',

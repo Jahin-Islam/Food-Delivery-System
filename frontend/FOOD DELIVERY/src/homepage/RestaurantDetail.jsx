@@ -16,8 +16,6 @@ import StaticMap from './StaticMap.jsx';
 const BASE_URL = 'http://127.0.0.1:8000';
 
 const SORT_TABS = ['Newest', 'Highest rating', 'Lowest rating'];
-
-// ─── Fetch reviews for a restaurant (public endpoint, no auth needed) ─────────
 async function fetchRestaurantReviews(restaurantId, limit = 50, offset = 0) {
   try {
     const res = await fetch(
@@ -31,7 +29,6 @@ async function fetchRestaurantReviews(restaurantId, limit = 50, offset = 0) {
   }
 }
 
-// ─── Calculate rating distribution bars from real review data ────────────────
 function calcRatingBars(reviews) {
   const counts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
   reviews.forEach(r => {
@@ -45,13 +42,11 @@ function calcRatingBars(reviews) {
   }));
 }
 
-// ─── REVIEWS MODAL ────────────────────────────────────────────────────────────
 const ReviewsModal = ({ isOpen, onClose, restaurant }) => {
   const [sortTab, setSortTab]   = useState('Newest');
   const [reviews, setReviews]   = useState([]);
   const [loading, setLoading]   = useState(false);
 
-  // Fetch when modal opens
   useEffect(() => {
     if (!isOpen || !restaurant?.id) return;
     setLoading(true);
@@ -64,7 +59,6 @@ const ReviewsModal = ({ isOpen, onClose, restaurant }) => {
   const sorted = [...reviews].sort((a, b) => {
     if (sortTab === 'Highest rating') return parseFloat(b.rating) - parseFloat(a.rating);
     if (sortTab === 'Lowest rating')  return parseFloat(a.rating) - parseFloat(b.rating);
-    // Newest: descending by review_id (higher id = more recent insert)
     return b.review_id - a.review_id;
   });
 

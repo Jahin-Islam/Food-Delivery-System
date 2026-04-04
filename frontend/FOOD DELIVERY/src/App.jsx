@@ -25,30 +25,18 @@ import OrderStatus, { LS_KEY as ORDER_LS_KEY } from './homepage/OrderStatus.jsx'
 import FavouritesSidebar from './homepage/FavouritesSideBar.jsx';
 import AllCarts from './homepage/Allcarts.jsx';
 
-// ─── Storage strategy ──────────────────────────────────────────────────────────
-// SESSION keys → sessionStorage (tab-isolated).
-//   Fixes cross-tab bleed: Customer / Restaurant / Rider in separate tabs no
-//   longer overwrite each other's page/role/restaurant state on refresh.
-//
-// PREFERENCE keys → localStorage (shared across tabs — intentional).
-//   Delivery address and active tab are harmless user preferences.
-// ──────────────────────────────────────────────────────────────────────────────
-
-// sessionStorage keys (tab-specific session state)
 const SK_PAGE         = 'fp_current_page';
 const SK_ROLE         = 'fp_user_role';
 const SK_RESTAURANT   = 'fp_restaurant';
 const SK_RIDER        = 'fp_rider';
 const SK_CHECKOUT_RID = 'fp_checkout_restaurant_id';
-const SK_THEME        = 'fp_theme';   // per-tab dark/light preference
+const SK_THEME        = 'fp_theme';   
 
-// localStorage keys (cross-tab preferences)
 const SK_ADDRESS     = 'fp_delivery_address';
 const SK_ADDRESS_LAT = 'fp_delivery_lat';
 const SK_ADDRESS_LNG = 'fp_delivery_lng';
 const SK_ACTIVE_TAB  = 'fp_active_tab';
 
-// Convenience wrappers — keeps every read/write one-liner and easy to audit
 const ss = {
   get:     (k)    => { try { return sessionStorage.getItem(k); }                       catch { return null; } },
   set:     (k, v) => { try { sessionStorage.setItem(k, v); }                           catch {} },
@@ -70,7 +58,6 @@ const TRANSIENT_PAGES = new Set([
 ]);
 
 function App() {
-  // ─── Theme: per-tab (sessionStorage) — no cross-tab bleed ──────────────────
   const [isDark, setIsDark] = useState(() => ss.get(SK_THEME) === 'dark');
 
   useEffect(() => {
@@ -93,18 +80,15 @@ function App() {
   const [showAllCarts,         setShowAllCarts]         = useState(false);
   const [riderSignupData,      setRiderSignupData]      = useState(null);
 
-  // Preferences — read from localStorage (fine to share across tabs)
   const [activeTab,       setActiveTab]       = useState(() => ls.get(SK_ACTIVE_TAB) || 'delivery');
   const [deliveryAddress, setDeliveryAddress] = useState(() => ls.get(SK_ADDRESS)    || '');
 
-  // ─── Navigation helper ───────────────────────────────────────────────────────
   const push = useCallback((page, extra = {}) => {
     window.history.pushState({ page, ...extra }, '', '#' + page);
     setCurrentPage(page);
     if (!TRANSIENT_PAGES.has(page)) ss.set(SK_PAGE, page);
   }, []);
 
-  // ─── Address (stays in localStorage — user preference) ───────────────────────
   const handleAddressChange = useCallback((address, lat, lng) => {
     setDeliveryAddress(address);
     ls.set(SK_ADDRESS, address);
@@ -114,7 +98,6 @@ function App() {
     }
   }, []);
 
-  // ─── Browser back / forward ──────────────────────────────────────────────────
   useEffect(() => {
     const onPop = (e) => {
       const dest = e.state?.page ?? 'home';
@@ -139,7 +122,6 @@ function App() {
     return () => window.removeEventListener('popstate', onPop);
   }, [currentPage]);
 
-  // ─── Initialise on mount ─────────────────────────────────────────────────────
   useEffect(() => {
     const init = async () => {
       try {
@@ -155,16 +137,16 @@ function App() {
           const isVendor = role === 'RESTAURANT' || role === 'VENDOR' || !!authState.restaurant;
           const isRider  = role === 'RIDER';
 
-          // Role goes into sessionStorage — tab-isolated
+        
           if (isVendor)     ss.set(SK_ROLE, 'restaurant');
           else if (isRider) ss.set(SK_ROLE, 'rider');
           else              ss.set(SK_ROLE, 'customer');
 
-          const savedPage = ss.get(SK_PAGE);   // read from sessionStorage
+          const savedPage = ss.get(SK_PAGE);   
 
           const pickRestaurant = () => {
             const fromAuth    = authState.restaurant;
-            const fromStorage = ss.getJson(SK_RESTAURANT);   // sessionStorage
+            const fromStorage = ss.getJson(SK_RESTAURANT); 
             if (fromAuth?.id && fromAuth.id !== 1) return fromAuth;
             if (fromStorage?.id && fromStorage.id !== 1) return fromStorage;
             return fromAuth ?? fromStorage ?? null;
@@ -228,7 +210,6 @@ function App() {
           }
         } else {
           setCartItems(cartService.loadCart());
-          // Clear session keys only — do NOT touch address / active-tab prefs
           ss.remove(SK_PAGE);
           ss.remove(SK_ROLE);
           ss.remove(SK_RESTAURANT);
@@ -246,7 +227,6 @@ function App() {
     init();
   }, []);
 
-  // ─── Fetch restaurant list ───────────────────────────────────────────────────
   useEffect(() => {
     const fetchRestaurants = async () => {
       try {
@@ -293,7 +273,6 @@ function App() {
     if (!isInitializing && !isLoggedIn) cartService.saveCart(cartItems);
   }, [cartItems, isInitializing, isLoggedIn]);
 
-  // ─── Refresh a single restaurant's rating after leaving its detail page ──────
   const refreshRestaurant = useCallback(async (restaurantId) => {
     try {
       const res = await fetch(`http://127.0.0.1:8000/api/v1/restaurants/${restaurantId}/`);

@@ -65,7 +65,6 @@ function CityMapPicker({ onCitySelect }) {
   return <div ref={mapDivRef} style={{ width: '100%', height: '200px', borderRadius: 10, border: '2px solid var(--c-gray-200)', overflow: 'hidden', marginTop: 8 }} />;
 }
 
-// ─── Step 1: Collect basic info only — backend call happens in RiderOnBoarding phase 4 ───
 const RiderSignUp = ({ onRiderOnBoarding, onSwitchToLogin }) => {
   const [formData, setFormData] = useState({
     city: '', cityLat: null, cityLng: null, vehicle: '',

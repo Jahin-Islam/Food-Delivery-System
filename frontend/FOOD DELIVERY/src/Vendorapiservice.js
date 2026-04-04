@@ -1,16 +1,9 @@
-// vendorApiService.js - Vendor/Business Owner API Service
-
 import authService from './Authservice';
 
 class VendorApiService {
   constructor() {
-    // NOTE: must match your Django URL conf — check your main urls.py
-    // If cart uses /api/v1/carts and restaurant uses /api/v1/restaurants,
-    // vendor should also be /api/v1/vendor  (change if your urls.py differs)
     this.API_BASE_URL = 'http://127.0.0.1:8000/api/vendor';
   }
-
-  // ─── Get a valid token, refreshing if needed ──────────────────────────────
   async _getValidToken() {
     let token = authService.getAccessToken();
     if (!token) {
@@ -19,8 +12,6 @@ class VendorApiService {
     }
     return token;
   }
-
-  // ─── Authenticated JSON fetch with auto-refresh and FULL error body ───────
   async _jsonFetch(endpoint, options = {}) {
     const url = endpoint.startsWith('http') ? endpoint : `${this.API_BASE_URL}${endpoint}`;
     let token = await this._getValidToken();
@@ -41,13 +32,11 @@ class VendorApiService {
       catch { throw new Error('Session expired. Please log in again.'); }
     }
 
-    // Return null for 204 No Content (DELETE success)
     if (res.status === 204) return null;
 
     const text = await res.text();
 
     if (!res.ok) {
-      // Try to extract a meaningful message from the backend response body
       let detail = `HTTP ${res.status}`;
       try {
         const json = JSON.parse(text);
@@ -61,8 +50,6 @@ class VendorApiService {
     if (!text) return null;
     try { return JSON.parse(text); } catch { return null; }
   }
-
-  // ─── Authenticated FormData fetch (for image uploads) ────────────────────
   async _formDataFetch(url, method, formData) {
     let token = await this._getValidToken();
 
@@ -98,7 +85,6 @@ class VendorApiService {
     try { return JSON.parse(text); } catch { return null; }
   }
 
-  // ─── DISCOUNTS ────────────────────────────────────────────────────────────
   async getDiscounts() {
     return this._jsonFetch('/discounts/');
   }

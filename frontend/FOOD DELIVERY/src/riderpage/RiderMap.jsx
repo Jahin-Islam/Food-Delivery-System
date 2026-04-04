@@ -1,20 +1,3 @@
-// RiderMap.jsx
-//
-// ROOT CAUSE FIX for blank map:
-//   1. Dynamically injects Leaflet CSS + JS if not already present in the page.
-//      Previously Leaflet was assumed to be in index.html — if it wasn't,
-//      window.L was undefined and the map silently never initialised.
-//   2. Init runs AFTER Leaflet loads AND after the container div is in the DOM.
-//      The old useEffect([]) ran too early when gpsLoading=true hid the div.
-//   3. Uses a ResizeObserver / invalidateSize call so Leaflet recalculates
-//      the tile grid whenever the container becomes visible.
-//
-// OTHER FIXES (carried forward):
-//   - Accepts `orders` array → pins every restaurant + delivery address
-//   - Picked-up route: rider current location → customer (not restaurant → customer)
-//   - Ongoing route:   rider current location → restaurant
-//   - Order-switcher tabs in info strip when >1 active order
-
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRiderLocation, haversineKm, formatDistance, etaMinutes } from '../Useriderlocation.js';
 import './RiderMap.css';
@@ -48,7 +31,6 @@ function loadLeaflet() {
       script.onerror  = () => reject(new Error('Failed to load Leaflet'));
       document.head.appendChild(script);
     } else {
-      // Script tag exists but hasn't fired onload yet — poll
       const poll = setInterval(() => {
         if (window.L) { clearInterval(poll); resolve(window.L); }
       }, 50);
@@ -56,13 +38,10 @@ function loadLeaflet() {
   });
 }
 
-// ─── Glowing animated icon-badge pin ─────────────────────────────────────────
-// Adds a CSS pulse ring behind the badge for the primary/rider pin.
 function makePin(L, svgIcon, bg, size = 44, borderColor = 'rgba(255,255,255,0.95)', glow = false) {
   const stem  = Math.round(size * 0.30);
   const total = size + stem;
 
-  // Glow shadow colour derived from bg (just reuse bg with opacity)
   const glowStyle = glow
     ? `box-shadow:0 0 0 4px ${bg}33, 0 0 18px 6px ${bg}55, 0 4px 14px rgba(0,0,0,0.30);`
     : `box-shadow:0 4px 14px rgba(0,0,0,0.30),0 1px 3px rgba(0,0,0,0.18);`;
@@ -151,8 +130,8 @@ export default function RiderMap({ orders = [], isOnline = false }) {
   const layersRef     = useRef([]);
   const routeRef      = useRef(null);
   const abortRef      = useRef(null);
-  const userZoomedRef = useRef(false);   // true once rider manually zooms/pans
-  const prevOrderIds  = useRef('');      // track order list changes for re-fit
+  const userZoomedRef = useRef(false);
+  const prevOrderIds  = useRef('');      
 
   const [leafletReady, setLeafletReady] = useState(!!window.L);
   const [routeInfo,    setRouteInfo]    = useState(null);
@@ -179,12 +158,8 @@ export default function RiderMap({ orders = [], isOnline = false }) {
     }
   }, [orders]); // eslint-disable-line
 
-  // ── 3. Init map — runs when Leaflet is ready AND the container exists ──────
-  //     We depend on `leafletReady` AND `gpsLoading` so the effect re-fires
-  //     once the loading spinner is replaced by the real container div.
   useEffect(() => {
-    if (!leafletReady || mapRef.current) return;        // already inited
-    // Wait for the container div to exist in the DOM
+    if (!leafletReady || mapRef.current) return;
     const container = containerRef.current;
     if (!container) return;
 
@@ -205,15 +180,9 @@ export default function RiderMap({ orders = [], isOnline = false }) {
 
     mapRef.current = map;
 
-    // Invalidate size after a short delay so Leaflet measures the container
-    // correctly (it might be 0×0 if the parent was just rendered).
     setTimeout(() => map.invalidateSize(), 100);
-
-    // Also invalidate whenever the container is resized
     const ro = new ResizeObserver(() => map.invalidateSize());
     ro.observe(container);
-
-    // Track manual zoom/pan — stop auto-fitting once rider interacts
     const onUserInteract = () => { userZoomedRef.current = true; };
     map.on('zoomstart', onUserInteract);
     map.on('dragstart', onUserInteract);
@@ -223,8 +192,7 @@ export default function RiderMap({ orders = [], isOnline = false }) {
       map.remove();
       mapRef.current = null;
     };
-  // Re-run when leafletReady changes or gpsLoading switches (container swaps)
-  }, [leafletReady, gpsLoading]); // eslint-disable-line
+  }, [leafletReady, gpsLoading]);
 
   // ── 4. Clear layers helper ────────────────────────────────────────────────
   const clearLayers = useCallback(() => {
@@ -292,9 +260,6 @@ export default function RiderMap({ orders = [], isOnline = false }) {
       }
     });
 
-    // Fit all pins in view — but ONLY when the order list actually changes,
-    // not on every GPS position tick. Once the rider manually zooms/pans,
-    // never auto-fit again so their zoom level is preserved.
     const orderKey = allActive.map(o => o.id).join(',');
     const orderListChanged = orderKey !== prevOrderIds.current;
     if (orderListChanged) prevOrderIds.current = orderKey;
@@ -310,8 +275,6 @@ export default function RiderMap({ orders = [], isOnline = false }) {
     if (!primary) return;
 
     const isPickedUp = primary.status === 'picked_up';
-
-    // FIX: both legs start from the rider's CURRENT location
     const from = riderPos ?? DHAKA;
 
     const toLat = isPickedUp ? primary.delivery?.lat  : primary.restaurant?.lat;
@@ -333,7 +296,6 @@ export default function RiderMap({ orders = [], isOnline = false }) {
 
       const color = isPickedUp ? '#10b981' : '#d70f64';
 
-      // Layer 1: thick blurred glow base
       const glowLine = L.polyline(info.coords, {
         color,
         weight:  12,

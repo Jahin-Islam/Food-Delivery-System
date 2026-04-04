@@ -13,7 +13,6 @@ import OfferOption from "./offerOption.jsx";
 import PriceOption, { filterByPrice } from "./priceOption.jsx";
 import AllCarts from "./AllCarts.jsx";
 
-// ── Static cuisines with images — always shown first ─────────────────────────
 const STATIC_CUISINES = [
   { id: 's1',  name: "Pizza",       image: "Pizza.png" },
   { id: 's2',  name: "Biryani",     image: "Biryani.png" },

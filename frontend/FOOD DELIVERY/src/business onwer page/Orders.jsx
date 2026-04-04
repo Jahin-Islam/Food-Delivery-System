@@ -18,7 +18,6 @@ const POLL_INTERVAL = 10_000;
 const STATUS_PENDING   = 'PENDING';
 const STATUS_PREPARING = 'PREPARING';
 
-// ─── API HELPERS ──────────────────────────────────────────────────────────────
 async function fetchOrders(statusFilter) {
   const qs   = statusFilter ? `?status=${statusFilter}` : '';
   const url  = `${API_BASE}/orders/${qs}`;

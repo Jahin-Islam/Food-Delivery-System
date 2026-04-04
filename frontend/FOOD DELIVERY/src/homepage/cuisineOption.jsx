@@ -1,20 +1,9 @@
 import React, { useState, useMemo } from 'react';
 
-/**
- * CuisineFilter
- *
- * Props:
- *  - selectedCuisines  {string[]}  e.g. ["Biryani", "Kebab"]
- *  - onCuisineToggle   {function}  called with the cuisine name to toggle
- *  - restaurants       {array}     full restaurants list — used to extract
- *                                  unique category_name values from their items
- */
 export const CuisineFilter = ({ selectedCuisines = [], onCuisineToggle, restaurants = [] }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
 
-  // Build unique cuisine list purely from real restaurant item categories.
-  // Case-insensitive dedup, sorted alphabetically — no hardcoded dummies.
   const cuisines = useMemo(() => {
     const seen = new Set();
     const names = [];

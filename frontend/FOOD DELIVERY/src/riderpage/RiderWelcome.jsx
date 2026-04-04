@@ -1,9 +1,3 @@
-// RiderWelcome.jsx
-// Shown after a rider completes onboarding (Phase 4 submit).
-// Props:
-//   rider           — user object from authService (name, first_name, vehicle, city, etc.)
-//   onGoToDashboard — navigate to rider-dashboard
-
 import { useEffect, useState } from 'react';
 import {
   CheckCircle2, Bike, Clock, Shield, Zap,

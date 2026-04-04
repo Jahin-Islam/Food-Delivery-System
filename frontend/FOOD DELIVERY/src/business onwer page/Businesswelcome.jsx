@@ -33,8 +33,6 @@ const BusinessWelcome = ({
 }) => {
   const firstName     = user?.first_name || user?.firstName || 'Partner';
   const restaurantName = restaurant?.name || 'Your Restaurant';
-
-  // FIX #2: all quick actions are wired to the correct handlers
   const QUICK_ACTIONS = [
     { Icon: Utensils,    title: 'Manage Menu',      desc: 'Add or update items and categories', onClick: onGoToDashboard    },
     { Icon: History,     title: 'View History',     desc: 'See your order history & analytics', onClick: onGoToOrderHistory },

@@ -34,7 +34,6 @@ const emptyForm = () => ({
   label: 'home', lat: null, lng: null,
 });
 
-/* ─── Distance helper (Haversine) ────────────────────────── */
 function haversineKm(lat1, lng1, lat2, lng2) {
   if (lat1 == null || lng1 == null || lat2 == null || lng2 == null) return null;
   const R = 6371;
@@ -46,8 +45,6 @@ function haversineKm(lat1, lng1, lat2, lng2) {
     Math.sin(dLng / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
-
-/* ─── API helpers ─────────────────────────────────────────── */
 function apiFetch(path, options = {}) {
   return cartApiService._rawFetch(`${API_BASE}${path}`, options);
 }
@@ -124,9 +121,6 @@ function normalize(a) {
   };
 }
 
-/* ─────────────────────────────────────────────────────────────
-   ADDRESS FORM MODAL
-───────────────────────────────────────────────────────────── */
 const AddressModal = ({ initial, onSave, onClose, takenLabels = [], saving }) => {
   const editingLabel = initial?.label ?? null;
   const [form, setForm] = useState(initial ?? emptyForm());
@@ -242,7 +236,6 @@ const Checkout = ({
   onAddressChange,
 }) => {
 
-  /* ── Address state ──────────────────────────────────────── */
   const [addresses,      setAddresses]      = useState([]);
   const [addrLoading,    setAddrLoading]    = useState(false);
   const [addrError,      setAddrError]      = useState('');
@@ -252,7 +245,6 @@ const Checkout = ({
   const [saving,         setSaving]         = useState(false);
   const [actionError,    setActionError]    = useState('');
 
-  /* ── Form / UI state ────────────────────────────────────── */
   const [firstName,      setFirstName]      = useState(user?.first_name || '');
   const [lastName,       setLastName]       = useState(user?.last_name  || '');
   const [email,          setEmail]          = useState(user?.email      || '');
@@ -265,11 +257,9 @@ const Checkout = ({
   const [placing,        setPlacing]        = useState(false);
   const [placeError,     setPlaceError]     = useState('');
 
-  /* ── Discounts state ────────────────────────────────────── */
   const [freshDiscounts,    setFreshDiscounts]    = useState(
     Array.isArray(restaurant?.discounts) ? restaurant.discounts : []
   );
-  // The discount_num the user has manually selected, or null = none applied
   const [selectedDiscountNum, setSelectedDiscountNum] = useState(null);
 
   useEffect(() => {
@@ -285,7 +275,6 @@ const Checkout = ({
       });
   }, [restaurant?.id]);
 
-  /* ── Fetch addresses on mount ───────────────────────────── */
   useEffect(() => {
     if (!isLoggedIn) return;
     setAddrLoading(true);
@@ -299,8 +288,6 @@ const Checkout = ({
       .catch(err => setAddrError(err.message))
       .finally(() => setAddrLoading(false));
   }, [isLoggedIn]);
-
-  /* ── Distance-based delivery fee ───────────────────────── */
   const selectedAddr = addresses.find(a => a.id === selectedAddrId) ?? null;
 
   const distanceKm = useMemo(() => {
@@ -311,10 +298,8 @@ const Checkout = ({
     return haversineKm(addrLat, addrLng, restLat, restLng);
   }, [selectedAddr, restaurant]);
 
-  // ৳10/km for standard, ৳30/km for priority (minimum ৳10)
   const deliveryFee = useMemo(() => {
     if (distanceKm == null) {
-      // fallback if coordinates unavailable
       return deliveryOption === 'priority' ? 50 : 0;
     }
     const ratePerKm = deliveryOption === 'priority' ? 30 : 10;
@@ -323,15 +308,12 @@ const Checkout = ({
 
   const serviceFee = 14;
 
-  /* ── Active discounts ───────────────────────────────────── */
   const activeDiscounts = freshDiscounts.filter(d => {
     const v = d.is_active;
     return v === true || v === 1 || v === '1';
   });
 
   const subtotal = cartItems.reduce((sum, i) => sum + i.price * i.quantity, 0);
-
-  // The currently applied discount object (only if user selected it AND subtotal qualifies)
   const applicableDiscount = useMemo(() => {
     if (selectedDiscountNum == null) return null;
     const found = activeDiscounts.find(d => d.discount_num === selectedDiscountNum);
@@ -346,14 +328,11 @@ const Checkout = ({
 
   const total   = subtotal - discountAmount + deliveryFee + serviceFee + tipAmount;
   const savings = discountAmount;
-
-  /* ── Toggle voucher selection ───────────────────────────── */
   const handleVoucherToggle = (discountNum, meetsMin) => {
     if (!meetsMin) return; // locked — can't select
     setSelectedDiscountNum(prev => prev === discountNum ? null : discountNum);
   };
 
-  /* ── Address helpers ────────────────────────────────────── */
   const takenLabels    = addresses.map(a => a.label);
   const allLabelsTaken = Object.keys(LABEL_META).every(l => takenLabels.includes(l));
 
@@ -361,7 +340,6 @@ const Checkout = ({
   const openEditModal = (addr) => { setEditingAddr(addr); setShowModal(true); setActionError(''); };
   const closeModal    = ()     => { setShowModal(false);  setEditingAddr(null); };
 
-  /* ── Save address ───────────────────────────────────────── */
   const handleSaveAddr = async (form) => {
     setSaving(true);
     setActionError('');
@@ -384,7 +362,6 @@ const Checkout = ({
     }
   };
 
-  /* ── Delete address ─────────────────────────────────────── */
   const handleDeleteAddr = async (id) => {
     setActionError('');
     try {
@@ -400,7 +377,6 @@ const Checkout = ({
     }
   };
 
-  /* ── Place order ─────────────────────────────────────────── */
   const handlePlaceOrder = async () => {
     if (!isLoggedIn) {
       setPlaceError('Please log in to place an order.');
@@ -499,8 +475,6 @@ const Checkout = ({
     setShowCart(false);
     if (onBack) onBack();
   };
-
-  /* ── Render ─────────────────────────────────────────────── */
   return (
     <div className="checkout-container">
       <Header

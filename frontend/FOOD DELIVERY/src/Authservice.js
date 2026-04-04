@@ -1,35 +1,10 @@
-// authService.js
-// ROLE ENFORCEMENT:
-//   - login()               → generic login (customer portal log_in_page.jsx)
-//                             After login, if user is NOT a customer role, throws error.
-//   - loginAsRestaurant()   → only allows RESTAURANT / VENDOR role
-//   - loginAsRider()        → only allows RIDER role
-//
-// SIGNUP ROLE ENFORCEMENT:
-//   - register()                  → always sends role=CUSTOMER
-//   - registerRestaurantPartner() → always sends role=RESTAURANT
-//   - registerRider()             → always sends role=RIDER
-//
-// This means cross-role login is blocked on the frontend before anything
-// even reaches the dashboard. The backend should also enforce it independently.
+
 
 class AuthService {
   constructor() {
     this.API_BASE_URL = 'http://127.0.0.1:8000/api/auth';
   }
 
-  // ============================================
-  // TOKEN MANAGEMENT
-  // ============================================
-
-  // ─── Storage strategy ─────────────────────────────────────────────────────
-  // Auth tokens use sessionStorage so each browser tab is independent.
-  // This lets you test Customer / Restaurant / Rider simultaneously in
-  // three separate tabs without them overwriting each other's sessions.
-  // sessionStorage is cleared automatically when the tab is closed.
-  // Cart data (foodpanda_cart) intentionally stays in localStorage so
-  // a guest cart survives a page refresh within the same tab.
-  // ──────────────────────────────────────────────────────────────────────────
 
   setTokens(accessToken, refreshToken) {
     sessionStorage.setItem('accessToken', accessToken);
@@ -48,17 +23,12 @@ class AuthService {
 
   isAuthenticated() { return !!this.getAccessToken(); }
 
-  // ============================================
-  // USER DATA MANAGEMENT
-  // ============================================
 
   setUser(user)  { sessionStorage.setItem('user', JSON.stringify(user)); }
   getUser()      { const s = sessionStorage.getItem('user'); return s ? JSON.parse(s) : null; }
   clearUser()    { sessionStorage.removeItem('user'); }
 
-  // ============================================
-  // RESTAURANT DATA MANAGEMENT
-  // ============================================
+  
 
   setRestaurantData(data) { sessionStorage.setItem('restaurantData', JSON.stringify(data)); }
   getRestaurantData()     { const s = sessionStorage.getItem('restaurantData'); return s ? JSON.parse(s) : null; }
@@ -73,9 +43,6 @@ class AuthService {
       || !!this.getRestaurantData();
   }
 
-  // ============================================
-  // HELPER: Safe JSON parsing
-  // ============================================
 
   async safeJsonParse(response) {
     const text = await response.text();
@@ -86,17 +53,11 @@ class AuthService {
     catch { throw new Error('Invalid response from server'); }
   }
 
-  // ============================================
-  // HELPER: Resolve role string
-  // ============================================
 
   _resolveRole(user) {
     return (user?.role || user?.user_type || '').toString().toUpperCase().trim();
   }
 
-  // ============================================
-  // FETCH USER DETAILS
-  // ============================================
 
   async fetchUserDetails() {
     try {
@@ -123,9 +84,7 @@ class AuthService {
     }
   }
 
-  // ============================================
-  // TOKEN REFRESH
-  // ============================================
+
 
   async refreshAccessToken() {
     const refreshToken = this.getRefreshToken();
@@ -148,9 +107,7 @@ class AuthService {
     }
   }
 
-  // ============================================
-  // AUTHENTICATED FETCH (with auto token refresh)
-  // ============================================
+
 
   async authenticatedFetch(url, options = {}) {
     let accessToken = this.getAccessToken();
@@ -197,9 +154,6 @@ class AuthService {
     return this.safeJsonParse(response);
   }
 
-  // ============================================
-  // INTERNAL: Raw login (no role check)
-  // ============================================
 
   async _rawLogin(identifier, password) {
     const response = await fetch(`${this.API_BASE_URL}/login/`, {
@@ -237,15 +191,11 @@ class AuthService {
     return data;
   }
 
-  // ============================================
-  // LOGIN — Customer portal (log_in_page.jsx)
-  // Blocks restaurant and rider roles from logging in here.
-  // ============================================
+
 
   async login(identifier, password) {
     const data = await this._rawLogin(identifier, password);
 
-    // Fetch fresh profile to get accurate role
     let user = this.getUser();
     if (!user?.role && !user?.user_type) {
       try { user = await this.fetchUserDetails(); } catch {}
@@ -256,7 +206,6 @@ class AuthService {
     const isRider      = role === 'RIDER';
 
     if (isRestaurant) {
-      // Clean up and block
       await this.logout();
       throw new Error(
         'This is a restaurant account. Please use the Restaurant Partner login page.'
@@ -272,10 +221,7 @@ class AuthService {
     return data;
   }
 
-  // ============================================
-  // LOGIN — Restaurant portal (RestaurantLogIn.jsx)
-  // Only allows RESTAURANT / VENDOR role.
-  // ============================================
+
 
   async loginAsRestaurant(identifier, password) {
     const data = await this._rawLogin(identifier, password);
@@ -305,10 +251,6 @@ class AuthService {
     return data;
   }
 
-  // ============================================
-  // LOGIN — Rider portal (RiderLogin.jsx)
-  // Only allows RIDER role.
-  // ============================================
 
   async loginAsRider(identifier, password) {
     const data = await this._rawLogin(identifier, password);
@@ -338,9 +280,6 @@ class AuthService {
     return data;
   }
 
-  // ============================================
-  // LOGOUT
-  // ============================================
 
   async logout() {
     try {
@@ -362,9 +301,6 @@ class AuthService {
     }
   }
 
-  // ============================================
-  // REGISTER CUSTOMER (role=CUSTOMER strictly)
-  // ============================================
 
   async register(userData) {
     const payload = { ...userData, role: 'CUSTOMER' };
@@ -402,9 +338,6 @@ class AuthService {
     return data;
   }
 
-  // ============================================
-  // REGISTER RESTAURANT PARTNER (role=RESTAURANT strictly)
-  // ============================================
 
   async registerRestaurantPartner(partnerData) {
     const password  = partnerData.password  || 'TempPassword123!';
@@ -421,7 +354,7 @@ class AuthService {
       first_name:          partnerData.ownerFirstName,
       last_name:           partnerData.ownerLastName,
       phone_number:        phone,
-      role:                'RESTAURANT',   // strictly enforced
+      role:                'RESTAURANT',
       restaurant_name:     partnerData.businessName,
       restaurant_category: partnerData.businessType,
       address:             partnerData.address   || '',
@@ -467,14 +400,11 @@ class AuthService {
     return data;
   }
 
-  // ============================================
-  // REGISTER RIDER (role=RIDER strictly)
-  // ============================================
 
   async registerRider(riderData) {
     const formData = new FormData();
 
-    formData.append('role',         'RIDER');   // strictly enforced
+    formData.append('role',         'RIDER');
     formData.append('email',        riderData.email);
     formData.append('password',     riderData.password);
     formData.append('password2',    riderData.password2);
@@ -523,9 +453,7 @@ class AuthService {
     return data;
   }
 
-  // ============================================
-  // INITIALIZE (restore session on page load)
-  // ============================================
+
 
   async initialize() {
     const accessToken = this.getAccessToken();

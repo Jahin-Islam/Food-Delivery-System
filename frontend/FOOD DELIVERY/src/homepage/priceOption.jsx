@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { COLORS } from '../constants.js';
 
-// Exported helper — used by homepage.jsx filtering pipeline
 export function filterByPrice(restaurants, minPrice, maxPrice) {
   const hasMin = minPrice !== '' && minPrice !== null && minPrice !== undefined && !isNaN(Number(minPrice));
   const hasMax = maxPrice !== '' && maxPrice !== null && maxPrice !== undefined && !isNaN(Number(maxPrice));

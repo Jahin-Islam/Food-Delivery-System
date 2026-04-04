@@ -5,9 +5,6 @@ class CartService {
     this.CART_KEY = 'foodpanda_cart';
   }
 
-  // ============================================
-  // CART MANAGEMENT
-  // ============================================
 
   /**
    * Save cart to localStorage
@@ -37,9 +34,6 @@ class CartService {
     }
   }
 
-  /**
-   * Clear cart from localStorage
-   */
   clearCart() {
     try {
       localStorage.removeItem(this.CART_KEY);
@@ -175,8 +169,6 @@ class CartService {
    * @param {string} userId - User ID
    */
   async syncWithBackend(userId) {
-    // TODO: Implement backend sync if needed
-    // This would POST the cart to your backend
     console.log('Cart sync with backend not implemented yet');
   }
 
@@ -185,12 +177,10 @@ class CartService {
    * @param {string} userId - User ID
    */
   async loadFromBackend(userId) {
-    // TODO: Implement backend loading if needed
-    // This would GET the cart from your backend
+
     console.log('Cart load from backend not implemented yet');
   }
 }
 
-// Create and export singleton instance
 const cartService = new CartService();
 export default cartService;

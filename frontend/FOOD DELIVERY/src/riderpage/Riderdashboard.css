@@ -1,16 +1,5 @@
-/* ============================================================
-   RIDER DASHBOARD — Theme-consistent design system
-   All colors mapped to global CSS vars from index.css.
-   No hardcoded pink/indigo — theme updates automatically.
-   ============================================================ */
-
 :root {
   --rdb-font:      'Segoe UI', system-ui, sans-serif;
-
-  /* ── Map to global theme tokens ────────────────────────────
-     --primary changes per theme (indigo light, pink dark).
-     --gray-* flip automatically in dark mode.
-     No separate [data-theme='dark'] block needed here.       */
   --rdb-pink:      var(--primary);
   --rdb-pink-dim:  var(--primary-bg, var(--primary-light));
   --rdb-pink-glow: var(--shadow-primary-color);

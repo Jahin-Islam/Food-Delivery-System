@@ -15,7 +15,6 @@ import './Riderdashboard.css';
 import RiderMap from './RiderMap.jsx';
 import authService from '../Authservice.js';
 
-// ─── STATUS HELPERS ───────────────────────────────────────────────────────────
 function backendToUIStatus(backendStatus) {
   switch ((backendStatus || '').toUpperCase()) {
     case 'PENDING':
@@ -58,7 +57,6 @@ function normaliseOrder(raw) {
   };
 }
 
-// ─── API HELPERS ──────────────────────────────────────────────────────────────
 async function fetchMyOrders() {
   try {
     const data = await authService.authenticatedFetch('http://127.0.0.1:8000/api/riders/me/orders/');
@@ -95,7 +93,6 @@ async function updateRiderLocation(lat, lng) {
   } catch {}
 }
 
-// ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 const RiderDashboard = ({ rider = {}, onLogout, isDark = false, onToggleTheme }) => {
   const riderData = {
     name:    rider.first_name ? `${rider.first_name} ${rider.last_name || ''}`.trim() : rider.name || 'Rider',
@@ -396,7 +393,6 @@ const StatusTab = ({ isOnline, ongoingOrders, onToggle }) => (
   </motion.div>
 );
 
-// ─── DELIVERIES TAB ───────────────────────────────────────────────────────────
 const DeliveriesTab = ({ nearbyOrders, ongoingOrders, completedOrders, orderTab, setOrderTab,
   isOnline, loading, onAccept, onPickedUp, onDelivered, onRefresh }) => {
   const tabs = [
@@ -448,7 +444,6 @@ const DeliveriesTab = ({ nearbyOrders, ongoingOrders, completedOrders, orderTab,
   );
 };
 
-// ─── NEARBY CARD ──────────────────────────────────────────────────────────────
 const NearbyCard = ({ order, onAccept }) => {
   const [t, setT] = useState(order.timer || 90);
   useEffect(() => {

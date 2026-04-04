@@ -23,7 +23,6 @@ const BUSINESS_TYPES = [
 
 const DEFAULT_CENTER = { lat: 23.7808, lng: 90.4206 }; // Dhaka
 
-// ── Lightweight Leaflet map for address picking ──────────────────────────
 function AddressMapPicker({ onLocationSelect, initialLat, initialLng }) {
   const mapRef    = useRef(null);
   const leafletRef = useRef(null);
@@ -39,7 +38,6 @@ function AddressMapPicker({ onLocationSelect, initialLat, initialLng }) {
       link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
       document.head.appendChild(link);
     }
-    // Load Leaflet JS
     const initMap = () => {
       if (!mapDivRef.current || mapRef.current) return;
       const L = window.L;

@@ -15,24 +15,18 @@ const ItemDetailModal = ({
   const [unavailableAction, setUnavailableAction] = useState('Remove it from my order');
   const [selectedExtras, setSelectedExtras] = useState([]);
   const [showAllExtras, setShowAllExtras] = useState(false);
-
-  // Mock variations - replace with actual data from item
-  // Only use variations if the item actually has them
   const variations = item?.variations && item.variations.length > 0 
     ? item.variations 
     : [];
 
-  // Reset all states when item changes or modal opens
   useEffect(() => {
     if (isOpen && item) {
-      // Reset to defaults
       setQuantity(1);
       setSelectedExtras([]);
       setSpecialInstructions('');
       setUnavailableAction('Remove it from my order');
       setShowAllExtras(false);
-      
-      // Set default variation if exists
+    
       if (variations.length > 0) {
         const defaultVariation = variations.find(v => v.isDefault) || variations[0];
         setSelectedVariation(defaultVariation);
@@ -40,7 +34,7 @@ const ItemDetailModal = ({
         setSelectedVariation(null);
       }
     }
-  }, [isOpen, item?.food_id]); // Reset when modal opens or item changes
+  }, [isOpen, item?.food_id]);
 
   if (!isOpen || !item) return null;
 
@@ -86,10 +80,8 @@ const ItemDetailModal = ({
       unavailableAction: unavailableAction,
     };
 
-    // Add the main item
     onAddToCart(cartItem);
 
-    // Add each selected extra as its own separate cart item (qty 1 per main item)
     selectedExtras.forEach(extra => {
       onAddToCart({
         id: `extra-${extra.id}-${item.restaurantId}`,

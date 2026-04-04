@@ -20,11 +20,9 @@ const BusinessProfile = ({
   isDark = false,
   onToggleTheme,
 }) => {
-  // Owner personal info state
   const [ownerData, setOwnerData] = useState({
     first_name: '', last_name: '', phone: '', email: '',
   });
-  // Restaurant info state
   const [restData, setRestData] = useState({
     name: '', opening_time: '', closing_time: '', phone: '',
   });
@@ -40,7 +38,6 @@ const BusinessProfile = ({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteLoading,     setDeleteLoading]     = useState(false);
 
-  // Load user data on mount
   useEffect(() => {
     const u = user || authService.getUser();
     if (u) {
@@ -121,18 +118,10 @@ const BusinessProfile = ({
       formData.append('closing_time', restData.closing_time || '');
       if (imageFile) formData.append('restaurant_image', imageFile);
 
-      // FIX: fetch directly so we never accidentally set Content-Type to
-      // application/json — the browser must set it automatically with the
-      // multipart boundary when the body is FormData.
       const token = authService.getAccessToken?.() || localStorage.getItem('accessToken');
       const response = await fetch('http://127.0.0.1:8000/api/vendor/profile/', {
         method: 'PATCH',
         headers: {
-          // Only Authorization — do NOT set Content-Type here.
-          // The browser sets it automatically as:
-          //   multipart/form-data; boundary=----WebKitFormBoundaryXXX
-          // Manually setting Content-Type would strip the boundary and
-          // cause the Django server to respond 415 Unsupported Media Type.
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: formData,

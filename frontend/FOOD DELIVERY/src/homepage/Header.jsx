@@ -19,7 +19,7 @@ const Header = ({
   activeTab = 'delivery',
   currentAddress = '',
   onAddressChange,
-  onFavouritesClick,  // opens AllCarts sidebar on the favourites tab
+  onFavouritesClick,
 }) => {
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const [isDark,           setIsDark]           = useState(() => localStorage.getItem('theme') === 'dark');
@@ -32,8 +32,6 @@ const Header = ({
 
   const panelRef    = useRef(null);
   const debounceRef = useRef(null);
-
-  // Sync whenever the saved address arrives from App (e.g. after localStorage restore on init)
   useEffect(() => {
     if (currentAddress) {
       setDisplayAddress(currentAddress);
@@ -54,7 +52,6 @@ const Header = ({
     return () => document.removeEventListener('mousedown', h);
   }, [showPanel]);
 
-  /* ── Nominatim autocomplete ── */
   const fetchSuggestions = useCallback(async (q) => {
     if (q.trim().length < 3) { setSuggestions([]); return; }
     setSuggestLoading(true);
@@ -71,13 +68,11 @@ const Header = ({
 
   const handleInputChange = (e) => {
     setInputVal(e.target.value);
-    // Clear stored coords since user is typing a new address (no suggestion picked yet)
     try { localStorage.removeItem('fp_delivery_lat'); localStorage.removeItem('fp_delivery_lng'); } catch {}
     clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => fetchSuggestions(e.target.value), 400);
   };
 
-  /* ── Save to backend ── */
   const saveToBackend = async (address, lat, lng) => {
     if (!authService.isAuthenticated()) return;
     try {
@@ -95,8 +90,6 @@ const Header = ({
     setInputVal(val);
     setSuggestions([]);
     setShowPanel(false);
-    // Save lat/lng to localStorage BEFORE calling onAddressChange so NearMePage
-    // can read them synchronously if needed, and also pass them directly as args
     if (lat && lng) {
       try { localStorage.setItem('fp_delivery_lat', String(lat)); localStorage.setItem('fp_delivery_lng', String(lng)); } catch {}
     }
@@ -104,7 +97,6 @@ const Header = ({
     await saveToBackend(val, lat, lng);
   };
 
-  /* ── Locate me ── */
   const handleLocateMe = () => {
     if (!navigator.geolocation) return;
     setLocating(true);

@@ -28,7 +28,6 @@ const RestaurantLogin = ({ onSwitchToSignUp, onLoginSuccess }) => {
 
     setLoading(true);
     try {
-      // FIX: use loginAsRestaurant — only RESTAURANT/VENDOR roles can log in here
       const response = await authService.loginAsRestaurant(email, password);
 
       const user       = authService.getUser();

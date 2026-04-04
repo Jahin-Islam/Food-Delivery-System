@@ -32,7 +32,6 @@ const RiderLogin = ({ onSwitchToSignUp, onLoginSuccess }) => {
 
     setLoading(true);
     try {
-      // FIX: use loginAsRider — only RIDER role can log in here
       await authService.loginAsRider(identifier, formData.password);
       const user = authService.getUser();
       if (user?.role !== 'RIDER') {

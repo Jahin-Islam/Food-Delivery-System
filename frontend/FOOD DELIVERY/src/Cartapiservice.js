@@ -1,10 +1,4 @@
-// cartApiService.js  
-// Maps exactly to Django views.py:
-//   GET    /api/carts/                  → [{cart_id, restaurant:{id,name}, items:[{item_id,name,price,quantity,image_url}]}]
-//   GET    /api/carts/<restaurant_id>/  → {items:[{food_id,name,price,quantity,image_url}], total_price}
-//   POST   /api/carts/<restaurant_id>/  body: {item_id, quantity}  → 201 or 409
-//   PUT    /api/carts/<restaurant_id>/  body: {item_id, quantity}
-//   DELETE /api/carts/<restaurant_id>/  body: {item_id}
+
 
 import authService from './Authservice.js';
 
@@ -14,7 +8,6 @@ class CartApiService {
     this.CART_KEY = 'foodpanda_cart';
   }
 
-  // ─── LOCAL STORAGE (guests) ────────────────────────────────────────────────
 
   saveLocalCart(cartItems) {
     try { localStorage.setItem(this.CART_KEY, JSON.stringify(cartItems)); return true; }
@@ -33,9 +26,6 @@ class CartApiService {
     catch (e) { return false; }
   }
 
-  // ─── RAW AUTHENTICATED FETCH ───────────────────────────────────────────────
-  // Uses authService for token/refresh handling but lets us inspect status codes
-  // before throwing, so 404 (empty cart) doesn't blow up as an error.
 
   async _fetch(endpoint, options = {}) {
     const url = endpoint.startsWith('http')
@@ -44,7 +34,6 @@ class CartApiService {
     return await authService.authenticatedFetch(url, options);
   }
 
-  // Like _fetch but returns null on 404 instead of throwing
   async _fetchOrNull(endpoint, options = {}) {
     const url = endpoint.startsWith('http')
       ? endpoint
@@ -66,7 +55,6 @@ class CartApiService {
 
     let response = await makeRequest(accessToken);
 
-    // Auto-refresh on 401
     if (response.status === 401) {
       try {
         accessToken = await authService.refreshAccessToken();
@@ -89,11 +77,7 @@ class CartApiService {
     try { return JSON.parse(text); } catch { return null; }
   }
 
-  // ─── NORMALISE backend → frontend item shape ───────────────────────────────
-  //
-  // AllCartsView returns items with key "item_id"
-  // SingleRestaurantCart returns items with key "food_id"
-  // We unify to:  { id, foodId, food_id, name, price, quantity, image, restaurantId, restaurant }
+
 
   _normaliseAllCarts(backendCarts) {
     console.log('_normaliseAllCarts raw input:', JSON.stringify(backendCarts));
@@ -106,7 +90,7 @@ class CartApiService {
         const foodId = item.item_id ?? item.food_id;
         console.log(`    item: food_id=${foodId} name=${item.name} qty=${item.quantity}`);
         items.push({
-          id: `${foodId}-${restaurantId}`,   // stable — matches what App uses for update/remove
+          id: `${foodId}-${restaurantId}`,
           foodId,
           food_id: foodId,
           name: item.name,
@@ -123,12 +107,6 @@ class CartApiService {
     return items;
   }
 
-  // ─── PUBLIC API ────────────────────────────────────────────────────────────
-
-  /**
-   * GET /api/carts/
-   * Returns normalised array of cart items (all restaurants combined).
-   */
   async getAllCarts() {
     if (!authService.isAuthenticated()) {
       console.log('getAllCarts: not authenticated, using localStorage');
@@ -150,16 +128,11 @@ class CartApiService {
       return [];
     }
   }
-
-  /**
-   * POST /api/carts/<restaurant_id>/  {item_id, quantity}
-   * If backend returns 409 (item already exists) it retries with PUT.
-   */
   async addToCart(restaurantId, item) {
     if (!authService.isAuthenticated()) {
       return this._localAdd(restaurantId, item);
     }
-    // Use raw fetch so we can see the exact status + body
+
     const url = `${this.API_BASE_URL}/${restaurantId}/`;
     let accessToken = authService.getAccessToken();
 
@@ -179,7 +152,6 @@ class CartApiService {
     }
 
     if (res.status === 409) {
-      // Item already exists → update quantity instead
       return this.updateCartItem(
         restaurantId,
         item.food_id ?? item.foodId,
@@ -192,10 +164,6 @@ class CartApiService {
       throw new Error(`addToCart failed ${res.status}: ${body.slice(0, 200)}`);
     }
   }
-
-  /**
-   * PUT /api/carts/<restaurant_id>/  {item_id, quantity}
-   */
   async updateCartItem(restaurantId, foodId, quantity) {
     if (!authService.isAuthenticated()) {
       return this._localUpdate(restaurantId, foodId, quantity);
@@ -225,7 +193,6 @@ class CartApiService {
     }
   }
 
-  // ─── raw fetch with auto token refresh, returns Response object ───────────
   async _rawFetch(endpoint, options = {}) {
     const url = endpoint.startsWith('http')
       ? endpoint
@@ -243,14 +210,10 @@ class CartApiService {
     return res;
   }
 
-  /**
-   * After login: push any guest cart items to backend, then clear local.
-   */
   async syncCartAfterLogin() {
     const local = this.loadLocalCart();
     if (!local.length) return;
 
-    // Group by restaurant
     const grouped = local.reduce((acc, item) => {
       const rid = item.restaurantId;
       if (!acc[rid]) acc[rid] = [];
@@ -275,7 +238,6 @@ class CartApiService {
     this.clearLocalCart();
   }
 
-  // ─── LOCAL-ONLY HELPERS (guest mode) ──────────────────────────────────────
 
   _localAdd(restaurantId, item) {
     const cart = this.loadLocalCart();

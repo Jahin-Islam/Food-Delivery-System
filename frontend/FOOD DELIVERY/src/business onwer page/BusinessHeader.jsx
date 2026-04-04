@@ -7,7 +7,6 @@ import {
 } from 'lucide-react';
 import { BRAND, COLORS } from '../constants.js';
 
-// ─── PROFILE DROPDOWN ────────────────────────────────────────────────────────
 const BusinessProfileDropdown = ({
   isOpen, onClose, user, restaurant,
   onLogout, onProfileClick,
@@ -97,8 +96,6 @@ const BusinessProfileDropdown = ({
   );
 };
 
-// ─── MAIN BUSINESS HEADER ─────────────────────────────────────────────────────
-// FIX #3: All 4 tabs are properly wired. No page traps the user.
 const BusinessHeader = ({
   activePage,
   user,
@@ -224,7 +221,6 @@ const BusinessHeader = ({
                 key={id}
                 className={`business-nav-tab ${activePage === id ? 'active' : ''}`}
                 onClick={() => {
-                  // Always navigate even if already on this tab (safe re-render)
                   if (typeof onClick === 'function') onClick();
                 }}
               >

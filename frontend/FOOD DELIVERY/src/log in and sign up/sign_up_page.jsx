@@ -9,14 +9,12 @@ import authService from '../Authservice.js';
 import { BRAND, COLORS, MOTION } from '../constants.js';
 import './sign_up_page.css';
 
-// ── Edit hero features here ──
 const HERO_FEATURES = [
   { Icon: UserCheck, text: 'Join thousands of happy customers'   },
   { Icon: Sparkles,  text: 'Free delivery on your first order'   },
   { Icon: Gift,      text: 'Exclusive member deals every week'   },
 ];
 
-// ── Field config — edit placeholders/labels centrally ──
 const FIELDS = [
   { id: 'first_name',   label: 'First Name',       type: 'text',     placeholder: 'First name',                 Icon: User,  half: true               },
   { id: 'last_name',    label: 'Last Name',         type: 'text',     placeholder: 'Last name',                  Icon: User,  half: true               },
@@ -48,13 +46,8 @@ const SignUp = ({ onSwitchToSignIn, onSignUpSuccess }) => {
 
     setLoading(true);
     try {
-      // Step 1: Register
       await authService.register({ email, password, password2, first_name, last_name, phone_number });
-
-      // Step 2: Auto-login to get tokens (backend doesn't return tokens on register)
       await authService.login(email, password);
-
-      // Step 3: Fetch fresh profile so it's available immediately
       await authService.fetchUserDetails();
 
       toast.success('Account created! Welcome to foodpanda!');
@@ -66,7 +59,6 @@ const SignUp = ({ onSwitchToSignIn, onSignUpSuccess }) => {
     }
   };
 
-  // Pair half-width fields into rows
   const renderFields = () => {
     const out = [];
     let i = 0;

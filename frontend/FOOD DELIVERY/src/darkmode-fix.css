@@ -1,24 +1,4 @@
-/* ============================================================
-   darkmode-fix.css
-   Add this as the VERY LAST import in main.jsx:
-       import './darkmode-fix.css'
 
-   Why it exists:
-   Many CSS files hardcode the light-mode pink as raw hex/rgba
-   values e.g. rgba(219,39,119,...), rgba(215,15,100,...),
-   #d70f64, #c20d5f etc.  Those values never change in dark
-   mode, so accents stay the wrong shade of pink.
-   This file overrides every offending rule under
-   [data-theme="dark"] so the vivid pink (#ff2d78) stored in
-   --primary shows up correctly everywhere.
-   ============================================================ */
-
-
-/* ============================================================
-   1. LOGO & BRAND TEXT
-   ============================================================ */
-
-/* homepage.css uses gradient-clip on .logo-text — replace */
 [data-theme="dark"] .logo-text {
   background: none !important;
   -webkit-background-clip: unset !important;
@@ -35,9 +15,6 @@
 }
 
 
-/* ============================================================
-   2. LOGO ICON BOX SHADOWS
-   ============================================================ */
 
 [data-theme="dark"] .logo-section .logo-icon {
   background: var(--gradient-primary) !important;
@@ -58,9 +35,6 @@
 }
 
 
-/* ============================================================
-   3. TOP BANNER SHADOW
-   ============================================================ */
 
 [data-theme="dark"] .top-banner {
   box-shadow: 0 2px 8px var(--shadow-primary-color) !important;

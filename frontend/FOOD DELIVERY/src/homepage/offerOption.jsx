@@ -1,19 +1,7 @@
 import { useState } from 'react';
 import { Percent } from 'lucide-react';
 
-/**
- * OfferOption
- *
- * Shows only the special offer toggles (Deals, etc.).
- * Category filtering has been moved entirely to CuisineFilter
- * which builds its list dynamically from real restaurant data.
- *
- * Props:
- *  - selectedOffers  {object}   e.g. { deals: false }
- *  - onOfferChange   {function} called with the updated selectedOffers object
- */
 export default function OfferOption({ selectedOffers = {}, onOfferChange }) {
-  // Local state fallback when used standalone without props
   const [localSelected, setLocalSelected] = useState({ deals: false });
 
   const isControlled = typeof onOfferChange === 'function';

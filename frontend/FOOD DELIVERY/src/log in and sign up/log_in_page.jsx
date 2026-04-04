@@ -6,7 +6,6 @@ import authService from '../Authservice.js';
 import { BRAND, COLORS, MOTION } from '../constants.js';
 import './log_in_page.css';
 
-// ── Edit these to change the hero feature list ──
 const HERO_FEATURES = [
   { Icon: ShoppingBag, text: 'Order from hundreds of restaurants near you' },
   { Icon: Clock,       text: 'Fast delivery, tracked in real-time'          },

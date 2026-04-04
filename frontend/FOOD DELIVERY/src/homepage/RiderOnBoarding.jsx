@@ -3,9 +3,6 @@ import './RiderOnBoarding.css';
 import { COLORS } from '../constants.js';
 import authService from '../Authservice.js';
 
-// ── RiderOnBoarding receives step1Data from RiderSignUp (via App.jsx) ──────
-// Phase 1–3 collect additional docs locally.
-// Phase 4 "Start" fires the real backend call with ALL combined data.
 
 const RiderOnBoarding = ({ onCompletion, step1Data }) => {
   const [phaseStatus, setPhaseStatus] = useState({
@@ -18,7 +15,6 @@ const RiderOnBoarding = ({ onCompletion, step1Data }) => {
   const [showPhase2Modal, setShowPhase2Modal] = useState(false);
   const [showPhase3Form, setShowPhase3Form] = useState(false);
 
-  // Phase 3 collects NID images, emergency contact, etc.
   const [phase3Data, setPhase3Data] = useState({
     birthday: '',
     gender: '',
@@ -129,7 +125,6 @@ const RiderOnBoarding = ({ onCompletion, step1Data }) => {
     });
   };
 
-  // ── Phase 4: REAL backend call with ALL combined data ──────────────────
   const handlePhase4Complete = async () => {
     if (!step1Data) {
       setPhase4Error('Step 1 data is missing. Please go back and complete the sign-up form.');
@@ -140,21 +135,18 @@ const RiderOnBoarding = ({ onCompletion, step1Data }) => {
     setPhase4Error('');
 
     try {
-      // Combine step-1 (basic info) + step-3 (documents & extra details)
       const combinedRiderData = {
-        // ── From step 1 (RiderSignUp.jsx) ──
         email:     step1Data.email     || '',
         password:  step1Data.password  || '',
         password2: step1Data.password2 || step1Data.password || '',
         name:      step1Data.name      || '',
         surname:   step1Data.surname   || '',
         phone:     step1Data.phone     || '',
-        vehicle:   step1Data.vehicle   || '',  // 'Motorbike' | 'Bi-Cycle'
+        vehicle:   step1Data.vehicle   || '',
         city:      step1Data.city      || '',
         latitude:  step1Data.cityLat   || null,
         longitude: step1Data.cityLng   || null,
 
-        // ── From step 2 (RiderOnBoarding phase 3) ──
         nidNumber:     phase3Data.nidNumber    || '',
         nidFront:      phase3Data.nidFront     || null,
         nidBack:       phase3Data.nidBack      || null,
@@ -163,13 +155,11 @@ const RiderOnBoarding = ({ onCompletion, step1Data }) => {
         emergencyName: phase3Data.emergencyName || '',
         emergencyPhone:phase3Data.emergencyPhone || '',
 
-        // license_plate is required by the backend — collected at hub in person
         licensePlate:  'PENDING',
       };
 
       await authService.registerRider(combinedRiderData);
       const u = authService.getUser();
-      // Signal App.jsx that registration is complete, pass back the user
       onCompletion?.(u ?? {});
     } catch (err) {
       console.error('Rider registration error:', err);

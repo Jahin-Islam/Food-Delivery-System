@@ -1,33 +1,6 @@
-// StaticMap.jsx
-// A lightweight static map pin — used in Restaurant Detail and Checkout.
-// Shows a single location with no routing, no GPS tracking.
-//
-// Usage in RestaurantDetail:
-//   import StaticMap from './StaticMap.jsx';
-//   <StaticMap
-//     lat={restaurant.address?.latitude}
-//     lng={restaurant.address?.longitude}
-//     label={restaurant.name}
-//     pinEmoji="🍽️"
-//     pinColor="#f97316"
-//     height="220px"
-//   />
-//
-// Usage in Checkout (delivery address):
-//   <StaticMap
-//     lat={deliveryAddress?.latitude}
-//     lng={deliveryAddress?.longitude}
-//     label="Delivery address"
-//     pinEmoji="🏠"
-//     pinColor="#10b981"
-//     height="180px"
-//   />
-
 import MapComponent from '../Mapcomponent.jsx';
 import './StaticMap.css';
 
-// Resolve lat/lng from whatever shape is passed in
-// Supports: flat lat/lng props, or pass the whole restaurant and it reads address.latitude
 function resolveCoord(val) {
   if (val == null) return null;
   const n = parseFloat(val);

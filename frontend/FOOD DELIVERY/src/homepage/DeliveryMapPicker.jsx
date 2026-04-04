@@ -1,21 +1,8 @@
-// DeliveryMapPicker.jsx
-// Interactive Leaflet map for choosing a delivery address.
-// Features:
-//   • Nominatim search with autocomplete suggestions (like Header.jsx)
-//   • GPS "Use my location" button
-//   • Drag-to-place or click-to-place pin
-//   • Pin styled as glowing circle-with-stem (matching RiderMap.jsx makePin)
-//
-// Props:
-//   onLocationSelect({ lat, lng, address }) — called whenever the pin moves
-//   initialLat / initialLng               — optional starting position
-
 import { useEffect, useRef, useState, useCallback } from 'react';
 import './DeliveryMapPicker.css';
 
 let L = null;
 
-// ── Nominatim helpers ─────────────────────────────────────────────────────────
 async function reverseGeocode(lat, lng) {
   try {
     const res  = await fetch(
@@ -47,7 +34,6 @@ async function searchAddress(q) {
   }
 }
 
-// ── RiderMap-style pin: glowing circle-with-stem ──────────────────────────────
 function makeDeliveryPin(L_ref) {
   const bg    = '#d70f64';
   const size  = 40;
@@ -232,14 +218,14 @@ export default function DeliveryMapPicker({ onLocationSelect, initialLat, initia
       map.remove();
       mapRef.current    = null;
       markerRef.current = null;
-      if (containerRef.current && containerRef.current._leaflet_id) { // eslint-disable-line
-        delete containerRef.current._leaflet_id; // eslint-disable-line
+      if (containerRef.current && containerRef.current._leaflet_id) {
+        delete containerRef.current._leaflet_id;
       }
     };
-  }, [mapReady]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [mapReady]); 
 
   // ── Move pin & map to a new lat/lng ──────────────────────────────────────
-  const movePin = useCallback(async (lat, lng, label) => { // eslint-disable-line react-hooks/exhaustive-deps
+  const movePin = useCallback(async (lat, lng, label) => { 
     if (mapRef.current && markerRef.current) {
       markerRef.current.setLatLng([lat, lng]);
       mapRef.current.setView([lat, lng], 17);
@@ -274,8 +260,6 @@ export default function DeliveryMapPicker({ onLocationSelect, initialLat, initia
   const handleSearchSubmit = () => {
     if (suggestions.length > 0) movePin(suggestions[0].lat, suggestions[0].lng, suggestions[0].label);
   };
-
-  // ── GPS locate ────────────────────────────────────────────────────────────
   const useMyLocation = () => {
     if (!navigator.geolocation) { alert('Geolocation is not supported by your browser.'); return; }
     setGpsLoading(true);

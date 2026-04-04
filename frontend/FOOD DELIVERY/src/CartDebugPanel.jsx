@@ -1,10 +1,4 @@
-// CartDebugPanel.jsx
-// Drop this anywhere in App.jsx:
-//   import CartDebugPanel from './CartDebugPanel.jsx';
-//   <CartDebugPanel cartItems={cartItems} isLoggedIn={isLoggedIn} />
-//
-// It shows a floating panel in the bottom-right corner with live state + manual test buttons.
-// REMOVE before production.
+
 
 import { useState, useEffect } from 'react';
 import authService from './Authservice.js';

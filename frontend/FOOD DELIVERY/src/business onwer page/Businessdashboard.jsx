@@ -6,8 +6,6 @@ import { Search, Utensils, Bike, Star, Camera, Pencil, Trash2, Plus, AlertCircle
 import authService from '../Authservice.js';
 import vendorApiService from '../Vendorapiservice.js';
 import BusinessHeader from './BusinessHeader.jsx';
-
-// ─── Small Toast notification ─────────────────────────────────────────────────
 const Toast = ({ message, type, onClose }) => {
   useEffect(() => { const t = setTimeout(onClose, 3000); return () => clearTimeout(t); }, [onClose]);
   return (
@@ -474,23 +472,16 @@ const BusinessDashboard = ({
     setLogoUploading(true);
     try {
       const formData = new FormData();
-      // KEY FIX: use 'restaurant_image' — matches what BusinessProfile sends
-      // and what the Django backend expects on /api/vendor/profile/
+
       formData.append('restaurant_image', file);
 
-      // Use raw fetch — NOT authenticatedFetch — so the browser sets the
-      // correct multipart/form-data Content-Type with boundary automatically.
-      // authenticatedFetch merges in Content-Type: application/json which
-      // causes the "Unsupported media type" 415 error from the backend.
       let token = authService.getAccessToken();
       let res = await fetch('http://127.0.0.1:8000/api/vendor/profile/', {
         method: 'PATCH',
         body: formData,
         headers: { Authorization: `Bearer ${token}` },
-        // Do NOT include Content-Type — browser sets it with multipart boundary
-      });
 
-      // If token expired, try refreshing once
+      });
       if (res.status === 401) {
         try { token = await authService.refreshAccessToken(); } catch { throw new Error('Session expired. Please log in again.'); }
         res = await fetch('http://127.0.0.1:8000/api/vendor/profile/', {
@@ -504,8 +495,6 @@ const BusinessDashboard = ({
         const errData = await res.json().catch(() => ({}));
         throw new Error(errData.detail || errData.restaurant_image?.[0] || errData.image?.[0] || `Upload failed (${res.status})`);
       }
-
-      // Show the new logo immediately without a full refetch
       setLocalLogoUrl(URL.createObjectURL(file));
       showToast('Restaurant photo updated!');
       setShowLogoModal(false);
