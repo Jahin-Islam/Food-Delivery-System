@@ -14,6 +14,7 @@ from orders.api.services import (
     get_restaurant_order_history_stats, 
 )
 from resturants.api.services import get_restaurant_id, get_restaurant_profile, update_restaurant_profile
+from orders.api.services import get_history_order_items, get_order_details
 HISTORY_STATUSES = {'DELIVERED', 'CANCELLED'}
 
 class RestaurantProfileView(APIView):
@@ -667,11 +668,6 @@ class RestaurantOrderHistoryView(APIView):
     permission_classes = [IsAuthenticated]
  
     def get(self, request):
-        from orders.api.services import (
-            get_restaurant_order_history,
-            get_restaurant_order_history_stats,
-        )
- 
         restaurant_id = get_restaurant_id(request.user.id)
         if not restaurant_id:
             return Response(
@@ -723,7 +719,6 @@ class RestaurantOrderHistoryDetailView(APIView):
     permission_classes = [IsAuthenticated]
  
     def get(self, request, order_id):
-        from orders.api.services import get_history_order_items, get_order_details
  
         restaurant_id = get_restaurant_id(request.user.id)
         if not restaurant_id:

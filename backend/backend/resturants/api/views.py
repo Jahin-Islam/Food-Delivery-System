@@ -9,22 +9,23 @@ from orders.api.services import (
     get_restaurant_orders, update_order_status_by_restaurant,
     get_order_items, get_order_details, cancel_order,
 )
+from utility import dictfetchall, dictfetchone
 
 
 VALID_ORDER_STATUSES = {'PENDING', 'PREPARING', 'PICKED_UP', 'DELIVERED', 'CANCELLED'}
 
 
-def dictfetchall(cursor):
-    columns = [col[0] for col in cursor.description]
-    return [dict(zip(columns, row)) for row in cursor.fetchall()]
+# def dictfetchall(cursor):
+#     columns = [col[0] for col in cursor.description]
+#     return [dict(zip(columns, row)) for row in cursor.fetchall()]
 
 
-def dictfetchone(cursor):
-    row = cursor.fetchone()
-    if row is None:
-        return None
-    columns = [col[0] for col in cursor.description]
-    return dict(zip(columns, row))
+# def dictfetchone(cursor):
+#     row = cursor.fetchone()
+#     if row is None:
+#         return None
+#     columns = [col[0] for col in cursor.description]
+#     return dict(zip(columns, row))
 
 
 def get_restaurant_id(user_id):

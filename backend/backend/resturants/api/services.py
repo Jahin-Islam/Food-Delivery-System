@@ -9,6 +9,7 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from exceptions import PermissionError, ConflictError, NotFoundError, ValidationError
 from addresses.api.services import insert_address
+from cloudinary import CloudinaryImage
 
 def insert_restaurant(cursor, user_id, phone_number, data):
     """
@@ -94,8 +95,6 @@ def get_restaurant_profile(restaurant_id):
     receives a ready-to-use `image_url` string and never has to know
     about Cloudinary internals.
     """
-    from cloudinary import CloudinaryImage
-
     with connection.cursor() as cursor:
         cursor.execute("""
             SELECT id, name, phone, opening_time, closing_time, image,

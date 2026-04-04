@@ -222,101 +222,101 @@ def insert_rider(cursor, user_id, request):
     )
 
 
-def get_nearby_orders(rider_lat, rider_lng, radius_km=5):
-    """
-    Returns PENDING and PREPARING orders that have no rider yet,
-    within radius_km of the rider.
+# def get_nearby_orders(rider_lat, rider_lng, radius_km=5):
+#     """
+#     Returns PENDING and PREPARING orders that have no rider yet,
+#     within radius_km of the rider.
 
-    FIX 2: Distance is now calculated from the RESTAURANT's coordinates
-    (not the delivery address) so the radius reflects how far the rider
-    needs to travel to pick up the food.
+#     FIX 2: Distance is now calculated from the RESTAURANT's coordinates
+#     (not the delivery address) so the radius reflects how far the rider
+#     needs to travel to pick up the food.
 
-    Also returns restaurant_lat / restaurant_lng so the frontend can
-    place a proper map pin on the restaurant.
-    """
-    with connection.cursor() as cursor:
-        cursor.execute("""
-            SELECT
-                o.order_id,
-                o.status,
-                o.total_amount,
-                o.delivery_charge,
-                o.created_at,
-                o.first_name            AS customer_first_name,
-                o.last_name             AS customer_last_name,
-                o.phone_number          AS customer_phone,
-                r.name                  AS restaurant_name,
-                r.image_url             AS restaurant_image,
-                res_addr.latitude       AS restaurant_lat,
-                res_addr.longitude      AS restaurant_lng,
-                ad.street_number,
-                ad.apartment_number,
-                ad.description          AS address_description,
-                ad.latitude             AS delivery_lat,
-                ad.longitude            AS delivery_lng,
+#     Also returns restaurant_lat / restaurant_lng so the frontend can
+#     place a proper map pin on the restaurant.
+#     """
+#     with connection.cursor() as cursor:
+#         cursor.execute("""
+#             SELECT
+#                 o.order_id,
+#                 o.status,
+#                 o.total_amount,
+#                 o.delivery_charge,
+#                 o.created_at,
+#                 o.first_name            AS customer_first_name,
+#                 o.last_name             AS customer_last_name,
+#                 o.phone_number          AS customer_phone,
+#                 r.name                  AS restaurant_name,
+#                 r.image_url             AS restaurant_image,
+#                 res_addr.latitude       AS restaurant_lat,
+#                 res_addr.longitude      AS restaurant_lng,
+#                 ad.street_number,
+#                 ad.apartment_number,
+#                 ad.description          AS address_description,
+#                 ad.latitude             AS delivery_lat,
+#                 ad.longitude            AS delivery_lng,
 
-                (
-                    6371 * ACOS(
-                        LEAST(1.0,
-                            COS(RADIANS(%s))
-                            * COS(RADIANS(res_addr.latitude))
-                            * COS(RADIANS(res_addr.longitude) - RADIANS(%s))
-                            + SIN(RADIANS(%s))
-                            * SIN(RADIANS(res_addr.latitude))
-                        )
-                    )
-                ) AS distance_km
+#                 (
+#                     6371 * ACOS(
+#                         LEAST(1.0,
+#                             COS(RADIANS(%s))
+#                             * COS(RADIANS(res_addr.latitude))
+#                             * COS(RADIANS(res_addr.longitude) - RADIANS(%s))
+#                             + SIN(RADIANS(%s))
+#                             * SIN(RADIANS(res_addr.latitude))
+#                         )
+#                     )
+#                 ) AS distance_km
 
-            FROM orders_order o
-            INNER JOIN resturants_restaurant r
-                ON r.id = o.restaurant_id
-            INNER JOIN addresses_address res_addr
-                ON res_addr.address_id = r.address_id
-               AND res_addr.latitude  IS NOT NULL
-               AND res_addr.longitude IS NOT NULL
-            LEFT JOIN addresses_deliveryaddress ad
-                ON ad.id = o.address_id
+#             FROM orders_order o
+#             INNER JOIN resturants_restaurant r
+#                 ON r.id = o.restaurant_id
+#             INNER JOIN addresses_address res_addr
+#                 ON res_addr.address_id = r.address_id
+#                AND res_addr.latitude  IS NOT NULL
+#                AND res_addr.longitude IS NOT NULL
+#             LEFT JOIN addresses_deliveryaddress ad
+#                 ON ad.id = o.address_id
 
-            WHERE o.status IN ('PENDING', 'PREPARING')
-              AND o.rider_id IS NULL
+#             WHERE o.status IN ('PENDING', 'PREPARING')
+#               AND o.rider_id IS NULL
 
-            HAVING distance_km <= %s
+#             HAVING distance_km <= %s
 
-            ORDER BY distance_km ASC
-        """, [rider_lat, rider_lng, rider_lat, radius_km])
+#             ORDER BY distance_km ASC
+#         """, [rider_lat, rider_lng, rider_lat, radius_km])
 
-        orders = dictfetchall(cursor)
+#         orders = dictfetchall(cursor)
 
-    if not orders:
-        return []
+#     if not orders:
+#         return []
 
-    order_ids    = [o['order_id'] for o in orders]
-    placeholders = ', '.join(['%s'] * len(order_ids))
+#     order_ids    = [o['order_id'] for o in orders]
+#     placeholders = ', '.join(['%s'] * len(order_ids))
 
-    with connection.cursor() as cursor:
-        cursor.execute(f"""
-            SELECT
-                oi.order_id,
-                oi.quantity,
-                oi.price_at_purchase,
-                mi.name      AS item_name,
-                mi.image_url AS item_image
-            FROM orders_orderitem oi
-            LEFT JOIN items_menuitem mi ON mi.food_id = oi.item_id
-            WHERE oi.order_id IN ({placeholders})
-        """, order_ids)
-        all_items = dictfetchall(cursor)
+#     with connection.cursor() as cursor:
+#         cursor.execute(f"""
+#             SELECT
+#                 oi.order_id,
+#                 oi.quantity,
+#                 oi.price_at_purchase,
+#                 mi.name      AS item_name,
+#                 mi.image_url AS item_image
+#             FROM orders_orderitem oi
+#             LEFT JOIN items_menuitem mi ON mi.food_id = oi.item_id
+#             WHERE oi.order_id IN ({placeholders})
+#         """, order_ids)
+#         all_items = dictfetchall(cursor)
 
-    items_map = {}
-    for item in all_items:
-        oid = item.pop('order_id')
-        items_map.setdefault(oid, []).append(item)
+#     items_map = {}
+#     for item in all_items:
+#         oid = item.pop('order_id')
+#         items_map.setdefault(oid, []).append(item)
 
-    for order in orders:
-        order['items']       = items_map.get(order['order_id'], [])
-        order['distance_km'] = round(order['distance_km'], 2)
+#     for order in orders:
+#         order['items']       = items_map.get(order['order_id'], [])
+#         order['distance_km'] = round(order['distance_km'], 2)
 
-    return orders
+#     return orders
 
 
 def get_rider_id(user_id):

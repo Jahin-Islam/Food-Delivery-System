@@ -1,5 +1,6 @@
 # customers/api/services.py
 # COMPLETE FILE — replace your existing customers/api/services.py with this
+from django.db import connection
 
 
 def insert_customer(cursor, user_id):
@@ -18,3 +19,13 @@ def insert_customer(cursor, user_id):
         """,
         [user_id, 0.00]
     )
+
+def get_customer_id(user_id):
+    """Resolve auth user_id → customer.id using the SQL function."""
+    with connection.cursor() as cursor:
+        # Call the custom SQL function
+        cursor.execute("SELECT fn_get_customer_id(%s)", [user_id])
+        row = cursor.fetchone()
+        
+    # row[0] will be the ID or None (since the function defaults to NULL)
+    return row[0] if row else None

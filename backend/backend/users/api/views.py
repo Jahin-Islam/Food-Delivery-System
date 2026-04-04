@@ -121,46 +121,48 @@ class RegisterView(APIView):
         # transaction.atomic() on MySQL uses InnoDB savepoints.
         # Any exception inside rolls back every INSERT in this block.
         try:
-            with transaction.atomic():
-                with connection.cursor() as cursor:
-                    # 4a ── Insert the base users_user row ───────────────────
-                    cursor.execute(
-                        """
-                        INSERT INTO users_user
-                            (password, is_superuser, email, is_staff, is_active,
-                             date_joined, role, phone_number, image_url,
-                             first_name, last_name)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                        """,
-                        [
-                            password, is_superuser, email, is_staff, is_active,
-                            date_joined, role, phone_number, '',
-                            first_name, last_name,
-                        ]
+                
+            with connection.cursor() as cursor:
+                # 4a ── Insert the base users_user row ───────────────────
+                cursor.execute("START TRANSACTION;")
+                cursor.execute(
+                    """
+                    INSERT INTO users_user
+                        (password, is_superuser, email, is_staff, is_active,
+                            date_joined, role, phone_number, image_url,
+                            first_name, last_name)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    [
+                        password, is_superuser, email, is_staff, is_active,
+                        date_joined, role, phone_number, '',
+                        first_name, last_name,
+                    ]
+                )
+
+                # Use LAST_INSERT_ID() — atomic and connection-scoped in MySQL.
+                # Never use SELECT WHERE email here; another thread could
+                # INSERT the same email between our INSERT and SELECT.
+                cursor.execute("SELECT LAST_INSERT_ID()")
+                row = cursor.fetchone()
+                if not row or not row[0]:
+                    raise Exception("MySQL did not return a valid user ID after INSERT.")
+                new_user_id = row[0]
+
+                # 4b ── Role-specific child table inserts ─────────────────
+                if role == 'CUSTOMER':
+                    insert_customer(cursor, new_user_id)
+
+                elif role == 'RIDER':
+                    # Cloudinary uploads happen inside this method.
+                    # If an upload fails it raises, which triggers rollback.
+                    insert_rider(cursor, new_user_id, request)
+
+                elif role == 'RESTAURANT':
+                    insert_restaurant(
+                        cursor, new_user_id, phone_number, request.data
                     )
-
-                    # Use LAST_INSERT_ID() — atomic and connection-scoped in MySQL.
-                    # Never use SELECT WHERE email here; another thread could
-                    # INSERT the same email between our INSERT and SELECT.
-                    cursor.execute("SELECT LAST_INSERT_ID()")
-                    row = cursor.fetchone()
-                    if not row or not row[0]:
-                        raise Exception("MySQL did not return a valid user ID after INSERT.")
-                    new_user_id = row[0]
-
-                    # 4b ── Role-specific child table inserts ─────────────────
-                    if role == 'CUSTOMER':
-                        insert_customer(cursor, new_user_id)
-
-                    elif role == 'RIDER':
-                        # Cloudinary uploads happen inside this method.
-                        # If an upload fails it raises, which triggers rollback.
-                        insert_rider(cursor, new_user_id, request)
-
-                    elif role == 'RESTAURANT':
-                        insert_restaurant(
-                            cursor, new_user_id, phone_number, request.data
-                        )
+                cursor.execute("COMMIT;")
 
             return Response(
                 {"message": f"{role.capitalize()} registered successfully"},
@@ -170,11 +172,13 @@ class RegisterView(APIView):
         except IntegrityError:
             # MySQL raises IntegrityError for duplicate UNIQUE keys
             # (email or phone_number in this case)
+            cursor.execute("ROLLBACK;")
             return Response(
                 {"error": "A user with this email or phone number already exists."},
                 status=status.HTTP_400_BAD_REQUEST
             )
         except Exception as e:
+            cursor.execute("ROLLBACK;")
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
 
@@ -423,13 +427,14 @@ class UserProfileView(APIView):
             {"message": "Profile updated successfully."},
             status=status.HTTP_200_OK
         )
-
+    ##############################       FIX NEEDED HERE ########################################
     def delete(self, request):
         """
         DELETE /api/auth/profile/
         Permanently deletes the authenticated user and all their data.
         """
         user_id = request.user.id
+        #This option only available for customer in the frontend
         try:
             with connection.cursor() as cursor:
 
@@ -548,9 +553,8 @@ class DeliveryAddressView(APIView):
             )
             row = cursor.fetchone()
             if not row:
-                # Not a customer (could be rider/restaurant) — just return OK
                 # No delivery address table for non-customers
-                return Response({"message": "Address noted."}, status=status.HTTP_200_OK)
+                return Response({"message": "Only Customer can delivery address"}, status=status.HTTP_401_UNAUTHORIZED)
 
             customer_id = row[0]
 

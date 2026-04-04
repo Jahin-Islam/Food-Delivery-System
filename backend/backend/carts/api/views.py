@@ -110,7 +110,7 @@ class SingleRestaurantCart(APIView):
             JOIN customers_customer cust ON c.customer_id = cust.id
             LEFT JOIN carts_cartitem ci ON c.cart_id = ci.cart_id
             LEFT JOIN items_menuitem mi ON ci.item_id = mi.food_id
-            WHERE cust.user_id = %s AND c.restaurant_id = %s -- Fixed: Filter by cust.user_id
+            WHERE cust.user_id = %s AND c.restaurant_id = %s -- Fixed: Filter by cust.us.er_id
         """
 
         with connection.cursor() as cursor:

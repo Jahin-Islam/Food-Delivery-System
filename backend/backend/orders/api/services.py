@@ -7,6 +7,8 @@ from rest_framework import status
 from decimal import Decimal, InvalidOperation
 from exceptions import ValidationError, NotFoundError
 from cloudinary import CloudinaryImage
+from utility import dictfetchall, dictfetchone
+from customers.api.services import get_customer_id
 
 # ─── TRANSITION RULES ─────────────────────────────────────────────────────────
 # Restaurant can move: PENDING → PREPARING or CANCELLED
@@ -17,23 +19,23 @@ RESTAURANT_VALID_TRANSITIONS = {
 }
 
 # ─── HELPERS ──────────────────────────────────────────────────────────────────
-def dictfetchall(cursor):
-    columns = [col[0] for col in cursor.description]
-    return [dict(zip(columns, row)) for row in cursor.fetchall()]
+# def dictfetchall(cursor):
+#     columns = [col[0] for col in cursor.description]
+#     return [dict(zip(columns, row)) for row in cursor.fetchall()]
 
-def dictfetchone(cursor):
-    columns = [col[0] for col in cursor.description]
-    row = cursor.fetchone()
-    return dict(zip(columns, row)) if row else None
+# def dictfetchone(cursor):
+#     columns = [col[0] for col in cursor.description]
+#     row = cursor.fetchone()
+#     return dict(zip(columns, row)) if row else None
 
-def get_customer_id(user_id):
-    """Resolve auth user_id → customer.id. Returns None if no customer profile exists."""
-    with connection.cursor() as cursor:
-        cursor.execute("""
-            SELECT id FROM customers_customer WHERE user_id = %s
-        """, [user_id])
-        row = cursor.fetchone()
-    return row[0] if row else None
+# def get_customer_id(user_id):
+#     """Resolve auth user_id → customer.id. Returns None if no customer profile exists."""
+#     with connection.cursor() as cursor:
+#         cursor.execute("""
+#             SELECT id FROM customers_customer WHERE user_id = %s
+#         """, [user_id])
+#         row = cursor.fetchone()
+#     return row[0] if row else None
 
 
 def get_customer_orders(customer_id):
