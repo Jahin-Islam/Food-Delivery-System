@@ -52,6 +52,30 @@ END$$
 
 DELIMITER ;
 
+DELIMITER $$
+
+CREATE TRIGGER trg_nullify_order_address_on_delete
+BEFORE DELETE ON addresses_deliveryaddress
+FOR EACH ROW
+BEGIN
+    UPDATE orders_order
+    SET address_id = NULL
+    WHERE address_id = OLD.id;
+END$$
+
+DELIMITER ;
+
+DELIMITER $$
+
+CREATE TRIGGER trg_set_delivered_at
+BEFORE UPDATE ON orders_order
+FOR EACH ROW
+BEGIN
+    IF NEW.status = 'DELIVERED' AND OLD.status != 'DELIVERED' THEN
+        SET NEW.delivered_at = NOW();
+    END IF;
+END$$
+
 -- FUNCTION: Calculate rider's earnings for today
 DELIMITER $$
 
@@ -97,6 +121,21 @@ BEGIN
     RETURN v_count;
 END$$
 
+DELIMITER ;
+
+DELIMITER $$
+CREATE FUNCTION fn_get_customer_id(p_user_id INT)
+RETURNS INT
+READS SQL DATA
+DETERMINISTIC
+BEGIN
+    DECLARE v_id INT DEFAULT NULL;
+    SELECT id INTO v_id
+    FROM customers_customer
+    WHERE user_id = p_user_id
+    LIMIT 1;
+    RETURN v_id;
+END$$
 DELIMITER ;
 
 -- PROCEDURE: Place a new order atomically
@@ -145,29 +184,6 @@ END$$
 DELIMITER ;
 
 
-DELIMITER $$
-
-CREATE TRIGGER trg_nullify_order_address_on_delete
-BEFORE DELETE ON addresses_deliveryaddress
-FOR EACH ROW
-BEGIN
-    UPDATE orders_order
-    SET address_id = NULL
-    WHERE address_id = OLD.id;
-END$$
-
-DELIMITER ;
-
-DELIMITER $$
-
-CREATE TRIGGER trg_set_delivered_at
-BEFORE UPDATE ON orders_order
-FOR EACH ROW
-BEGIN
-    IF NEW.status = 'DELIVERED' AND OLD.status != 'DELIVERED' THEN
-        SET NEW.delivered_at = NOW();
-    END IF;
-END$$
 
 DELIMITER ;
 
@@ -219,17 +235,3 @@ END$$
 
 DELIMITER ;
 
-DELIMITER $$
-CREATE FUNCTION fn_get_customer_id(p_user_id INT)
-RETURNS INT
-READS SQL DATA
-DETERMINISTIC
-BEGIN
-    DECLARE v_id INT DEFAULT NULL;
-    SELECT id INTO v_id
-    FROM customers_customer
-    WHERE user_id = p_user_id
-    LIMIT 1;
-    RETURN v_id;
-END$$
-DELIMITER ;
