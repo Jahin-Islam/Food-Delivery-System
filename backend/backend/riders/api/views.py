@@ -21,13 +21,6 @@ VALID_ORDER_STATUSES = {'PENDING', 'PREPARING', 'PICKED_UP', 'DELIVERED', 'CANCE
 
 
 class RiderOrderListView(APIView):
-    """
-    GET /api/riders/me/orders/
-    GET /api/riders/me/orders/?status=DELIVERED
-
-    Returns all orders assigned to the authenticated rider,
-    optionally filtered by the `status` query parameter.
-    """
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -61,23 +54,6 @@ class RiderOrderListView(APIView):
 
 
 class NearbyOrdersView(APIView):
-    """
-    GET /api/riders/orders/nearby/
-
-    Query parameters:
-        radius  (float, optional) – search radius in km, default 5, max 50
-
-    FIX: Now ONLY returns PREPARING orders (restaurant accepted).
-    PENDING orders are never shown to riders.
-
-    Response 200:
-        {
-            "rider_location": { "latitude": ..., "longitude": ... },
-            "radius_km": 5.0,
-            "count": 3,
-            "orders": [ { order fields + distance_km + items[] }, ... ]
-        }
-    """
     permission_classes = [IsAuthenticated]
 
     def _parse_radius(self, request, default=5.0, max_radius=50.0):
@@ -108,8 +84,6 @@ class NearbyOrdersView(APIView):
             radius_km = self._parse_radius(request)
         except ValidationError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-
-        # FIX: get_nearby_orders now filters status = 'PREPARING' AND rider_id IS NULL
         orders = get_nearby_orders(
             rider_lat=rider['latitude'],
             rider_lng=rider['longitude'],
@@ -128,18 +102,6 @@ class NearbyOrdersView(APIView):
 
 
 class RiderUpdateOrderStatusView(APIView):
-    """
-    PATCH /api/riders/orders/update-status/<order_id>/
-
-    Body: { "status": "PICKED_UP" }  or  { "status": "DELIVERED" }
-
-    Allowed transitions (rider only):
-        PREPARING  → PICKED_UP
-        PICKED_UP  → DELIVERED
-
-    FIX: PICKED_UP is only allowed when current status is PREPARING.
-    This prevents marking pick-up before the restaurant has started cooking.
-    """
     permission_classes = [IsAuthenticated]
 
     def patch(self, request, order_id):
@@ -182,16 +144,6 @@ class RiderUpdateOrderStatusView(APIView):
 
 
 class RiderAcceptOrderView(APIView):
-    """
-    POST /api/riders/orders/accept/<order_id>/
-
-    FIX: Now returns 409 with a human-readable message when:
-      - Order is still PENDING (restaurant hasn't accepted yet)
-      - Order is CANCELLED
-      - Another rider already grabbed it
-
-    Uses SELECT FOR UPDATE to prevent race conditions.
-    """
     permission_classes = [IsAuthenticated]
 
     def post(self, request, order_id):
@@ -203,7 +155,6 @@ class RiderAcceptOrderView(APIView):
             )
 
         try:
-            # accept_order takes the AUTH user.id — resolves to rider row inside
             order = accept_order(order_id, request.user.id)
         except (NotFoundError, ValueError) as exc:
             return Response(
@@ -218,9 +169,6 @@ class RiderAcceptOrderView(APIView):
 
 
 class RiderStatsView(APIView):
-    """
-    GET /api/riders/me/stats/
-    """
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -235,10 +183,6 @@ class RiderStatsView(APIView):
 
 
 class RiderHistoryView(APIView):
-    """
-    GET /api/riders/me/history/
-    GET /api/riders/me/history/?days=7
-    """
     permission_classes = [IsAuthenticated]
 
     MAX_DAYS = 365
@@ -274,11 +218,6 @@ class RiderHistoryView(APIView):
 
 
 class RiderLocationUpdateView(APIView):
-    """
-    PATCH /api/riders/location/
-
-    Body: { "current_latitude": 23.78, "current_longitude": 90.40 }
-    """
     permission_classes = [IsAuthenticated]
 
     def patch(self, request):

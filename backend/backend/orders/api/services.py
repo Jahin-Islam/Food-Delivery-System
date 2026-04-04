@@ -10,12 +10,9 @@ from cloudinary import CloudinaryImage
 from utility import dictfetchall, dictfetchone
 from customers.api.services import get_customer_id
 
-# ─── TRANSITION RULES ─────────────────────────────────────────────────────────
-# Restaurant can move: PENDING → PREPARING or CANCELLED
-# Restaurant CANNOT jump past PREPARING (rider handles PICKED_UP / DELIVERED)
 RESTAURANT_VALID_TRANSITIONS = {
     'PENDING':   ['PREPARING', 'CANCELLED'],
-    'PREPARING': ['CANCELLED'],  # restaurant can still cancel while cooking
+    'PREPARING': ['CANCELLED'],
 }
 
 # ─── HELPERS ──────────────────────────────────────────────────────────────────
@@ -121,17 +118,6 @@ def get_order_items(order_id):
 
 
 def create_order(request, customer_id):
-    """
-    Accepts the full DRF request and a resolved customer_id.
-    Expects request.data to contain:
-        restaurant_id, address_id, items, delivery_charge, service_charge,
-        email, first_name, last_name, phone_number
-        [optional] discount_num  — discount number from resturants_discount table
-        [optional] rider_tip
-    items: list of { item_id, quantity }
-    Returns: { order_id, discount_amount } on success.
-    Raises: ValidationError, NotFoundError
-    """
     data = request.data
 
     restaurant_id  = data.get('restaurant_id')
@@ -219,10 +205,8 @@ def create_order(request, customer_id):
     last_name    = data.get('last_name', '')
     phone_number = data.get('phone_number', '')
 
-    # Inside create_order(), replace the transaction.atomic() INSERT block:
     with transaction.atomic():
         with connection.cursor() as cursor:
-            # Call stored procedure to insert the order atomically
             cursor.execute("""
                 CALL sp_place_order(
                     %s, %s, %s,
@@ -328,12 +312,6 @@ def get_restaurant_orders(restaurant_id, status_filter=None):
 
 
 def update_order_status_by_restaurant(order_id, restaurant_id, new_status):
-    """
-    Validates ownership, validates transition, updates status.
-    Also clears rider_id when CANCELLED so the rider's dashboard
-    reflects the cancellation immediately.
-    Raises ValueError on any failure.
-    """
     with connection.cursor() as cursor:
         cursor.execute("""
             SELECT status FROM orders_order
@@ -353,7 +331,6 @@ def update_order_status_by_restaurant(order_id, restaurant_id, new_status):
             f"Allowed transitions: {allowed}"
         )
 
-    # FIX: when cancelling, also clear rider_id so rider dashboard updates
     if new_status == 'CANCELLED':
         with connection.cursor() as cursor:
             cursor.execute("""
@@ -389,15 +366,7 @@ def cancel_order(order_id, cancelled_by='restaurant'):
         )
         return dictfetchone(cursor)
 
-
-# ─── FIX: Nearby orders — ONLY show PREPARING orders to riders ────────────────
-# Before: no status filter → riders saw PENDING orders before restaurant accepted
-# After:  WHERE status = 'PREPARING' AND rider_id IS NULL
 def get_nearby_orders(rider_lat, rider_lng, radius_km=50):
-    """
-    Return orders that are PREPARING (restaurant accepted) and have no rider yet.
-    Riders must NOT see PENDING orders — the restaurant hasn't confirmed those yet.
-    """
     with connection.cursor() as cursor:
         cursor.execute("""
             SELECT
@@ -469,21 +438,7 @@ def get_nearby_orders(rider_lat, rider_lng, radius_km=50):
 
     return orders
 
-
-# ─── FIX: Rider accepts order — guarded transition ────────────────────────────
-# Before: no guard — rider could accept a PENDING or already-taken order
-# After:  SELECT FOR UPDATE + raises ValueError for invalid states
 def accept_order(order_id, rider_id):
-    """
-    Assign this rider to an order.
-    ONLY allowed when status = PREPARING and rider_id is still NULL.
-    Uses SELECT FOR UPDATE to prevent two riders grabbing the same order.
-
-    rider_id here is the AUTH USER id — we resolve to riders_rider.id inside.
-
-    Raises:
-        ValueError  – order not found, wrong status, or already taken
-    """
     with transaction.atomic():
         with connection.cursor() as cursor:
             cursor.execute("""
@@ -499,7 +454,6 @@ def accept_order(order_id, rider_id):
 
         current_status, current_rider = row
 
-        # FIX: gate on PREPARING — restaurant must have accepted first
         if current_status != 'PREPARING':
             if current_status == 'PENDING':
                 raise ValueError(
@@ -525,7 +479,6 @@ def accept_order(order_id, rider_id):
                 WHERE order_id = %s
             """, [rider_id, order_id])
 
-    # Return the updated order detail
     with connection.cursor() as cursor:
         cursor.execute("""
             SELECT
@@ -551,10 +504,6 @@ def accept_order(order_id, rider_id):
 
 
 def get_rider_orders(rider_id, status_filter=None):
-    """
-    Returns all orders assigned to this rider, optionally filtered by status.
-    Each order includes its items, restaurant coordinates, and delivery coords.
-    """
     query = """
         SELECT
             o.order_id,
@@ -659,8 +608,6 @@ def update_order_status_by_rider(order_id, rider_id, new_status):
             f"Expected next status: {expected_next}."
         )
 
-    # Single UPDATE for all statuses — trg_set_delivered_at handles
-    # delivered_at = NOW() automatically when status = 'DELIVERED'
     with connection.cursor() as cursor:
         cursor.execute("""
             UPDATE orders_order

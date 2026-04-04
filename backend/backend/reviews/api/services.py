@@ -1,21 +1,16 @@
 from django.db import connection
+from utility import dictfetchall, dictfetchone
+
+# def dictfetchall(cursor):
+#     columns = [col[0] for col in cursor.description]
+#     return [dict(zip(columns, row)) for row in cursor.fetchall()]
 
 
-# These helpers already exist in your orders/services.py — re-declared here
-# so reviews/services.py is self-contained.
+# def dictfetchone(cursor):
+#     columns = [col[0] for col in cursor.description]
+#     row = cursor.fetchone()
+#     return dict(zip(columns, row)) if row else None
 
-def dictfetchall(cursor):
-    columns = [col[0] for col in cursor.description]
-    return [dict(zip(columns, row)) for row in cursor.fetchall()]
-
-
-def dictfetchone(cursor):
-    columns = [col[0] for col in cursor.description]
-    row = cursor.fetchone()
-    return dict(zip(columns, row)) if row else None
-
-
-# ─── Review Services ──────────────────────────────────────────────────────────
 
 def get_review_by_order(order_id):
     """Fetch the review for a given order, or None if it does not exist."""
@@ -35,7 +30,6 @@ def get_review_by_order(order_id):
 
 
 def get_review_by_id(review_id):
-    """Fetch a single review by its PK."""
     with connection.cursor() as cursor:
         cursor.execute("""
             SELECT
@@ -52,7 +46,6 @@ def get_review_by_id(review_id):
 
 
 def get_reviews_by_restaurant(restaurant_id, limit=50, offset=0):
-    """Fetch all reviews for a restaurant, newest first."""
     with connection.cursor() as cursor:
         cursor.execute("""
             SELECT
@@ -72,10 +65,6 @@ def get_reviews_by_restaurant(restaurant_id, limit=50, offset=0):
 
 
 def order_is_delivered_and_belongs_to_customer(order_id, customer_id):
-    """
-    Returns True only when the order exists, belongs to this customer,
-    and its status is DELIVERED.
-    """
     with connection.cursor() as cursor:
         cursor.execute("""
             SELECT COUNT(*)
@@ -89,7 +78,6 @@ def order_is_delivered_and_belongs_to_customer(order_id, customer_id):
 
 
 def review_exists_for_order(order_id):
-    """Check whether a review already exists for an order."""
     with connection.cursor() as cursor:
         cursor.execute(
             "SELECT COUNT(*) FROM reviews_review WHERE order_id = %s",
@@ -100,23 +88,16 @@ def review_exists_for_order(order_id):
 
 
 def create_review(order_id, rating, comment):
-    """
-    Insert a new review row and return the newly created review dict.
-    Uses cursor.lastrowid which is MySQL-native.
-    """
     with connection.cursor() as cursor:
         cursor.execute("""
             INSERT INTO reviews_review (order_id, rating, comment)
             VALUES (%s, %s, %s)
         """, [order_id, rating, comment])
         new_id = cursor.lastrowid
-
-    # _update_restaurant_rating_for_order(order_id)
     return get_review_by_id(new_id)
 
 
 def update_review(review_id, rating, comment):
-    """Update rating and comment of an existing review."""
     with connection.cursor() as cursor:
         cursor.execute("""
             UPDATE reviews_review

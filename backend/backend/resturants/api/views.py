@@ -47,9 +47,7 @@ def build_cloudinary_url(public_id):
     )
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# HOME PAGE — list all restaurants
-# ─────────────────────────────────────────────────────────────────────────────
+
 
 class RestaurantView(APIView):
     permission_classes = [AllowAny]
@@ -104,10 +102,6 @@ class RestaurantView(APIView):
 
         return Response(rows, status=status.HTTP_200_OK)
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# RESTAURANT DETAIL
-# ─────────────────────────────────────────────────────────────────────────────
 
 class RestaurantDetailedView(APIView):
     permission_classes = [AllowAny]
@@ -165,10 +159,6 @@ class RestaurantDetailedView(APIView):
         return Response(restaurant, status=status.HTTP_200_OK)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# RESTAURANT ORDERS
-# ─────────────────────────────────────────────────────────────────────────────
-
 class RestaurantOrderListView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -220,18 +210,6 @@ class RestaurantOrderDetailView(APIView):
         return Response(order, status=status.HTTP_200_OK)
 
     def patch(self, request, order_id):
-        """
-        PATCH /api/v1/restaurants/orders/<order_id>/
-
-        Restaurant can only do:
-            PENDING   → PREPARING  (accept the order)
-            PENDING   → CANCELLED  (deny immediately)
-            PREPARING → CANCELLED  (cancel after accepting — clears rider_id too)
-
-        FIX: update_order_status_by_restaurant now:
-          - Enforces the above transition table (raises ValueError on bad transition)
-          - Sets rider_id = NULL when cancelling (so rider dashboard updates)
-        """
         restaurant_id = get_restaurant_id(request.user.id)
         if not restaurant_id:
             return Response(
@@ -256,14 +234,6 @@ class RestaurantOrderDetailView(APIView):
 
 
 class RestaurantCancelOrderView(APIView):
-    """
-    POST /api/v1/restaurants/orders/<order_id>/cancel/
-
-    Dedicated cancel endpoint. Calls cancel_order() which:
-      1. Sets status = CANCELLED
-      2. Sets rider_id = NULL  ← so rider's dashboard reflects the cancellation
-      3. Raises ValueError if already DELIVERED or CANCELLED
-    """
     permission_classes = [IsAuthenticated]
 
     def post(self, request, order_id):
@@ -274,7 +244,6 @@ class RestaurantCancelOrderView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        # Verify order belongs to this restaurant before cancelling
         with connection.cursor() as cursor:
             cursor.execute("""
                 SELECT 1 FROM orders_order
@@ -293,10 +262,6 @@ class RestaurantCancelOrderView(APIView):
 
         return Response(result, status=status.HTTP_200_OK)
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# RESTAURANT UPDATE
-# ─────────────────────────────────────────────────────────────────────────────
 
 class RestaurantUpdateView(APIView):
     permission_classes = [IsAuthenticated]

@@ -1,8 +1,3 @@
-# addresses/api/services.py
-# COMPLETE FILE — only change is in insert_address():
-# latitude and longitude now default to 0.0 instead of None
-# because addresses_address.latitude and .longitude are NOT NULL columns
-
 from django.db import connection
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
@@ -24,28 +19,6 @@ from customers.api.services import get_customer_id
 #     return dict(zip(columns, row)) if row else None
 
 def insert_address(cursor, street_address, city, latitude=None, longitude=None):
-    """
-    Inserts one row into addresses_address and returns the new address_id (int).
-
-    Must be called with an already-open cursor inside a transaction.atomic() block
-    so the insert is part of the same transaction as the caller.
-
-    FIX: latitude and longitude are NOT NULL in addresses_address — passing None
-    caused a MySQL constraint error which left address_id as NULL for riders/restaurants
-    who didn't pick a map location. Now defaults to 0.0 instead of None.
-
-    Parameters
-    ----------
-    cursor         : open Django DB cursor
-    street_address : str   e.g. "146, CDA Avenue"
-    city           : str   e.g. "Chittagong"
-    latitude       : float | None  → stored as 0.0 if None
-    longitude      : float | None  → stored as 0.0 if None
-
-    Returns
-    -------
-    int — address_id of the newly inserted row.
-    """
     cursor.execute(
         """
         INSERT INTO addresses_address (street_address, city, latitude, longitude)
@@ -131,7 +104,6 @@ def create_delivery_address(request):
         return new_id
     
 def _get_verified_address(address_id, customer_id):
-        """Shared helper — returns the address row or None if not found / not owned."""
         with connection.cursor() as cursor:
             cursor.execute("""
                 SELECT id, address_type, street_number, apartment_number,
@@ -193,8 +165,6 @@ def delete_delivery_address(request, address_id):
         raise NotFoundError("Address Not Found")
 
     with connection.cursor() as cursor:
-        # No manual UPDATE needed — trg_nullify_order_address_on_delete
-        # automatically sets orders_order.address_id = NULL before the delete
         cursor.execute("""
             DELETE FROM addresses_deliveryaddress
             WHERE id = %s AND customer_id = %s

@@ -6,7 +6,6 @@ from rest_framework import status
 from datetime import datetime
 from cloudinary import CloudinaryImage
 
-# Helper function to execute read queries and return a list of dicts
 def fetch_all_as_dict(cursor):
     columns = [col[0] for col in cursor.description]
     return [
@@ -46,7 +45,6 @@ class AllCartsView(APIView):
             cursor.execute(query, [user_id])
             flat_data = fetch_all_as_dict(cursor)
 
-        # Return empty list if no carts found
         if not flat_data:
             return Response([], status=status.HTTP_200_OK)
 
@@ -78,7 +76,6 @@ class AllCartsView(APIView):
                     'price': row['item_price'],
                     'quantity': row['quantity'],
                     'sub_total': item_total,
-                    # ✅ Added Cloudinary image URL
                     'image_url': CloudinaryImage(row['image_url']).build_url(secure=True) if row['image_url'] else None
                 })
 
@@ -89,7 +86,6 @@ class SingleRestaurantCart(APIView):
     permission_classes = [IsAuthenticated]
 
     def get_customer_id(self, user_id):
-        """ Helper to get customer ID from user ID using Raw SQL """
         with connection.cursor() as cursor:
             cursor.execute("SELECT id FROM customers_customer WHERE user_id = %s", [user_id])
             row = cursor.fetchone()
@@ -98,7 +94,6 @@ class SingleRestaurantCart(APIView):
     def get(self, request, restaurant_id):
         user_id = request.user.id
         
-        # CORRECTED QUERY
         query = """
             SELECT
                 mi.food_id as food_id,  
@@ -126,8 +121,6 @@ class SingleRestaurantCart(APIView):
         }
 
         for row in flat_data:
-            # IMPORTANT: Handle empty carts
-            # If cart exists but has no items, LEFT JOIN returns None for item fields
             if row['item_name'] is None:
                 continue
 
@@ -148,8 +141,7 @@ class SingleRestaurantCart(APIView):
     def post(self, request, restaurant_id):
         user_id = request.user.id
         item_id = request.data.get('item_id')
-        
-        # Ensure quantity is at least 1
+
         try:
             quantity = int(request.data.get('quantity', 1))
         except ValueError:
@@ -162,12 +154,10 @@ class SingleRestaurantCart(APIView):
         if not customer_id:
             return Response({"error": "Customer profile not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        # MySQL Datetime format
         current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
         with transaction.atomic():
             with connection.cursor() as cursor:
-            # 1. Check if Cart exists (Using 'carts_cart' based on your GET query)
                 cursor.execute(
                     "SELECT cart_id FROM carts_cart WHERE customer_id = %s AND restaurant_id = %s", 
                     [customer_id, restaurant_id]
@@ -177,15 +167,12 @@ class SingleRestaurantCart(APIView):
                 if cart_row:
                     cart_id = cart_row[0]
                 else:
-                    # 2. Create Cart if not exists
                     cursor.execute(
                         "INSERT INTO carts_cart (customer_id, restaurant_id, created_at) VALUES (%s, %s, %s)",
                         [customer_id, restaurant_id, current_time]
                     )
-                    # MySQL specific: get the ID of the row just inserted
                     cart_id = cursor.lastrowid
 
-                # 3. Check if Item exists in CartItem (Using 'carts_cartitem')
                 cursor.execute(
                     "SELECT id FROM carts_cartitem WHERE cart_id = %s AND item_id = %s",
                     [cart_id, item_id]
@@ -193,13 +180,11 @@ class SingleRestaurantCart(APIView):
                 item_row = cursor.fetchone()
 
                 if item_row:
-                    # 4. Update Quantity (Add to existing)
                     return Response(
                     {"error": "Item already in cart. Use PUT request to update quantity."},
                         status=status.HTTP_409_CONFLICT
                     )
                 else:
-                    # 5. Insert New Item
                     cursor.execute(
                         "INSERT INTO carts_cartitem (cart_id, item_id, quantity) VALUES (%s, %s, %s)",
                         [cart_id, item_id, quantity]
@@ -210,7 +195,6 @@ class SingleRestaurantCart(APIView):
         user_id = request.user.id
         item_id = request.data.get('item_id')
         
-        # Ensure quantity is at least 1
         try:
             quantity = int(request.data.get('quantity', 1))
             if quantity < 1:
@@ -226,7 +210,6 @@ class SingleRestaurantCart(APIView):
             return Response({"error": "Customer profile not found"}, status=status.HTTP_404_NOT_FOUND)
 
         with connection.cursor() as cursor:
-            # 1. Check if Cart exists
             cursor.execute(
                 "SELECT cart_id FROM carts_cart WHERE customer_id = %s AND restaurant_id = %s",
                 [customer_id, restaurant_id]
@@ -238,7 +221,7 @@ class SingleRestaurantCart(APIView):
             
             cart_id = cart_row[0]
 
-            # 2. Check if Item exists in CartItem
+            
             cursor.execute(
                 "SELECT id FROM carts_cartitem WHERE cart_id = %s AND item_id = %s",
                 [cart_id, item_id]
@@ -248,7 +231,6 @@ class SingleRestaurantCart(APIView):
             if not item_row:
                 return Response({"error": "Item not found in cart. Use POST to add it first."}, status=status.HTTP_404_NOT_FOUND)
 
-            # 3. Update Quantity
             cursor.execute(
                 "UPDATE carts_cartitem SET quantity = %s WHERE id = %s",
                 [quantity, item_row[0]]
@@ -269,7 +251,6 @@ class SingleRestaurantCart(APIView):
 
         with transaction.atomic():
             with connection.cursor() as cursor:
-                # 1. Check if Cart exists
                 cursor.execute(
                     "SELECT cart_id FROM carts_cart WHERE customer_id = %s AND restaurant_id = %s",
                     [customer_id, restaurant_id]
@@ -281,7 +262,6 @@ class SingleRestaurantCart(APIView):
                 
                 cart_id = cart_row[0]
 
-                # 2. Check if the specific item exists in the cart
                 cursor.execute(
                     "SELECT id FROM carts_cartitem WHERE cart_id = %s AND item_id = %s",
                     [cart_id, item_id]
@@ -291,20 +271,17 @@ class SingleRestaurantCart(APIView):
                 if not item_row:
                     return Response({"error": "Item not found in cart"}, status=status.HTTP_404_NOT_FOUND)
 
-                # 3. Delete the specific item from CartItem
                 cursor.execute(
                     "DELETE FROM carts_cartitem WHERE id = %s",
                     [item_row[0]]
                 )
 
-                # 4. Check if cart has any remaining items
                 cursor.execute(
                     "SELECT COUNT(*) FROM carts_cartitem WHERE cart_id = %s",
                     [cart_id]
                 )
                 remaining_items = cursor.fetchone()[0]
 
-                # 5. If no items left, delete the cart itself too
                 if remaining_items == 0:
                     cursor.execute(
                         "DELETE FROM carts_cart WHERE cart_id = %s",

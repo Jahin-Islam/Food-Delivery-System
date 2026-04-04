@@ -1,22 +1,3 @@
-# riders/api/services.py
-# ─── CHANGES IN THIS FILE ────────────────────────────────────────────────────
-#
-#  FIX 1 – RIDER_VALID_TRANSITIONS now includes PENDING → PICKED_UP
-#           Riders can accept a PENDING order (restaurant hasn't started yet)
-#           and still be able to mark it PICKED_UP once they collect the food.
-#
-#  FIX 2 – get_nearby_orders()
-#           • Distance is now calculated from the RESTAURANT location (not the
-#             delivery address), so the rider sees "how far to go pick up".
-#           • Returns restaurant_lat / restaurant_lng so RiderMap can place
-#             the restaurant pin on the map.
-#
-#  FIX 3 – accept_order()  — NO STATUS CHANGE (unchanged from your version)
-#           Only sets rider_id, est_pickup, est_delivery.  The order keeps
-#           whatever status the restaurant set (PENDING or PREPARING).
-#
-# ─────────────────────────────────────────────────────────────────────────────
-
 from django.db import connection
 from addresses.api.services import insert_address
 import cloudinary.uploader
@@ -26,9 +7,6 @@ import requests
 from datetime import timedelta
 from django.utils import timezone
 
-
-# FIX 1: Added PENDING → PICKED_UP so a rider who accepted a PENDING order
-# can still advance it to PICKED_UP when they collect the food.
 RIDER_VALID_TRANSITIONS = {
     
     'PREPARING': ['PICKED_UP'],
@@ -45,11 +23,6 @@ DELIVERY_BUFFER_MINUTES = 5
 
 
 def get_route_duration(origin_lat, origin_lng, dest_lat, dest_lng, profile='cycling'):
-    """
-    Calls the OSRM Route API and returns the travel duration in seconds.
-    Returns None if the request fails.
-    NOTE: OSRM expects (longitude, latitude) — not (lat, lng)
-    """
     url = (
         f"https://router.project-osrm.org/route/v1/{profile}/"
         f"{origin_lng},{origin_lat};{dest_lng},{dest_lat}"
@@ -67,7 +40,6 @@ def get_route_duration(origin_lat, origin_lng, dest_lat, dest_lng, profile='cycl
 
     except requests.RequestException:
         pass
-    print("route distance didn't found")
     return None
 
 
@@ -85,10 +57,6 @@ def get_rider(user_id):
 
 
 def validate_rider_fields(data, files):
-    """
-    Checks all required rider text fields and both NID image files.
-    Returns an error string on failure, or None if everything is fine.
-    """
     required_text = [
         'vehicle', 'license_plate',
         'street_address', 'city',
@@ -111,27 +79,11 @@ def validate_rider_fields(data, files):
 
 
 def insert_rider(cursor, user_id, request):
-    """
-    Four inserts for a new rider (all on the same cursor / transaction):
-
-        1. addresses_address                   — home address → address_id
-        2. users_user (UPDATE address_id)      — link address to user row
-        3. riders_rider                        — core profile  → rider_id
-        4. [Cloudinary uploads]                — NID images    → public_ids
-        5. riders_rider_additional_information — extra details
-
-    FIX: latitude/longitude now default to 0.0 instead of None because
-    addresses_address.latitude and addresses_address.longitude are NOT NULL
-    columns. Passing None caused a MySQL constraint error and left address_id
-    as NULL for riders who didn't pick a map location.
-    """
     data  = request.data
     files = request.FILES
 
-    # 1 ── Home address ───────────────────────────────────────────────────
     raw_lat = data.get('latitude')
     raw_lng = data.get('longitude')
-    # FIX: default to 0.0 not None — latitude/longitude are NOT NULL in the table
     latitude  = float(raw_lat) if raw_lat else 0.0
     longitude = float(raw_lng) if raw_lng else 0.0
 
@@ -143,13 +95,10 @@ def insert_rider(cursor, user_id, request):
         longitude      = longitude,
     )
 
-    # 2 ── Link address to the user row ───────────────────────────────────
     cursor.execute(
         "UPDATE users_user SET address_id = %s WHERE id = %s",
         [address_id, user_id]
     )
-
-    # 3 ── Core rider profile ─────────────────────────────────────────────
     cursor.execute(
         """
         INSERT INTO riders_rider
@@ -164,7 +113,7 @@ def insert_rider(cursor, user_id, request):
             data['license_plate'].strip(),
             None,
             None,
-            0,   # verfied = 0 (pending review)
+            0, 
         ]
     )
 
@@ -174,7 +123,6 @@ def insert_rider(cursor, user_id, request):
         raise Exception("MySQL did not return a valid rider ID after INSERT.")
     rider_id = rider_row[0]
 
-    # 4 ── Upload both NID images to Cloudinary ───────────────────────────
     try:
         front_result = cloudinary.uploader.upload(
             files['nid_front'],
@@ -197,7 +145,6 @@ def insert_rider(cursor, user_id, request):
     except Exception as e:
         raise Exception(f"NID back image upload failed: {str(e)}")
 
-    # 5 ── Additional rider information ───────────────────────────────────
     wallet_balance = float(data.get('wallet_balance') or 0.00)
 
     cursor.execute(
@@ -320,7 +267,6 @@ def insert_rider(cursor, user_id, request):
 
 
 def get_rider_id(user_id):
-    """Resolve auth user_id → rider.id. Returns None if no rider profile exists."""
     with connection.cursor() as cursor:
         cursor.execute("""
             SELECT id FROM riders_rider WHERE user_id = %s
@@ -330,20 +276,6 @@ def get_rider_id(user_id):
 
 
 def update_order_status_by_rider(order_id, rider_id, new_status):
-    """
-    A rider can only update orders that are assigned to them.
-
-    Valid transitions (FIX 1 — PENDING added):
-        PENDING    → PICKED_UP
-        PREPARING  → PICKED_UP
-        PICKED_UP  → DELIVERED  (also stamps delivered_at = NOW())
-
-    WALLET CREDIT — on DELIVERED:
-        Rider earns 50% of (delivery_charge + rider_tip).
-        The credit and the status update happen in a single atomic
-        transaction so they always succeed or fail together.
-        NULL charges are treated as 0 so the arithmetic is safe.
-    """
     with connection.cursor() as cursor:
         cursor.execute("""
             SELECT status, delivery_charge, rider_tip
@@ -371,19 +303,6 @@ def update_order_status_by_rider(order_id, rider_id, new_status):
         earnings   = round((charge + tip) * 0.50, 2)
 
         with connection.cursor() as cursor:
-            # Both writes share one transaction — atomic by default in MySQL
-            # when autocommit is off (Django's default behaviour).
-
-            # 1. Mark the order delivered
-            #Trigger should handle it
-            # cursor.execute("""
-            #     UPDATE orders_order
-            #     SET status       = %s,
-            #         delivered_at = NOW()
-            #     WHERE order_id   = %s
-            # """, [new_status, order_id])
-
-            # 2. Credit the rider's wallet
             cursor.execute("""
                 UPDATE riders_rider_additional_information
                 SET wallet_balace = wallet_balace + %s
@@ -391,7 +310,6 @@ def update_order_status_by_rider(order_id, rider_id, new_status):
             """, [earnings, rider_id])
 
             if cursor.rowcount == 0:
-                # Rider profile row missing — roll back by raising
                 raise NotFoundError(
                     "Rider additional-information record not found; "
                     "wallet could not be credited."
@@ -407,7 +325,6 @@ def update_order_status_by_rider(order_id, rider_id, new_status):
 
 def get_rider_stats(rider_id):
     with connection.cursor() as cursor:
-        # Use the DB functions instead of inline SQL aggregation
         cursor.execute("""
             SELECT
                 fn_rider_today_order_count(%s)  AS orders_today,
@@ -433,7 +350,6 @@ def get_rider_stats(rider_id):
 
 
 def update_rider_location(rider_id, latitude, longitude):
-    """Update the rider's current GPS coordinates."""
     with connection.cursor() as cursor:
         cursor.execute("""
             UPDATE riders_rider
@@ -444,30 +360,6 @@ def update_rider_location(rider_id, latitude, longitude):
 
 
 def get_rider_history(rider_id, days=30):
-    """
-    Returns DELIVERED orders for this rider within the last `days` days,
-    each order annotated with the rider's earnings for that delivery.
-
-    Grouped by calendar date (in Dhaka time, UTC+6) so the frontend can
-    render day-by-day sections.
-
-    Each order dict:
-        order_id, completed_at (ISO string), restaurant_name,
-        customer_name, total_amount, delivery_charge, rider_tip,
-        earnings  (= (delivery_charge + rider_tip) * 0.50)
-
-    Returns a list of date-groups sorted newest-first:
-        [
-          {
-            "date":       "2025-07-15",      # YYYY-MM-DD
-            "label":      "Today" / "Yesterday" / "15 Jul",
-            "orders":     [ {...}, ... ],
-            "total_earnings": 123.50,
-            "order_count":    4,
-          },
-          ...
-        ]
-    """
     with connection.cursor() as cursor:
         cursor.execute("""
             SELECT
@@ -497,13 +389,9 @@ def get_rider_history(rider_id, days=30):
         if dt_val is None:
             return None
         if hasattr(dt_val, 'tzinfo') and dt_val.tzinfo is not None:
-            # Step 1: normalise to UTC (handles any tzinfo, not just UTC)
-            # Step 2: strip tzinfo so arithmetic is plain timedelta
-            # Step 3: add Dhaka offset (+6h) to get wall-clock time
             utc_naive = dt_val.astimezone(dt_tz.utc).replace(tzinfo=None)
             local = utc_naive + DHAKA_OFFSET
         else:
-            # Naive datetime from MySQL (USE_TZ=False) — treat as UTC
             local = dt_val + DHAKA_OFFSET
         return local.date()
 
@@ -513,9 +401,9 @@ def get_rider_history(rider_id, days=30):
     def date_label(d):
         if d == today:     return 'Today'
         if d == yesterday: return 'Yesterday'
-        return f"{d.day} {d.strftime('%b')}"   # e.g. "14 Jul"  (cross-platform)
+        return f"{d.day} {d.strftime('%b')}"
 
-    groups = {}   # date → list of order dicts
+    groups = {}
     for r in rows:
         delivery_charge = float(r['delivery_charge'])
         rider_tip       = float(r['rider_tip'])
@@ -553,13 +441,6 @@ def get_rider_history(rider_id, days=30):
 
 
 def accept_order(order_id, rider_id):
-    """
-    Assigns a rider to a PENDING or PREPARING order that has no rider yet.
-    Calculates est_pickup and est_delivery using OSRM real street routing.
-
-    Does NOT change the order status — it stays PENDING or PREPARING
-    exactly as the restaurant set it.
-    """
     with connection.cursor() as cursor:
         cursor.execute("""
             SELECT
@@ -626,7 +507,6 @@ def accept_order(order_id, rider_id):
                 if leg2_seconds is not None:
                     est_delivery = est_pickup + timedelta(seconds=leg2_seconds) + timedelta(minutes=DELIVERY_BUFFER_MINUTES)
 
-    # Only set rider_id and ETA fields — status is intentionally NOT touched
     with connection.cursor() as cursor:
         cursor.execute("""
             UPDATE orders_order

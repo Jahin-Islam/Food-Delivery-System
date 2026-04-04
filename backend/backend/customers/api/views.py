@@ -12,10 +12,6 @@ from utility import dictfetchall, dictfetchone
 from .services import get_customer_id
 
 
-# ─────────────────────────────────────────────
-# HELPERS
-# ─────────────────────────────────────────────
-
 # def dictfetchall(cursor):
 #     columns = [col[0] for col in cursor.description]
 #     return [dict(zip(columns, row)) for row in cursor.fetchall()]
@@ -35,11 +31,6 @@ from .services import get_customer_id
 #     # row[0] will be the ID or None (since the function defaults to NULL)
 #     return row[0] if row else None
 
-
-# ─────────────────────────────────────────────
-# GET   /api/customers/me/addresses/
-# POST  /api/customers/me/addresses/
-# ─────────────────────────────────────────────
 class CustomerAddressListView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -64,12 +55,6 @@ class CustomerAddressListView(APIView):
         except PermissionError as e:
             return Response({"error" : str(e)}, status= status.HTTP_404_NOT_FOUND)
 
-
-# ─────────────────────────────────────────────
-# GET    /api/customers/me/addresses/<address_id>/
-# PUT    /api/customers/me/addresses/<address_id>/
-# DELETE /api/customers/me/addresses/<address_id>/
-# ─────────────────────────────────────────────
 class CustomerAddressDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -105,11 +90,6 @@ class CustomerAddressDetailView(APIView):
             return Response({"error" : str(e)}, status=status.HTTP_404_NOT_FOUND)
             
 
-
-# ─────────────────────────────────────────────
-# GET  /api/customers/me/orders/
-# POST /api/customers/me/orders/
-# ─────────────────────────────────────────────
 class CustomerOrderListView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -124,9 +104,6 @@ class CustomerOrderListView(APIView):
         return Response(orders, status=status.HTTP_200_OK)
 
     def post(self, request):
-        """
-        Place a new order.
-        """
         customer_id = get_customer_id(request.user.id)
         if not customer_id:
             return Response(
@@ -135,7 +112,6 @@ class CustomerOrderListView(APIView):
             )
 
         try:
-            # print("[create_order] incoming data:", request.data)
             result = create_order(request, customer_id)
 
         except ValidationError as e:
@@ -143,8 +119,6 @@ class CustomerOrderListView(APIView):
         except NotFoundError as e:
             return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
-            # ── Print the FULL traceback to Django terminal so we can see exactly
-            #    what line is crashing, then return the message to the frontend too.
             tb = traceback.format_exc()
             print("=" * 60)
             print("[create_order] UNEXPECTED ERROR:")
@@ -164,10 +138,6 @@ class CustomerOrderListView(APIView):
             status=status.HTTP_201_CREATED
         )
 
-
-# ─────────────────────────────────────────────
-# GET  /api/customers/me/orders/<order_id>/
-# ─────────────────────────────────────────────
 
 class CustomerOrderDetailView(APIView):
     permission_classes = [IsAuthenticated]
@@ -194,67 +164,3 @@ class CustomerOrderDetailView(APIView):
         return Response(order, status=status.HTTP_200_OK)
             
 
-
-# ─────────────────────────────────────────────
-# GET   /api/customers/me/wallet/
-# POST  /api/customers/me/wallet/
-# ─────────────────────────────────────────────
-# class CustomerWalletView(APIView):
-#     permission_classes = [IsAuthenticated]
-
-#     def get(self, request):
-#         with connection.cursor() as cursor:
-#             cursor.execute("""
-#                 SELECT wallet_balance
-#                 FROM customers_customer
-#                 WHERE user_id = %s
-#             """, [request.user.id])
-#             row = cursor.fetchone()
-
-#         if not row:
-#             return Response(
-#                 {"error": "Customer profile not found."},
-#                 status=status.HTTP_404_NOT_FOUND
-#             )
-
-#         return Response({"wallet_balance": row[0]}, status=status.HTTP_200_OK)
-
-#     def post(self, request):
-#         """Top up wallet balance. Body: { "amount": <positive number> }"""
-#         raw = request.data.get('amount')
-#         if raw is None:
-#             return Response(
-#                 {"error": "amount is required."},
-#                 status=status.HTTP_400_BAD_REQUEST
-#             )
-
-#         try:
-#             amount = Decimal(str(raw))
-#             if amount <= 0:
-#                 raise ValueError("Must be positive")
-#         except (InvalidOperation, ValueError):
-#             return Response(
-#                 {"error": "amount must be a positive number."},
-#                 status=status.HTTP_400_BAD_REQUEST
-#             )
-
-#         with connection.cursor() as cursor:
-#             cursor.execute("""
-#                 UPDATE customers_customer
-#                 SET wallet_balance = wallet_balance + %s
-#                 WHERE user_id = %s
-#             """, [amount, request.user.id])
-#             if cursor.rowcount == 0:
-#                 return Response(
-#                     {"error": "Customer profile not found."},
-#                     status=status.HTTP_404_NOT_FOUND
-#                 )
-#             cursor.execute("""
-#                 SELECT wallet_balance FROM customers_customer WHERE user_id = %s
-#             """, [request.user.id])
-#             row = cursor.fetchone()
-
-#         return Response(
-#             {"message": "Wallet topped up successfully.", "new_balance": row[0]},
-#             status=status.HTTP_200_OK
-#         )

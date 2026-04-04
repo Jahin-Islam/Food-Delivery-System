@@ -29,14 +29,7 @@ def _validate_rating(value):
     return round(r, 2), None
 
 
-# ─── Views ────────────────────────────────────────────────────────────────────
-
 class OrderReviewView(APIView):
-    """
-    GET  /api/orders/<order_id>/review/  → fetch review for this order
-    POST /api/orders/<order_id>/review/  → create review (order must be DELIVERED)
-    PUT  /api/orders/<order_id>/review/  → edit existing review
-    """
     permission_classes = [IsAuthenticated]
 
     def get(self, request, order_id):
@@ -55,15 +48,12 @@ class OrderReviewView(APIView):
                 {"detail": "Customer profile not found."},
                 status=status.HTTP_403_FORBIDDEN,
             )
-
-        # Order must be DELIVERED and belong to this customer
         if not services.order_is_delivered_and_belongs_to_customer(order_id, customer_id):
             return Response(
                 {"detail": "You can only review your own delivered orders."},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        # One review per order
         if services.review_exists_for_order(order_id):
             return Response(
                 {"detail": "A review already exists for this order. Use PUT to update it."},
@@ -102,7 +92,6 @@ class OrderReviewView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        # Fall back to existing values if not provided in the request
         rating, err = _validate_rating(request.data.get("rating", review["rating"]))
         if err:
             return Response({"detail": err}, status=status.HTTP_400_BAD_REQUEST)
@@ -114,11 +103,6 @@ class OrderReviewView(APIView):
 
 
 class RestaurantReviewListView(APIView):
-    """
-    GET /api/restaurants/<restaurant_id>/reviews/
-    Public endpoint — no auth required.
-    Supports ?limit=&offset= for pagination.
-    """
     permission_classes = [AllowAny]
 
     def get(self, request, restaurant_id):

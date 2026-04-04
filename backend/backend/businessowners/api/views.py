@@ -18,19 +18,6 @@ from orders.api.services import get_history_order_items, get_order_details
 HISTORY_STATUSES = {'DELIVERED', 'CANCELLED'}
 
 class RestaurantProfileView(APIView):
-    """
-    GET  /api/v1/vendor/profile/   — fetch current restaurant profile
-    PATCH /api/v1/vendor/profile/  — update name, phone, opening_time,
-                                     closing_time, and/or restaurant image
-
-    Image upload
-    ------------
-    Send as multipart/form-data with key `restaurant_image`.
-    The image is uploaded to Cloudinary under the folder
-    "media/restaurant_profile_image" and the returned public_id is stored
-    in resturants_restaurant.image_url.
-    Text-only updates can still be sent as application/json (no image key).
-    """
     permission_classes = [IsAuthenticated]
     parser_classes     = [MultiPartParser, FormParser]
 
@@ -57,7 +44,6 @@ class RestaurantProfileView(APIView):
         image_file  = request.FILES.get('restaurant_image')
         image_url   = None
 
-        # ── Upload image to Cloudinary if provided ──────────────────────
         if image_file:
             try:
                 result = cloudinary.uploader.upload(
@@ -66,8 +52,6 @@ class RestaurantProfileView(APIView):
                     public_id = f"restaurant_{restaurant_id}_profile",
                     overwrite = True,
                 )
-                # Store only the public_id path in the `image` column,
-                # consistent with how other restaurant images are saved.
                 image_url = result.get('public_id', '')
             except Exception as e:
                 return Response(
@@ -75,13 +59,12 @@ class RestaurantProfileView(APIView):
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
 
-        # ── Collect text fields ─────────────────────────────────────────
         updates = {}
         for field in ('name', 'phone', 'opening_time', 'closing_time'):
             if field in data:
-                updates[field] = data[field] or None   # empty string → NULL
+                updates[field] = data[field] or None  
         if image_url is not None:
-            updates['image'] = image_url    # column name is `image`, not `image_url`
+            updates['image'] = image_url    
 
         if not updates:
             return Response(
@@ -95,7 +78,6 @@ class RestaurantProfileView(APIView):
 
 
 class RestaurantDiscountView(APIView):
-    # We enforce basic token auth availability, but we check role manually below
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -121,7 +103,6 @@ class RestaurantDiscountView(APIView):
 class RestaurantDiscountDetailedView(APIView):
     permission_classes = [IsAuthenticated]
 
-    # --- Helper Methods ---
     def get_restaurant_id(self, user_id):
         """Finds the restaurant ID for the logged-in user."""
         with connection.cursor() as cursor:
@@ -133,29 +114,18 @@ class RestaurantDiscountDetailedView(APIView):
             return row[0] if row else None
     
     def check_restaurant_owner(self, request):
-        """
-        Validates if user is authenticated and has the correct role.
-        """
-        # 1. Check Role
         if request.user.role != 'RESTAURANT':
             return False
         return True
 
     def dictfetchone(self, cursor):
-        """Converts a single raw SQL row into a dictionary."""
         row = cursor.fetchone()
         if row is None:
             return None
         columns = [col[0] for col in cursor.description]
         return dict(zip(columns, row))
 
-    # --- HTTP Methods ---
-
     def get(self, request, pk):
-        """
-        Retrieve a specific discount by ID (pk).
-        Ensures the discount belongs to the requesting user's restaurant.
-        """
         if not self.check_restaurant_owner(request):
             return Response(
                 {"detail": "Access denied. Only Restaurant owners allowed."}, 
@@ -167,7 +137,6 @@ class RestaurantDiscountDetailedView(APIView):
             return Response({"detail": "Restaurant not found."}, status=404)
 
         with connection.cursor() as cursor:
-            # SQL: specific ID AND belonging to specific restaurant
             sql = """
                 SELECT id, discount_num, percentage, min_order, description, is_active
                 FROM resturants_discount
@@ -185,9 +154,6 @@ class RestaurantDiscountDetailedView(APIView):
             )
 
     def delete(self, request, pk):
-        """
-        Delete a specific discount.
-        """
         if not self.check_restaurant_owner(request):
             return Response(
                 {"detail": "Access denied. Only Restaurant owners allowed."}, 
@@ -198,11 +164,8 @@ class RestaurantDiscountDetailedView(APIView):
             return Response({"detail": "Restaurant not found."}, status=404)
 
         with connection.cursor() as cursor:
-            # SQL: Delete only if ID matches AND restaurant matches
             sql = "DELETE FROM resturants_discount WHERE id = %s AND resturant_id = %s"
             cursor.execute(sql, [pk, restaurant_id])
-            
-            # Check if any row was actually deleted
             if cursor.rowcount == 0:
                 return Response(
                     {"detail": "Discount not found"}, 
@@ -212,17 +175,11 @@ class RestaurantDiscountDetailedView(APIView):
         return Response({"detail": "Discount deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
 
     def patch(self, request, pk):
-        """
-        Update a specific discount.
-        """
         restaurant_id = self.get_restaurant_id(request.user.id)
         if not restaurant_id:
             return Response({"detail": "Restaurant not found."}, status=404)
 
         data = request.data
-        
-        # 1. Construct SQL Update Query dynamically based on input
-        # We generally do not update 'discount_num' manually as it's sequential
         update_fields = []
         params = []
 
@@ -240,13 +197,11 @@ class RestaurantDiscountDetailedView(APIView):
 
         if 'is_active' in data:
             update_fields.append("is_active = %s")
-            # Convert boolean to 1 or 0 for SQL if needed, though Postgres/MySQL often handle True/False
             params.append(data['is_active'])
 
         if not update_fields:
             return Response({"detail": "No valid fields provided for update."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Add ID and Restaurant ID to params for the WHERE clause
         params.append(pk)
         params.append(restaurant_id)
 
@@ -265,7 +220,6 @@ class RestaurantDiscountDetailedView(APIView):
                     status=status.HTTP_404_NOT_FOUND
                 )
 
-        # 2. Return the updated object
         return self.get(request, pk)
 
 class CategoryView(APIView):
@@ -274,7 +228,6 @@ class CategoryView(APIView):
     def get_restaurant_id(self, user_id):
         """Helper to get restaurant ID from user ID"""
         with connection.cursor() as cursor:
-            # Assuming table is restaurants_restaurant
             cursor.execute("SELECT id FROM resturants_restaurant WHERE user_id = %s LIMIT 1", [user_id])
             row = cursor.fetchone()
             return row[0] if row else None
@@ -288,21 +241,15 @@ class CategoryView(APIView):
             return Response({"detail": "Restaurant profile not found."}, status=status.HTTP_401_UNAUTHORIZED)
 
         with connection.cursor() as cursor:
-            # RAW SQL: Select categories belonging to this restaurant
-            # CHANGE 'menus_category' to your actual table name (e.g., appname_category)
             sql = "SELECT category_id, category_name FROM items_category WHERE restaurant_id = %s"
             cursor.execute(sql, [restaurant_id])
-            
-            # Convert rows to list of dicts
+
             columns = [col[0] for col in cursor.description]
             categories = [dict(zip(columns, row)) for row in cursor.fetchall()]
 
         return Response(categories, status=status.HTTP_200_OK)
 
     def post(self, request):
-        """
-        Create a new category for this restaurant.
-        """
         restaurant_id = self.get_restaurant_id(request.user.id)
         if not restaurant_id:
             return Response({"detail": "Restaurant profile not found."}, status=status.HTTP_401_UNAUTHORIZED)
@@ -312,15 +259,12 @@ class CategoryView(APIView):
             return Response({"detail": "Category name is required."}, status=status.HTTP_400_BAD_REQUEST)
 
         with connection.cursor() as cursor:
-            # RAW SQL: Insert new category linked to this restaurant
             sql = """
                 INSERT INTO items_category (category_name, restaurant_id)
                 VALUES (%s, %s)
             """
             cursor.execute(sql, [category_name, restaurant_id])
             
-            # Get the ID of the item we just created
-            # (Note: specific syntax depends on DB, usually last_insert_id works)
             new_id = cursor.lastrowid
 
         return Response({
@@ -340,10 +284,6 @@ class CategoryDetailedView(APIView):
             return row[0] if row else None
 
     def put(self, request, pk):
-        """
-        Update the name of a category.
-        Strictly checks that the category belongs to the logged-in restaurant.
-        """
         restaurant_id = self.get_restaurant_id(request.user.id)
         if not restaurant_id:
             return Response({"detail": "Restaurant profile not found."}, status=status.HTTP_401_UNAUTHORIZED)
@@ -353,7 +293,6 @@ class CategoryDetailedView(APIView):
             return Response({"detail": "New category name is required."}, status=status.HTTP_400_BAD_REQUEST)
 
         with connection.cursor() as cursor:
-            # RAW SQL: Update ONLY if category_id matches AND restaurant_id matches
             sql = """
                 UPDATE items_category 
                 SET category_name = %s 
@@ -370,15 +309,11 @@ class CategoryDetailedView(APIView):
         return Response({"message": "Category updated", "category_name": new_name}, status=status.HTTP_200_OK)
 
     def delete(self, request, pk):
-        """
-        Delete a category.
-        """
         restaurant_id = self.get_restaurant_id(request.user.id)
         if not restaurant_id:
             return Response({"detail": "Restaurant profile not found."}, status=status.HTTP_401_UNAUTHORIZED)
         
         with connection.cursor() as cursor:
-            # RAW SQL: Delete with ownership check
             sql = "DELETE FROM items_category WHERE category_id = %s AND restaurant_id = %s"
             cursor.execute(sql, [pk, restaurant_id])
 
@@ -392,22 +327,16 @@ class MenuItemView(APIView):
     parser_classes = [MultiPartParser, FormParser]
 
     def get_restaurant_id(self, user_id):
-        """Helper to find the restaurant ID for the logged-in user."""
         with connection.cursor() as cursor:
-            # Table: restaurants_restaurant
             cursor.execute("SELECT id FROM resturants_restaurant WHERE user_id = %s LIMIT 1", [user_id])
             row = cursor.fetchone()
             return row[0] if row else None
 
     def dictfetchall(self, cursor):
-        """Helper to return list of dictionaries."""
         columns = [col[0] for col in cursor.description]
         return [dict(zip(columns, row)) for row in cursor.fetchall()]
 
     def get(self, request):
-        """
-        Show all items of the logged-in restaurant owner.
-        """
         restaurant_id = self.get_restaurant_id(request.user.id)
         if not restaurant_id:
             return Response({"detail": "Restaurant profile not found."}, status=status.HTTP_401_UNAUTHORIZED)
@@ -430,7 +359,6 @@ class MenuItemView(APIView):
             cursor.execute(sql, [restaurant_id])
             items = self.dictfetchall(cursor)
 
-        # ✅ Rebuild Cloudinary URL from the public_id stored in 'image' column
         for item in items:
             public_id = item.get('image')
             if public_id:
@@ -439,7 +367,7 @@ class MenuItemView(APIView):
                     fetch_format="auto",
                 )
             else:
-                item['image_url'] = None  # no image uploaded
+                item['image_url'] = None
 
         return Response(items, status=status.HTTP_200_OK)
 
@@ -450,7 +378,6 @@ class MenuItemView(APIView):
 
         data = request.data
 
-        # 1. Basic Validation
         name = data.get('item_name')
         price = data.get('price')
         category_id = data.get('category_id')
@@ -459,32 +386,26 @@ class MenuItemView(APIView):
             return Response({"detail": "Name, Price, and Category ID are required."}, status=400)
 
         with connection.cursor() as cursor:
-            # 2. Security check
             check_cat_sql = "SELECT category_id FROM items_category WHERE category_id = %s AND restaurant_id = %s"
             cursor.execute(check_cat_sql, [category_id, restaurant_id])
             if not cursor.fetchone():
                 return Response({"detail": "Invalid Category. It may not belong to your restaurant."}, status=status.HTTP_400_BAD_REQUEST)
 
-            # 3. ✅ Handle image upload to Cloudinary
-            # Upload to Cloudinary and save only the public_id
             image_file = request.FILES.get('image')
             image_public_id = ''
             if image_file:
                 try:
-                    # Generate a clean filename from item name
                     clean_name = name.replace(' ', '_').lower()
                     upload_result = cloudinary.uploader.upload(
                         image_file,
-                        folder="media/menu_items",               # ✅ Controls the folder in Cloudinary
-                        public_id = f"{restaurant_id}_{category_id}_{clean_name}",              # ✅ Controls the filename
+                        folder="media/menu_items",               
+                        public_id = f"{restaurant_id}_{category_id}_{clean_name}",             
                         overwrite=True,
                     )
                     image_public_id = upload_result.get('public_id', '')
-                    # image_public_id will be: "menu_items/item_name"
                 except Exception as e:
                     return Response({"detail": f"Image upload failed: {str(e)}"}, status=500)
 
-            # 4. Insert the item
             insert_sql = """
                 INSERT INTO items_menuitem 
                 (restaurant_id, category_id, name, price, description, is_available, image, discount_amount, discount_description)
@@ -498,7 +419,7 @@ class MenuItemView(APIView):
             cursor.execute(insert_sql, [
             restaurant_id, category_id, name, price,
             description, is_available,
-            image_public_id,   # ✅ saves "menu_items/chicken_burger" to DB
+            image_public_id,
             discount_amount, discount_description
             ])
 
@@ -508,7 +429,7 @@ class MenuItemView(APIView):
             "food_id": new_id,
             "name": name,
             "category_id": category_id,
-            "image_url": CloudinaryImage(image_public_id).build_url()  # ✅ Return the URL to frontend
+            "image_url": CloudinaryImage(image_public_id).build_url()
             }, status=status.HTTP_201_CREATED)
 
         
@@ -529,7 +450,6 @@ class MenuItemDetailedView(APIView):
             return Response({"detail": "Restaurant not found."}, status=status.HTTP_401_UNAUTHORIZED)
             
         with connection.cursor() as cursor:
-            # RAW SQL: Select specific item fields where food_id AND restaurant_id match
             sql = """
                 SELECT 
                     food_id, name, price, description, is_available,image, 
@@ -540,34 +460,20 @@ class MenuItemDetailedView(APIView):
             cursor.execute(sql, [pk, restaurant_id])
             row = cursor.fetchone()
 
-            # If no row is returned, the item doesn't exist or doesn't belong to this user
             if not row:
                 return Response({"detail": "Item not found."}, status=status.HTTP_404_NOT_FOUND)
 
-            # Convert the raw SQL tuple (e.g., (1, "Burger"...)) into a Dictionary
             columns = [col[0] for col in cursor.description]
             item_data = dict(zip(columns, row))
 
         return Response(item_data, status=status.HTTP_200_OK)
         
     def put(self, request, pk):
-        """
-        Update item. 
-        Flow: 
-        1. Check if Restaurant exists.
-        2. Check if Food Item belongs to Restaurant (Security Check).
-        3. Check if new Category belongs to Restaurant (Logic Check).
-        4. Update Data.
-        """
         restaurant_id = self.get_restaurant_id(request.user.id)
         if not restaurant_id:
             return Response({"detail": "Restaurant profile not found."}, status=status.HTTP_401_UNAUTHORIZED)
 
         with connection.cursor() as cursor:
-            # ---------------------------------------------------------
-            # 1. SECURITY CHECK: Verify Food ID and Restaurant ID match
-            # ---------------------------------------------------------
-            # We select 1 just to see if a row exists. Efficient and fast.
             check_item_sql = "SELECT 1 FROM items_menuitem WHERE food_id = %s AND restaurant_id = %s"
             cursor.execute(check_item_sql, [pk, restaurant_id])
             
@@ -579,9 +485,6 @@ class MenuItemDetailedView(APIView):
 
             data = request.data
 
-            # ---------------------------------------------------------
-            # 2. CATEGORY CHECK: If moving to a new category, verify it
-            # ---------------------------------------------------------
             if 'category_id' in data:
                 check_cat_sql = "SELECT 1 FROM items_category WHERE category_id = %s AND restaurant_id = %s"
                 cursor.execute(check_cat_sql, [data['category_id'], restaurant_id])
@@ -592,20 +495,16 @@ class MenuItemDetailedView(APIView):
                         status=status.HTTP_400_BAD_REQUEST
                     )
 
-            # ---------------------------------------------------------
-            # 3. BUILD UPDATE QUERY
-            # ---------------------------------------------------------
             update_fields = []
             params = []
 
-            # Mapping: JSON Key -> DB Column Name
             field_map = {
                 'name': 'name',
                 'price': 'price',
                 'description': 'description',
                 'is_available': 'is_available',
                 'image_url': 'image_url',
-                'discount_amount': 'discount_amount', # Corrected spelling
+                'discount_amount': 'discount_amount',
                 'discount_description': 'discount_description',
                 'category_id': 'category_id'
             }
@@ -618,14 +517,9 @@ class MenuItemDetailedView(APIView):
             if not update_fields:
                 return Response({"detail": "No valid fields provided for update."}, status=status.HTTP_400_BAD_REQUEST)
 
-            # Add WHERE clause parameters
             params.append(pk)
             params.append(restaurant_id)
 
-            # ---------------------------------------------------------
-            # 4. EXECUTE UPDATE
-            # ---------------------------------------------------------
-            # We already verified ownership in Step 1, so this is safe.
             sql = f"UPDATE items_menuitem SET {', '.join(update_fields)} WHERE food_id = %s AND restaurant_id = %s"
             
             try:
@@ -636,13 +530,9 @@ class MenuItemDetailedView(APIView):
             return Response({"message": "Item updated successfully"}, status=status.HTTP_200_OK)
 
     def delete(self, request, pk):
-        """
-        Delete the item.
-        """
         restaurant_id = self.get_restaurant_id(request.user.id)
         
         with connection.cursor() as cursor:
-            # RAW SQL: Delete with strict ownership check
             sql = "DELETE FROM items_menuitem WHERE food_id = %s AND restaurant_id = %s"
             cursor.execute(sql, [pk, restaurant_id])
 
@@ -652,19 +542,6 @@ class MenuItemDetailedView(APIView):
         return Response({"detail": "Item deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
 
 class RestaurantOrderHistoryView(APIView):
-    """
-    GET /api/v1/vendor/order-history/
- 
-    Query params
-    ------------
-    status      : DELIVERED | CANCELLED   (default = both)
-    date_from   : YYYY-MM-DD
-    date_to     : YYYY-MM-DD
-    limit       : int  (default 50)
-    offset      : int  (default 0)
- 
-    Returns paginated list of past orders + summary stats.
-    """
     permission_classes = [IsAuthenticated]
  
     def get(self, request):
@@ -711,11 +588,6 @@ class RestaurantOrderHistoryView(APIView):
  
  
 class RestaurantOrderHistoryDetailView(APIView):
-    """
-    GET /api/v1/vendor/order-history/<order_id>/
- 
-    Returns the full detail of a single historical order including its items.
-    """
     permission_classes = [IsAuthenticated]
  
     def get(self, request, order_id):
@@ -727,7 +599,6 @@ class RestaurantOrderHistoryDetailView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
  
-        # Security: ensure the order belongs to this restaurant AND is historical
         with connection.cursor() as cursor:
             cursor.execute("""
                 SELECT 1
