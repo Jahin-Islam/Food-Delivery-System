@@ -528,6 +528,67 @@ class MenuItemDetailedView(APIView):
                 return Response({"detail": f"Database Error: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
             return Response({"message": "Item updated successfully"}, status=status.HTTP_200_OK)
+    
+    def patch(self, request, pk):
+        restaurant_id = self.get_restaurant_id(request.user.id)
+        if not restaurant_id:
+            return Response(
+                {"detail": "Restaurant profile not found."},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT 1 FROM items_menuitem WHERE food_id = %s AND restaurant_id = %s",
+                [pk, restaurant_id]
+            )
+            if not cursor.fetchone():
+                return Response(
+                    {"detail": "Item not found or does not belong to your restaurant."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+        data = request.data
+
+        PATCHABLE_FIELDS = {
+            'is_available':         'is_available',
+            'name':                 'name',
+            'price':                'price',
+            'description':          'description',
+            'discount_amount':      'discount_amount',
+            'discount_description': 'discount_description',
+        }
+
+        update_fields = []
+        params = []
+
+        for json_key, db_col in PATCHABLE_FIELDS.items():
+            if json_key in data:
+                update_fields.append(f"{db_col} = %s")
+                params.append(data[json_key])
+
+        if not update_fields:
+            return Response(
+                {
+                    "detail": (
+                        "No patchable fields provided. "
+                        "Accepted fields: is_available, name, price, "
+                        "description, discount_amount, discount_description."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        params.extend([pk, restaurant_id])
+
+        with connection.cursor() as cursor:
+            cursor.execute(
+                f"UPDATE items_menuitem SET {', '.join(update_fields)} "
+                f"WHERE food_id = %s AND restaurant_id = %s",
+                params
+            )
+
+        return Response({"message": "Item updated successfully."}, status=status.HTTP_200_OK)
 
     def delete(self, request, pk):
         restaurant_id = self.get_restaurant_id(request.user.id)
