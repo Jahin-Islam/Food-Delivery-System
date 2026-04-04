@@ -17,6 +17,8 @@ const BusinessProfile = ({
   onNavigateToOrders,
   onNavigateToHistory,
   onNavigateToProfile,
+  isDark = false,
+  onToggleTheme,
 }) => {
   // Owner personal info state
   const [ownerData, setOwnerData] = useState({
@@ -222,6 +224,8 @@ const BusinessProfile = ({
         onNavigateToOrders={onNavigateToOrders}
         onNavigateToHistory={onNavigateToHistory}
         onNavigateToProfile={onNavigateToProfile}
+        isDark={isDark}
+        onToggleTheme={onToggleTheme}
       />
 
       <div className="profile-content">

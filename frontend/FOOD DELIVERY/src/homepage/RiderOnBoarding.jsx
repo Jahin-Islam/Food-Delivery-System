@@ -184,8 +184,8 @@ const RiderOnBoarding = ({ onCompletion, step1Data }) => {
       {/* Header */}
       <header className="onboarding-header">
         <div className="header-logo">
-          <span className="panda-emoji" style={{ fontSize: '30px', fontWeight: 'bold', color: COLORS.primary }}>fp</span>
-          <span className="logo-text">foodpanda</span>
+          <span className="panda-emoji" style={{ fontSize: '30px', fontWeight: 'bold', color: COLORS.primary }}>RIDER</span>
+          <span className="logo-text">Khete Chai</span>
         </div>
       </header>
 

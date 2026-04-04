@@ -127,3 +127,124 @@
 .bh-dd-logout .bh-dd-item-text { color: #dc2626; font-weight: 600; }
 .bh-dd-logout .bh-dd-item-icon { color: #dc2626; }
 .bh-dd-logout:hover { background: #fef2f2 !important; }
+/* ============================================================
+   HEADER SHELL & LAYOUT — keeps logo hard-left, controls hard-right
+   ============================================================ */
+
+.business-header {
+  background: var(--white);
+  border-bottom: 1.5px solid var(--gray-200);
+  position: sticky;
+  top: 0;
+  z-index: 200;
+  box-shadow: var(--shadow-sm);
+  width: 100%;
+}
+
+.business-header-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 48px;        /* 14px gives 52px icon + 28px pad = 80px — balanced */
+  min-height: 80px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* ── LEFT ───────────────────────────────────────────────────── */
+.business-header-left  { display: flex; align-items: center; }
+
+.business-logo-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.business-logo-text {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;  /* keeps text block vertically centred next to icon */
+  gap: 2px;
+  line-height: 1;
+}
+
+.logo-main {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--primary);
+  letter-spacing: -0.3px;
+  line-height: 1.2;
+}
+
+.logo-sub {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--gray-400);
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  line-height: 1.2;
+}
+
+/* ── RIGHT ──────────────────────────────────────────────────── */
+.business-header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+/* ── NAV TABS — left edge aligns with header content ─────────── */
+.business-nav-tabs {
+  border-top: 1.5px solid var(--gray-200);
+  background: var(--white);
+  width: 100%;
+}
+
+.business-nav-tabs-content {
+  display: flex;
+  align-items: center;
+  padding: 0 40px;           /* 8px inset so first tab icon aligns with logo text */
+  gap: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.business-nav-tabs-content::-webkit-scrollbar { display: none; }
+
+.business-nav-tab {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 13px 20px;
+  background: none;
+  border: none;
+  border-bottom: 2.5px solid transparent;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--gray-500);
+  cursor: pointer;
+  font-family: var(--font);
+  transition: color var(--t), border-color var(--t), background var(--t);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.business-nav-tab:hover {
+  color: var(--primary);
+  background: var(--primary-bg);
+}
+
+.business-nav-tab.active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+}
+
+/* ── RESPONSIVE ─────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .business-header-content   { padding: 12px 20px; min-height: 72px; }
+  .business-nav-tabs-content { padding: 0 8px; }
+  .business-nav-tab          { padding: 12px 12px; font-size: 12.5px; }
+}
+@media (max-width: 480px) {
+  .logo-main        { font-size: 16px; }
+  .business-nav-tab { padding: 11px 10px; font-size: 12px; gap: 5px; }
+}

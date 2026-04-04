@@ -96,7 +96,7 @@ async function updateRiderLocation(lat, lng) {
 }
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
-const RiderDashboard = ({ rider = {}, onLogout }) => {
+const RiderDashboard = ({ rider = {}, onLogout, isDark = false, onToggleTheme }) => {
   const riderData = {
     name:    rider.first_name ? `${rider.first_name} ${rider.last_name || ''}`.trim() : rider.name || 'Rider',
     id:      rider.id      || 'RD-0000',
@@ -108,7 +108,6 @@ const RiderDashboard = ({ rider = {}, onLogout }) => {
 
   const [activeTab,     setActiveTab]     = useState('status');
   const [isOnline,      setIsOnline]      = useState(false);
-  const [isDark,        setIsDark]        = useState(() => localStorage.getItem('theme') === 'dark');
   const [showProfile,   setShowProfile]   = useState(false);
   const [nearbyOrders,  setNearbyOrders]  = useState([]);
   const [myOrders,      setMyOrders]      = useState([]);
@@ -116,11 +115,6 @@ const RiderDashboard = ({ rider = {}, onLogout }) => {
   const [loadingOrders, setLoadingOrders] = useState(false);
   const [todayEarnings, setTodayEarnings] = useState(0);
   const [ordersToday,   setOrdersToday]   = useState(0);
-
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
-    localStorage.setItem('theme', isDark ? 'dark' : 'light');
-  }, [isDark]);
 
   const pushLocation = useCallback(() => {
     if (!navigator.geolocation) return;
@@ -278,7 +272,7 @@ const RiderDashboard = ({ rider = {}, onLogout }) => {
               <span className={`rdb-pill-dot ${isOnline ? 'on' : ''}`} />
               {isOnline ? 'Online' : 'Offline'}
             </div>
-            <button className="rdb-icon-btn" onClick={() => setIsDark(p => !p)}>
+            <button className="rdb-icon-btn" onClick={() => onToggleTheme?.()}>
               <AnimatePresence mode="wait">
                 {isDark
                   ? <motion.span key="s" initial={{ rotate: -90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: 90, opacity: 0 }} transition={{ duration: 0.12 }} style={{ display: 'flex' }}><Sun size={15} /></motion.span>

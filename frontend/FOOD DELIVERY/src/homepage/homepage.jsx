@@ -1,5 +1,10 @@
 import { useState, useEffect, useMemo } from "react";
-import { Gift, Loader2, UtensilsCrossed, Star, Search, ChevronLeft, ChevronRight, X, RotateCcw } from "lucide-react";
+import {
+  Gift, Loader2, UtensilsCrossed, Star, Search,
+  ChevronLeft, ChevronRight, X, RotateCcw,
+  ShoppingBag, Truck, MapPin, Store,
+  Phone, Mail, Instagram, Facebook, Twitter,
+} from "lucide-react";
 import "./homepage.css";
 import Header from "./Header.jsx";
 import CuisineFilter from "./cuisineOption.jsx";
@@ -27,7 +32,6 @@ const STATIC_CUISINES = [
   { id: 's15', name: "Tehari",      image: "Tehari.png" },
 ];
 
-// Lowercase set for fast duplicate detection
 const STATIC_NAME_SET = new Set(STATIC_CUISINES.map(c => c.name.toLowerCase()));
 
 const Homepage = ({
@@ -98,8 +102,6 @@ const Homepage = ({
     return R * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1-s));
   };
 
-  // ── Dynamic categories: real restaurant item categories, excluding any that
-  //    already exist in the static list (case-insensitive), sorted A→Z ─────────
   const dynamicCuisines = useMemo(() => {
     const seen = new Set();
     const names = [];
@@ -115,10 +117,8 @@ const Homepage = ({
     return names.sort((a, b) => a.localeCompare(b)).map((name, idx) => ({ id: `d${idx}`, name, image: null }));
   }, [restaurants]);
 
-  // ── Final list: static (with images) first, then dynamic extras (icon only) ─
   const allCuisines = useMemo(() => [...STATIC_CUISINES, ...dynamicCuisines], [dynamicCuisines]);
 
-  // ── Filter pipeline ──────────────────────────────────────────────────────────
   const step1 = restaurants.filter(r =>
     r.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     r.description?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -149,7 +149,6 @@ const Homepage = ({
   const handleCuisineClick  = name => { setSelectedCuisines([name]); setSearchQuery(""); };
   const handleCuisineToggle = name => setSelectedCuisines(p => p.includes(name) ? p.filter(c => c !== name) : [...p, name]);
 
-  // ── Filter active state & reset ──────────────────────────────────────────────
   const hasActiveFilters =
     selectedCuisines.length > 0 ||
     Object.values(selectedOffers).some(Boolean) ||
@@ -196,7 +195,6 @@ const Homepage = ({
             </div>
             <SortOption sortBy={sortBy} onSortChange={setSortBy} />
             <OfferOption selectedOffers={selectedOffers} onOfferChange={setSelectedOffers} />
-            {/* Pass restaurants so CuisineFilter can build its list dynamically */}
             <CuisineFilter
               selectedCuisines={selectedCuisines}
               onCuisineToggle={handleCuisineToggle}
@@ -246,11 +244,7 @@ const Homepage = ({
               </div>
             )}
 
-            {/* ── Cuisines ─────────────────────────────────────────────────────
-                Static entries (with images) appear first.
-                Dynamic entries from real restaurant categories follow after,
-                shown with a generic icon since they have no image file.
-            ─────────────────────────────────────────────────────────────────── */}
+            {/* Cuisines */}
             <section className="cuisines-section">
               <div className="cuisines-header">
                 <h2 className="section-title">Cuisines</h2>
@@ -281,13 +275,8 @@ const Homepage = ({
                     >
                       <div className="cuisine-icon">
                         {c.image ? (
-                          <img
-                            src={`/images/cusines/${c.image}`}
-                            alt={c.name}
-                            className="cuisine-image"
-                          />
+                          <img src={`/images/cusines/${c.image}`} alt={c.name} className="cuisine-image" />
                         ) : (
-                          // Dynamic category without a dedicated image file
                           <UtensilsCrossed size={28} strokeWidth={1.5} />
                         )}
                       </div>
@@ -385,6 +374,163 @@ const Homepage = ({
           </div>
         </div>
       </main>
+
+      {/* ── HOW IT WORKS ──────────────────────────────────────────────────────── */}
+      <section className="hiw-section">
+        <div className="hiw-inner">
+          <h2 className="hiw-title">How Khete Chai works</h2>
+          <p className="hiw-subtitle">Hot food at your door in three easy steps</p>
+          <div className="hiw-steps">
+
+            <div className="hiw-step">
+              <div className="hiw-icon-wrap">
+                <MapPin size={28} strokeWidth={1.8} />
+              </div>
+              <div className="hiw-connector" />
+              <h3 className="hiw-step-title">Set your location</h3>
+              <p className="hiw-step-desc">Enter your delivery address and we'll show you every restaurant that delivers to your door.</p>
+            </div>
+
+            <div className="hiw-step">
+              <div className="hiw-icon-wrap">
+                <ShoppingBag size={28} strokeWidth={1.8} />
+              </div>
+              <div className="hiw-connector" />
+              <h3 className="hiw-step-title">Choose your food</h3>
+              <p className="hiw-step-desc">Browse menus, filter by cuisine, and add your favourites to your cart.</p>
+            </div>
+
+            <div className="hiw-step">
+              <div className="hiw-icon-wrap hiw-icon-last">
+                <Truck size={28} strokeWidth={1.8} />
+              </div>
+              <h3 className="hiw-step-title">We deliver to you</h3>
+              <p className="hiw-step-desc">Sit back and relax. Track your order live and get fresh food delivered right to you.</p>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      {/* ── RESTAURANT OWNER CTA ──────────────────────────────────────────────── */}
+      <section className="vendor-cta-section">
+        <div className="vendor-cta-inner">
+          <div className="vendor-cta-text">
+            <div className="vendor-cta-badge">
+              <Store size={14} strokeWidth={2} /> For restaurant owners
+            </div>
+            <h2 className="vendor-cta-title">Grow your business with Khete Chai</h2>
+            <p className="vendor-cta-desc">
+              Join hundreds of restaurants already on our platform. Reach thousands of hungry customers
+              in Dhaka, manage orders in real time, and boost your revenue — all from one dashboard.
+            </p>
+            <div className="vendor-cta-perks">
+              <span className="vendor-perk">✓ Free to join</span>
+              <span className="vendor-perk">✓ Real-time order management</span>
+              <span className="vendor-perk">✓ Live sales analytics</span>
+            </div>
+            <button className="vendor-cta-btn" onClick={onRestaurantSignUpClick}>
+              Register your restaurant
+            </button>
+          </div>
+          <div className="vendor-cta-illustration">
+            <div className="vendor-stat-card">
+              <span className="vendor-stat-num">500+</span>
+              <span className="vendor-stat-label">Restaurants</span>
+            </div>
+            <div className="vendor-stat-card">
+              <span className="vendor-stat-num">10k+</span>
+              <span className="vendor-stat-label">Daily orders</span>
+            </div>
+            <div className="vendor-stat-card">
+              <span className="vendor-stat-num">30 min</span>
+              <span className="vendor-stat-label">Avg. delivery</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── FOOTER ────────────────────────────────────────────────────────────── */}
+      <footer className="site-footer">
+        <div className="footer-inner">
+
+          {/* Brand column */}
+          <div className="footer-col footer-brand">
+            <div className="footer-logo">
+              <div className="footer-logo-icon">
+                <UtensilsCrossed size={20} strokeWidth={1.8} />
+              </div>
+              <span className="footer-logo-text">Khete Chai</span>
+            </div>
+            <p className="footer-tagline">
+              Bangladesh's favourite food delivery platform. Hot meals from your favourite restaurants, delivered fast.
+            </p>
+            <div className="footer-social">
+              <a href="#" className="social-btn" aria-label="Facebook"><Facebook size={16} /></a>
+              <a href="#" className="social-btn" aria-label="Instagram"><Instagram size={16} /></a>
+              <a href="#" className="social-btn" aria-label="Twitter"><Twitter size={16} /></a>
+            </div>
+          </div>
+
+          {/* Company links */}
+          <div className="footer-col">
+            <h4 className="footer-col-title">Company</h4>
+            <ul className="footer-links">
+              <li><a href="#">About us</a></li>
+              <li><a href="#">Careers</a></li>
+              <li><a href="#">Press</a></li>
+              <li><a href="#">Blog</a></li>
+            </ul>
+          </div>
+
+          {/* Help links */}
+          <div className="footer-col">
+            <h4 className="footer-col-title">Help</h4>
+            <ul className="footer-links">
+              <li><a href="#">FAQs</a></li>
+              <li><a href="#">Track your order</a></li>
+              <li><a href="#">Report an issue</a></li>
+              <li><a href="#">Privacy policy</a></li>
+              <li><a href="#">Terms &amp; conditions</a></li>
+            </ul>
+          </div>
+
+          {/* Partners links */}
+          <div className="footer-col">
+            <h4 className="footer-col-title">Partners</h4>
+            <ul className="footer-links">
+              <li><a href="#" onClick={e => { e.preventDefault(); onRestaurantSignUpClick?.(); }}>Register your restaurant</a></li>
+              <li><a href="#" onClick={e => { e.preventDefault(); onRiderSignUpClick?.(); }}>Become a rider</a></li>
+              <li><a href="#">Partner portal</a></li>
+            </ul>
+          </div>
+
+          {/* Contact */}
+          <div className="footer-col">
+            <h4 className="footer-col-title">Contact</h4>
+            <ul className="footer-links footer-contact">
+              <li>
+                <Phone size={13} />
+                <span>+880 1XXX-XXXXXX</span>
+              </li>
+              <li>
+                <Mail size={13} />
+                <span>support@khetechai.com.bd</span>
+              </li>
+              <li>
+                <MapPin size={13} />
+                <span>Dhaka, Bangladesh</span>
+              </li>
+            </ul>
+          </div>
+
+        </div>
+
+        <div className="footer-bottom">
+          <p>© {new Date().getFullYear()} Khete Chai. All rights reserved.</p>
+          <p>Made with ❤️ in Bangladesh</p>
+        </div>
+      </footer>
 
       <AllCarts isOpen={showCart} onClose={() => setShowCart(false)}
         cartItems={cartItems} onCheckout={onCheckout}

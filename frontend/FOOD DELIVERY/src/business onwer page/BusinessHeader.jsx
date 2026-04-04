@@ -110,15 +110,11 @@ const BusinessHeader = ({
   onNavigateToProfile,
   onProfileClick,
   newOrderCount = 0,
+  isDark = false,
+  onToggleTheme,
 }) => {
   const [showDropdown, setShowDropdown] = useState(false);
-  const [isDark, setIsDark] = useState(() => localStorage.getItem('theme') === 'dark');
   const profileRef = useRef(null);
-
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
-    localStorage.setItem('theme', isDark ? 'dark' : 'light');
-  }, [isDark]);
 
   const initials = [user?.first_name, user?.last_name]
     .filter(Boolean).map(n => n[0]).join('').toUpperCase() || 'BP';
@@ -178,7 +174,7 @@ const BusinessHeader = ({
           <div className="business-header-right">
             <motion.button
               className="bh-icon-btn"
-              onClick={() => setIsDark(p => !p)}
+              onClick={() => onToggleTheme?.()}
               whileHover={{ scale: 1.08 }}
               whileTap={{ scale: 0.92 }}
               title={isDark ? 'Light mode' : 'Dark mode'}

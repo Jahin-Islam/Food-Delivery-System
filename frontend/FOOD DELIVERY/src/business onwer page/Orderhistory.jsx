@@ -262,6 +262,8 @@ const OrderHistory = ({
   onNavigateToMenu,
   onNavigateToOrders,
   onNavigateToProfile,
+  isDark = false,
+  onToggleTheme,
 }) => {
   const [history,    setHistory]    = useState([]);
   const [stats,      setStats]      = useState(null);
@@ -346,6 +348,8 @@ const OrderHistory = ({
         onNavigateToOrders={onNavigateToOrders ?? (() => {})}
         onNavigateToHistory={() => {}}
         onNavigateToProfile={onNavigateToProfile ?? (() => {})}
+        isDark={isDark}
+        onToggleTheme={onToggleTheme}
       />
 
       <div style={{ maxWidth: 960, margin: '0 auto', padding: '28px 20px 60px' }}>

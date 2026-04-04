@@ -15,6 +15,7 @@ import RestaurantLogin from './homepage/RestaurantLogIn.jsx';
 import RestaurantSignUp from './homepage/RestaurantSignUp.jsx';
 import RiderSignUp from './homepage/RiderSignUp.jsx';
 import RiderOnBoarding from './homepage/RiderOnBoarding.jsx';
+import RiderWelcome from './riderpage/RiderWelcome.jsx';
 import RiderLogin from './riderpage/RiderLogin.jsx';
 import RiderDashboard from './riderpage/Riderdashboard.jsx';
 import authService from './Authservice.js';
@@ -39,6 +40,7 @@ const SK_ROLE         = 'fp_user_role';
 const SK_RESTAURANT   = 'fp_restaurant';
 const SK_RIDER        = 'fp_rider';
 const SK_CHECKOUT_RID = 'fp_checkout_restaurant_id';
+const SK_THEME        = 'fp_theme';   // per-tab dark/light preference
 
 // localStorage keys (cross-tab preferences)
 const SK_ADDRESS     = 'fp_delivery_address';
@@ -64,10 +66,20 @@ const BUSINESS_PAGES  = new Set(['business-welcome', 'business-dashboard', 'orde
 const RIDER_PAGES     = new Set(['rider-dashboard']);
 const TRANSIENT_PAGES = new Set([
   'login', 'signup', 'restaurant-login', 'restaurant-signup',
-  'rider-signup', 'rider-onboarding', 'rider-login',
+  'rider-signup', 'rider-onboarding', 'rider-login', 'rider-welcome',
 ]);
 
 function App() {
+  // ─── Theme: per-tab (sessionStorage) — no cross-tab bleed ──────────────────
+  const [isDark, setIsDark] = useState(() => ss.get(SK_THEME) === 'dark');
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+    ss.set(SK_THEME, isDark ? 'dark' : 'light');
+  }, [isDark]);
+
+  const toggleTheme = useCallback(() => setIsDark(p => !p), []);
+
   const [currentPage,          setCurrentPage]          = useState('home');
   const [selectedRestaurant,   setSelectedRestaurant]   = useState(null);
   const [checkoutRestaurantId, setCheckoutRestaurantId] = useState(null);
@@ -112,7 +124,7 @@ function App() {
         setCurrentPage('business-welcome');
         return;
       }
-      if (RIDER_PAGES.has(currentPage) && !RIDER_PAGES.has(dest)) {
+      if (RIDER_PAGES.has(currentPage) && !RIDER_PAGES.has(dest) && dest !== 'rider-welcome') {
         window.history.pushState({ page: 'rider-dashboard' }, '', '#rider-dashboard');
         setCurrentPage('rider-dashboard');
         return;
@@ -375,6 +387,15 @@ function App() {
     setCurrentPage('rider-dashboard');
   }, []);
 
+  const goToRiderWelcome = useCallback((rider) => {
+    setRiderData(rider);
+    ss.set(SK_ROLE, 'rider');
+    ss.setJson(SK_RIDER, rider);
+    // rider-welcome is transient — intentionally not stored in SK_PAGE
+    window.history.pushState({ page: 'rider-welcome' }, '', '#rider-welcome');
+    setCurrentPage('rider-welcome');
+  }, []);
+
   const goToBusinessPage = useCallback((page, restaurant) => {
     if (restaurant) {
       setSelectedRestaurant(restaurant);
@@ -446,14 +467,14 @@ function App() {
     setIsLoggedIn(true);
     setUser(u);
     setRiderSignupData(null);
-    goToRiderDashboard(u);
+    goToRiderWelcome(u);   // ← welcome page first, then dashboard from there
   };
 
   const handleRiderLoginSuccess = (data) => {
     const u = authService.getUser() ?? data?.user ?? {};
     setIsLoggedIn(true);
     setUser(u);
-    goToRiderDashboard(u);
+    goToRiderWelcome(u);   // show welcome page first; rider taps "Go to dashboard" from there
   };
 
   const handleRestaurantLoginSuccess = async (userData) => {
@@ -671,6 +692,8 @@ function App() {
           onGoToOrderHistory={() => goToBusinessPage('order-history',     selectedRestaurant)}
           onGoToProfile={()     => goToBusinessPage('business-profile',   selectedRestaurant)}
           onLogout={handleLogout}
+          isDark={isDark}
+          onToggleTheme={toggleTheme}
         />
       )}
 
@@ -682,6 +705,8 @@ function App() {
           onNavigateToOrders={()   => goToBusinessPage('orders',           selectedRestaurant)}
           onNavigateToHistory={()  => goToBusinessPage('order-history',    selectedRestaurant)}
           onNavigateToProfile={()  => goToBusinessPage('business-profile', selectedRestaurant)}
+          isDark={isDark}
+          onToggleTheme={toggleTheme}
         />
       )}
 
@@ -692,6 +717,8 @@ function App() {
           onNavigateToMenu={()     => goToBusinessPage('business-dashboard', selectedRestaurant)}
           onNavigateToHistory={()  => goToBusinessPage('order-history',      selectedRestaurant)}
           onNavigateToProfile={()  => goToBusinessPage('business-profile',   selectedRestaurant)}
+          isDark={isDark}
+          onToggleTheme={toggleTheme}
         />
       )}
 
@@ -702,6 +729,8 @@ function App() {
           onNavigateToMenu={()    => goToBusinessPage('business-dashboard', selectedRestaurant)}
           onNavigateToOrders={()  => goToBusinessPage('orders',             selectedRestaurant)}
           onNavigateToProfile={() => goToBusinessPage('business-profile',   selectedRestaurant)}
+          isDark={isDark}
+          onToggleTheme={toggleTheme}
         />
       )}
 
@@ -715,6 +744,8 @@ function App() {
           onNavigateToOrders={()  => goToBusinessPage('orders',             selectedRestaurant)}
           onNavigateToHistory={() => goToBusinessPage('order-history',      selectedRestaurant)}
           onNavigateToProfile={() => goToBusinessPage('business-profile',   selectedRestaurant)}
+          isDark={isDark}
+          onToggleTheme={toggleTheme}
         />
       )}
 
@@ -768,6 +799,15 @@ function App() {
         />
       )}
 
+      {currentPage === 'rider-welcome' && (
+        <RiderWelcome
+          rider={riderData ?? user ?? {}}
+          onGoToDashboard={() => goToRiderDashboard(riderData ?? user ?? {})}
+          isDark={isDark}
+          onToggleTheme={toggleTheme}
+        />
+      )}
+
       {currentPage === 'rider-login' && (
         <RiderLogin
           onSwitchToSignUp={() => push('rider-signup')}
@@ -776,7 +816,7 @@ function App() {
       )}
 
       {currentPage === 'rider-dashboard' && (
-        <RiderDashboard rider={riderData ?? user ?? {}} onLogout={handleLogout} />
+        <RiderDashboard rider={riderData ?? user ?? {}} onLogout={handleLogout} isDark={isDark} onToggleTheme={toggleTheme} />
       )}
 
       {currentPage === 'order-status' && (
